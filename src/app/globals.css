@@ -1,0 +1,135 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant light (&:is(.light *));
+
+:root {
+  --radius: 0.9rem;
+
+  /* Zero Treze — tema padrão: preto premium com detalhes em dourado */
+  --background: oklch(0.09 0 0);
+  --foreground: oklch(0.97 0.01 90);
+
+  --card: oklch(0.13 0.005 90);
+  --card-foreground: oklch(0.97 0.01 90);
+
+  --popover: oklch(0.13 0.005 90);
+  --popover-foreground: oklch(0.97 0.01 90);
+
+  --muted: oklch(0.18 0.005 90);
+  --muted-foreground: oklch(0.65 0.01 90);
+
+  --border: oklch(0.24 0.01 90 / 60%);
+  --input: oklch(0.24 0.01 90 / 60%);
+  --ring: oklch(0.75 0.13 85);
+
+  /* dourado — cor de marca / destaque principal */
+  --gold: oklch(0.75 0.13 85);
+  --gold-foreground: oklch(0.12 0.01 90);
+  --gold-muted: oklch(0.75 0.13 85 / 14%);
+
+  --primary: var(--gold);
+  --primary-foreground: var(--gold-foreground);
+  --secondary: oklch(0.2 0.005 90);
+  --secondary-foreground: oklch(0.97 0.01 90);
+  --accent: oklch(0.2 0.005 90);
+  --accent-foreground: oklch(0.97 0.01 90);
+
+  /* cores semânticas de status */
+  --success: oklch(0.72 0.16 149);
+  --success-foreground: oklch(0.12 0.02 149);
+  --warning: oklch(0.8 0.14 85);
+  --warning-foreground: oklch(0.12 0.02 85);
+  --destructive: oklch(0.65 0.2 25);
+  --destructive-foreground: oklch(0.97 0.01 25);
+
+  --sidebar: oklch(0.08 0 0);
+  --sidebar-foreground: oklch(0.97 0.01 90);
+  --sidebar-border: oklch(0.24 0.01 90 / 50%);
+}
+
+/* estrutura pronta para um eventual tema claro futuro (não ativado por padrão) */
+.light {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.15 0 0);
+  --card: oklch(0.99 0 0);
+  --card-foreground: oklch(0.15 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.15 0 0);
+  --muted: oklch(0.96 0 0);
+  --muted-foreground: oklch(0.45 0 0);
+  --border: oklch(0.9 0 0);
+  --input: oklch(0.9 0 0);
+  --secondary: oklch(0.96 0 0);
+  --secondary-foreground: oklch(0.15 0 0);
+  --accent: oklch(0.96 0 0);
+  --accent-foreground: oklch(0.15 0 0);
+  --sidebar: oklch(0.99 0 0);
+  --sidebar-foreground: oklch(0.15 0 0);
+  --sidebar-border: oklch(0.9 0 0);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-gold: var(--gold);
+  --color-gold-foreground: var(--gold-foreground);
+  --color-gold-muted: var(--gold-muted);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --font-sans: var(--font-inter);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "cv11", "ss01";
+  }
+  ::selection {
+    background: var(--gold-muted);
+    color: var(--gold);
+  }
+}
+
+@layer utilities {
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+}

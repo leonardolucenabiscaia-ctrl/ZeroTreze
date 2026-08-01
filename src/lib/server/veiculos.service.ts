@@ -1,0 +1,136 @@
+import "server-only";
+import { addMonths, addYears } from "date-fns";
+import { createAdminClient } from "@/lib/supabase/server";
+import { fotoDoVeiculo } from "@/lib/mock-data/generators/veiculo-foto";
+import { mapVeiculo } from "./mappers";
+import type { Veiculo } from "@/lib/types";
+
+async function anexarHistorico(
+  supabase: ReturnType<typeof createAdminClient>,
+  veiculos: Record<string, unknown>[]
+): Promise<Veiculo[]> {
+  if (veiculos.length === 0) return [];
+  const ids = veiculos.map((v) => v.id as string);
+  const { data: historico } = await supabase.from("historico_manutencao").select("*").in("veiculo_id", ids);
+  return veiculos.map((v) =>
+    mapVeiculo(
+      v,
+      (historico ?? []).filter((h) => h.veiculo_id === v.id)
+    )
+  );
+}
+
+export async function listarVeiculos(): Promise<Veiculo[]> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase.from("veiculos").select("*").order("modelo");
+  if (error) throw new Error(error.message);
+  return anexarHistorico(supabase, data ?? []);
+}
+
+export async function buscarVeiculoPorId(id: string): Promise<Veiculo | undefined> {
+  const supabase = createAdminClient();
+  const { data } = await supabase.from("veiculos").select("*").eq("id", id).maybeSingle();
+  if (!data) return undefined;
+  const [veiculo] = await anexarHistorico(supabase, [data]);
+  return veiculo;
+}
+
+export async function listarVeiculosBloqueados(): Promise<Veiculo[]> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase.from("veiculos").select("*").eq("bloqueado", true);
+  if (error) throw new Error(error.message);
+  return anexarHistorico(supabase, data ?? []);
+}
+
+export async function bloquearVeiculo(veiculoId: string): Promise<Veiculo> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("veiculos")
+    .update({ bloqueado: true, bloqueado_em: new Date().toISOString() })
+    .eq("id", veiculoId)
+    .select()
+    .single();
+  if (error || !data) throw new Error("Veículo não encontrado");
+  const [veiculo] = await anexarHistorico(supabase, [data]);
+  return veiculo;
+}
+
+export async function desbloquearVeiculo(veiculoId: string): Promise<Veiculo> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("veiculos")
+    .update({ bloqueado: false, bloqueado_em: null })
+    .eq("id", veiculoId)
+    .select()
+    .single();
+  if (error || !data) throw new Error("Veículo não encontrado");
+  const [veiculo] = await anexarHistorico(supabase, [data]);
+  return veiculo;
+}
+
+export interface NovoVeiculoInput {
+  marca: string;
+  modelo: string;
+  ano: number;
+  placa: string;
+  cor: string;
+  renavam: string;
+  chassi: string;
+  categoria: string;
+  combustivel: string;
+  anexos: File[];
+}
+
+export async function criarVeiculo(dados: NovoVeiculoInput): Promise<Veiculo> {
+  const supabase = createAdminClient();
+
+  const placaNormalizada = dados.placa.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const { data: existente } = await supabase
+    .from("veiculos")
+    .select("id")
+    .eq("placa", placaNormalizada)
+    .maybeSingle();
+  if (existente) throw new Error("Já existe um veículo cadastrado com essa placa.");
+
+  const agora = new Date();
+  const { data: veiculoRow, error } = await supabase
+    .from("veiculos")
+    .insert({
+      marca: dados.marca,
+      modelo: dados.modelo,
+      ano: dados.ano,
+      cor: dados.cor,
+      placa: placaNormalizada,
+      renavam: dados.renavam,
+      chassi: dados.chassi.toUpperCase(),
+      categoria: dados.categoria,
+      combustivel: dados.combustivel,
+      quilometragem: 0,
+      foto_url: fotoDoVeiculo(dados.marca, dados.modelo),
+      ultima_revisao: agora.toISOString(),
+      proxima_revisao: addMonths(agora, 6).toISOString(),
+      seguradora: "",
+      numero_apolice: "",
+      assistencia_247: true,
+      garantia_ate: addYears(agora, 1).toISOString(),
+      bloqueado: false,
+    })
+    .select()
+    .single();
+  if (error || !veiculoRow) throw new Error(error?.message ?? "Não foi possível cadastrar o veículo.");
+
+  if (dados.anexos.length > 0) {
+    await supabase.from("documentos").insert(
+      dados.anexos.map((arquivo) => ({
+        veiculo_id: veiculoRow.id,
+        categoria: "cadastro",
+        nome: arquivo.name,
+        url: "#",
+        tamanho_kb: Math.max(1, Math.round(arquivo.size / 1024)),
+        criado_em: agora.toISOString(),
+      }))
+    );
+  }
+
+  return mapVeiculo(veiculoRow, []);
+}
