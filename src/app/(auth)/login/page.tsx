@@ -108,10 +108,6 @@ export default function LoginPage() {
             <Button type="submit" size="lg" disabled={carregando} className="mt-2">
               {carregando ? "Entrando…" : "Entrar"}
             </Button>
-            <p className="text-center text-xs text-muted-foreground">
-              Ambiente demo — use a senha <span className="text-gold">123456</span> com um dos
-              e-mails de exemplo (ex.: amanda@exemplo.com ou admin@zerotreze.com.br).
-            </p>
           </form>
         </TabsContent>
 
