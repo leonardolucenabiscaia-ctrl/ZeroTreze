@@ -129,6 +129,16 @@ export function mapContrato(
       data: a.data as string,
       arquivoUrl: (a.arquivo_url as string | null) ?? "",
     })),
+    assinatura: row.assinatura_document_key
+      ? {
+          status: row.assinatura_status as string,
+          requestId: row.assinatura_request_id as number,
+          documentKey: row.assinatura_document_key as string,
+          signingKey: row.assinatura_signing_key as string,
+          enviadoEm: row.assinatura_enviado_em as string,
+          atualizadoEm: (row.assinatura_atualizado_em as string | null) ?? undefined,
+        }
+      : undefined,
   };
 }
 

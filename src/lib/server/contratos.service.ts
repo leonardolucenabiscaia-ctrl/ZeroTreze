@@ -3,7 +3,9 @@ import { addMonths } from "date-fns";
 import { createAdminClient } from "@/lib/supabase/server";
 import { gerarParcelas, gerarExtrato } from "@/lib/mock-data/generators/financeiro";
 import { formatarNumeroContrato } from "@/lib/mock-data/generators/contrato";
-import { mapContrato } from "./mappers";
+import { gerarPdfContrato } from "./pdf/contrato-pdf";
+import { enviarDocumentoParaAssinatura } from "./assinadoc.service";
+import { mapCliente, mapContrato, mapVeiculo } from "./mappers";
 import type { Contrato } from "@/lib/types";
 
 const PRAZO_MINIMO_MESES = 6;
@@ -170,7 +172,70 @@ export async function criarContrato(dados: NovoContratoInput): Promise<Contrato>
     if (extratoError) throw new Error(extratoError.message);
   }
 
-  return mapContrato(contratoRow, []);
+  const contratoAtualizado = await enviarContratoParaAssinaturaSeConfigurado(supabase, contratoRow);
+
+  return mapContrato(contratoAtualizado, []);
+}
+
+/**
+ * Gera o PDF do contrato e envia para assinatura eletrônica na AssinaDoc, assim que o contrato é
+ * criado. É best-effort: se a AssinaDoc estiver fora do ar, sem token configurado, ou o cliente
+ * não tiver e-mail, o contrato continua criado normalmente — só não fica com `assinatura`
+ * preenchido, e o erro fica registrado no log do servidor.
+ */
+async function enviarContratoParaAssinaturaSeConfigurado(
+  supabase: ReturnType<typeof createAdminClient>,
+  contratoRow: Record<string, unknown>
+): Promise<Record<string, unknown>> {
+  try {
+    const [{ data: clienteRow }, { data: veiculoRow }] = await Promise.all([
+      supabase.from("clientes").select("*").eq("id", contratoRow.cliente_id).single(),
+      supabase.from("veiculos").select("*").eq("id", contratoRow.veiculo_id).single(),
+    ]);
+    if (!clienteRow || !veiculoRow) throw new Error("Cliente ou veículo não encontrado.");
+
+    const { data: usuarioRow } = await supabase
+      .from("usuarios")
+      .select("email")
+      .eq("id", clienteRow.usuario_id)
+      .single();
+    if (!usuarioRow?.email) throw new Error("Cliente sem e-mail cadastrado.");
+
+    const contrato = mapContrato(contratoRow, []);
+    const cliente = mapCliente(clienteRow);
+    const veiculo = mapVeiculo(veiculoRow, []);
+
+    const pdfBuffer = await gerarPdfContrato({ contrato, cliente, veiculo });
+    const resultado = await enviarDocumentoParaAssinatura({
+      nomeArquivo: `Contrato ${contrato.numero} - ${cliente.nome}`,
+      pdfBuffer,
+      emailSignatario: usuarioRow.email,
+      mensagem: `Olá, ${cliente.nome}! Segue o contrato de locação ${contrato.numero} da Zero Treze Transportes para assinatura eletrônica.`,
+    });
+
+    const agora = new Date().toISOString();
+    const { data: atualizado } = await supabase
+      .from("contratos")
+      .update({
+        assinatura_request_id: resultado.requestId,
+        assinatura_document_key: resultado.documentKey,
+        assinatura_signing_key: resultado.signingKey,
+        assinatura_status: resultado.status,
+        assinatura_enviado_em: agora,
+        assinatura_atualizado_em: agora,
+      })
+      .eq("id", contratoRow.id)
+      .select()
+      .single();
+
+    return atualizado ?? contratoRow;
+  } catch (error) {
+    console.error(
+      `[assinadoc] Falha ao enviar contrato ${contratoRow.id} para assinatura:`,
+      error instanceof Error ? error.message : error
+    );
+    return contratoRow;
+  }
 }
 
 export async function encerrarContrato(contratoId: string): Promise<Contrato> {
