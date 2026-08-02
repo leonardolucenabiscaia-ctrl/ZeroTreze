@@ -49,10 +49,19 @@ export async function enviarDocumentoParaAssinatura(
     body: form,
   });
 
-  const json = await res.json().catch(() => null);
+  const textoResposta = await res.text();
+  const json = ((): Record<string, unknown> | null => {
+    try {
+      return JSON.parse(textoResposta);
+    } catch {
+      return null;
+    }
+  })();
   const solicitacao = Array.isArray(json?.data) ? json.data[0] : json?.data;
   if (!res.ok || !solicitacao) {
-    throw new Error(json?.message ?? `Falha ao enviar documento para assinatura (HTTP ${res.status}).`);
+    throw new Error(
+      `Falha ao enviar documento para assinatura (HTTP ${res.status}): ${textoResposta.slice(0, 500)}`
+    );
   }
 
   return {
