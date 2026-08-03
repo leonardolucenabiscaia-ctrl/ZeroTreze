@@ -38,6 +38,9 @@ const styles = StyleSheet.create({
   assinaturaBloco: { width: "45%", textAlign: "center", borderTop: "1pt solid #171717", paddingTop: 4, fontSize: 8.5 },
   testemunhas: { marginTop: 32, flexDirection: "row", justifyContent: "space-between" },
   testemunhaBloco: { width: "45%", textAlign: "center", borderTop: "1pt solid #a3a3a3", paddingTop: 4, fontSize: 8, color: "#525252" },
+  /** Texto real (necessário para o DocuSign localizar por âncora), mas visualmente imperceptível
+   * — cor igual ao fundo e fonte mínima — usado só para posicionar o campo de assinatura. */
+  marcaAssinatura: { fontSize: 0.1, color: "#ffffff" },
 });
 
 function Secao({ titulo, children }: { titulo: string; children: React.ReactNode }) {
@@ -515,6 +518,7 @@ function ContratoDocument({ contrato, cliente, veiculo }: DadosContratoPdf) {
             <Text>CONTRATANTE</Text>
             <Text>Nome: {cliente.nome.toUpperCase()}</Text>
             <Text>CPF: {formatDocument(cliente.documento)}</Text>
+            <Text style={styles.marcaAssinatura}>/assinatura_cliente/</Text>
           </View>
         </View>
 

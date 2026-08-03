@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { gerarParcelas, gerarExtrato } from "@/lib/mock-data/generators/financeiro";
 import { formatarNumeroContrato } from "@/lib/mock-data/generators/contrato";
 import { gerarPdfContrato } from "./pdf/contrato-pdf";
-import { enviarDocumentoParaAssinatura } from "./assinadoc.service";
+import { enviarDocumentoParaAssinatura } from "./docusign.service";
 import { mapCliente, mapContrato, mapVeiculo } from "./mappers";
 import type { Contrato } from "@/lib/types";
 
@@ -178,10 +178,14 @@ export async function criarContrato(dados: NovoContratoInput): Promise<Contrato>
 }
 
 /**
- * Gera o PDF do contrato e envia para assinatura eletrônica na AssinaDoc, assim que o contrato é
- * criado. É best-effort: se a AssinaDoc estiver fora do ar, sem token configurado, ou o cliente
- * não tiver e-mail, o contrato continua criado normalmente — só não fica com `assinatura`
+ * Gera o PDF do contrato e envia para assinatura eletrônica na DocuSign, assim que o contrato é
+ * criado. É best-effort: se a DocuSign estiver fora do ar, sem credenciais configuradas, ou o
+ * cliente não tiver e-mail, o contrato continua criado normalmente — só não fica com `assinatura`
  * preenchido, e o erro fica registrado no log do servidor.
+ *
+ * `assinatura_document_key` guarda o `envelopeId` da DocuSign (identificador canônico do envio) —
+ * `assinatura_request_id`/`assinatura_signing_key` não têm equivalente direto no modelo da
+ * DocuSign e ficam null.
  */
 async function enviarContratoParaAssinaturaSeConfigurado(
   supabase: ReturnType<typeof createAdminClient>,
@@ -210,6 +214,7 @@ async function enviarContratoParaAssinaturaSeConfigurado(
       nomeArquivo: `Contrato ${contrato.numero} - ${cliente.nome}`,
       pdfBuffer,
       emailSignatario: usuarioRow.email,
+      nomeSignatario: cliente.nome,
       mensagem: `Olá, ${cliente.nome}! Segue o contrato de locação ${contrato.numero} da Zero Treze Transportes para assinatura eletrônica.`,
     });
 
@@ -217,9 +222,7 @@ async function enviarContratoParaAssinaturaSeConfigurado(
     const { data: atualizado } = await supabase
       .from("contratos")
       .update({
-        assinatura_request_id: resultado.requestId,
-        assinatura_document_key: resultado.documentKey,
-        assinatura_signing_key: resultado.signingKey,
+        assinatura_document_key: resultado.envelopeId,
         assinatura_status: resultado.status,
         assinatura_enviado_em: agora,
         assinatura_atualizado_em: agora,
@@ -231,7 +234,7 @@ async function enviarContratoParaAssinaturaSeConfigurado(
     return atualizado ?? contratoRow;
   } catch (error) {
     console.error(
-      `[assinadoc] Falha ao enviar contrato ${contratoRow.id} para assinatura:`,
+      `[docusign] Falha ao enviar contrato ${contratoRow.id} para assinatura:`,
       error instanceof Error ? error.message : error
     );
     return contratoRow;
