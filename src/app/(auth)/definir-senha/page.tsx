@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { CheckCircle2, XCircle } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
 import { apiFetch } from "@/lib/services/api-client";
@@ -14,39 +14,40 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-type Etapa = "validando" | "formulario" | "invalido" | "concluido";
+type Etapa = "codigo" | "senha" | "concluido";
 
+/**
+ * Fluxo de duas etapas — email+código, depois senha — em vez de um link clicável de e-mail: o
+ * link mágico da Supabase se mostrou vulnerável a scanners de segurança de e-mail (ex.: o Gmail
+ * abre automaticamente os links pra checar se são seguros, consumindo o token de uso único antes
+ * do usuário clicar de verdade — ver `auth-invite.ts`). Um código digitado manualmente não sofre
+ * disso.
+ */
 export default function DefinirSenhaPage() {
   const router = useRouter();
-  const [etapa, setEtapa] = React.useState<Etapa>("validando");
+  const [etapa, setEtapa] = React.useState<Etapa>("codigo");
+  const [email, setEmail] = React.useState("");
+  const [codigo, setCodigo] = React.useState("");
   const [senha, setSenha] = React.useState("");
   const [confirmarSenha, setConfirmarSenha] = React.useState("");
   const [enviando, setEnviando] = React.useState(false);
 
-  React.useEffect(() => {
-    // O link de convite/recuperação da Supabase entrega a sessão pelo fragmento da URL
-    // (#access_token=...&refresh_token=...), não por um parâmetro `?code=`. O client do
-    // `@supabase/ssr` (baseado em cookies, não em detecção automática de fragmento como o client
-    // padrão) não processa isso sozinho — precisa ler o fragmento manualmente e chamar
-    // `setSession`, que é o que grava a sessão real (cookies) usada pelo resto do app.
-    const hash = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : window.location.hash;
-    const params = new URLSearchParams(hash);
-    const accessToken = params.get("access_token");
-    const refreshToken = params.get("refresh_token");
-
-    if (!accessToken || !refreshToken) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setEtapa("invalido");
-      return;
+  async function handleVerificarCodigo(event: React.FormEvent) {
+    event.preventDefault();
+    setEnviando(true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.verifyOtp({ email, token: codigo, type: "email" });
+      if (error) throw new Error("Código inválido ou expirado. Confira o e-mail e tente de novo.");
+      setEtapa("senha");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível verificar o código.");
+    } finally {
+      setEnviando(false);
     }
+  }
 
-    const supabase = createClient();
-    supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken }).then(({ error }) => {
-      setEtapa(error ? "invalido" : "formulario");
-    });
-  }, []);
-
-  async function handleSubmit(event: React.FormEvent) {
+  async function handleDefinirSenha(event: React.FormEvent) {
     event.preventDefault();
     if (senha.length < 6) {
       toast.error("A senha precisa ter pelo menos 6 caracteres.");
@@ -74,37 +75,6 @@ export default function DefinirSenhaPage() {
     }
   }
 
-  if (etapa === "validando") {
-    return (
-      <Card>
-        <div className="flex flex-col items-center gap-3 py-4 text-center">
-          <div className="size-8 animate-spin rounded-full border-2 border-gold border-t-transparent" />
-          <p className="text-sm text-muted-foreground">Validando seu convite…</p>
-        </div>
-      </Card>
-    );
-  }
-
-  if (etapa === "invalido") {
-    return (
-      <Card>
-        <div className="flex flex-col items-center gap-3 py-4 text-center">
-          <div className="flex size-12 items-center justify-center rounded-full bg-destructive/15">
-            <XCircle className="size-6 text-destructive" />
-          </div>
-          <p className="text-sm font-medium text-foreground">Link inválido ou expirado</p>
-          <p className="text-xs text-muted-foreground">
-            Peça para o administrador enviar um novo convite, ou use a opção &ldquo;Esqueci minha
-            senha&rdquo; na tela de login.
-          </p>
-          <Button variant="outline" size="sm" onClick={() => router.push("/login")}>
-            Voltar para o login
-          </Button>
-        </div>
-      </Card>
-    );
-  }
-
   if (etapa === "concluido") {
     return (
       <Card>
@@ -118,39 +88,81 @@ export default function DefinirSenhaPage() {
     );
   }
 
+  if (etapa === "senha") {
+    return (
+      <Card>
+        <form onSubmit={handleDefinirSenha} className="flex flex-col gap-4">
+          <div>
+            <h2 className="text-base font-semibold text-foreground">Defina sua senha</h2>
+            <p className="text-xs text-muted-foreground">
+              Escolha uma senha para acessar sua conta daqui pra frente.
+            </p>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="senha">Nova senha</Label>
+            <Input
+              id="senha"
+              type="password"
+              placeholder="••••••"
+              value={senha}
+              onChange={(e) => setSenha(e.target.value)}
+              required
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="confirmarSenha">Confirmar senha</Label>
+            <Input
+              id="confirmarSenha"
+              type="password"
+              placeholder="••••••"
+              value={confirmarSenha}
+              onChange={(e) => setConfirmarSenha(e.target.value)}
+              required
+            />
+          </div>
+          <Button type="submit" size="lg" disabled={enviando} className="mt-2">
+            {enviando ? "Salvando…" : "Definir senha e entrar"}
+          </Button>
+        </form>
+      </Card>
+    );
+  }
+
   return (
     <Card>
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <form onSubmit={handleVerificarCodigo} className="flex flex-col gap-4">
         <div>
-          <h2 className="text-base font-semibold text-foreground">Defina sua senha</h2>
+          <h2 className="text-base font-semibold text-foreground">Confirme seu acesso</h2>
           <p className="text-xs text-muted-foreground">
-            Escolha uma senha para acessar sua conta daqui pra frente.
+            Digite o e-mail cadastrado e o código de 8 dígitos que enviamos para ele.
           </p>
         </div>
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="senha">Nova senha</Label>
+          <Label htmlFor="email">E-mail</Label>
           <Input
-            id="senha"
-            type="password"
-            placeholder="••••••"
-            value={senha}
-            onChange={(e) => setSenha(e.target.value)}
+            id="email"
+            type="email"
+            placeholder="seu@email.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             required
           />
         </div>
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="confirmarSenha">Confirmar senha</Label>
+          <Label htmlFor="codigo">Código de verificação</Label>
           <Input
-            id="confirmarSenha"
-            type="password"
-            placeholder="••••••"
-            value={confirmarSenha}
-            onChange={(e) => setConfirmarSenha(e.target.value)}
+            id="codigo"
+            inputMode="numeric"
+            maxLength={8}
+            placeholder="00000000"
+            value={codigo}
+            onChange={(e) => setCodigo(e.target.value)}
+            className="text-center text-lg tracking-[0.35em]"
             required
           />
         </div>
         <Button type="submit" size="lg" disabled={enviando} className="mt-2">
-          {enviando ? "Salvando…" : "Definir senha e entrar"}
+          {enviando ? "Verificando…" : "Confirmar"}
         </Button>
       </form>
     </Card>

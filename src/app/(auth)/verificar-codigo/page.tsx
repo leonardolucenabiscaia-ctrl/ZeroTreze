@@ -66,7 +66,7 @@ export default function VerificarCodigoPage() {
         <div>
           <h2 className="text-base font-semibold text-foreground">Digite o código</h2>
           <p className="text-xs text-muted-foreground">
-            Enviamos um código de 6 dígitos por e-mail para <span className="text-gold">{dados.email}</span>.
+            Enviamos um código de 8 dígitos por e-mail para <span className="text-gold">{dados.email}</span>.
           </p>
         </div>
         <div className="flex flex-col gap-1.5">
@@ -74,11 +74,11 @@ export default function VerificarCodigoPage() {
           <Input
             id="codigo"
             inputMode="numeric"
-            maxLength={6}
-            placeholder="000000"
+            maxLength={8}
+            placeholder="00000000"
             value={codigoDigitado}
             onChange={(e) => setCodigoDigitado(e.target.value)}
-            className="text-center text-lg tracking-[0.5em]"
+            className="text-center text-lg tracking-[0.35em]"
             required
           />
         </div>

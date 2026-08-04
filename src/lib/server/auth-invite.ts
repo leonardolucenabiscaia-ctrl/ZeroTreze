@@ -1,4 +1,5 @@
 import "server-only";
+import crypto from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/server";
 import type { PerfilUsuario } from "@/lib/types";
 
@@ -11,35 +12,35 @@ export interface ConvidarUsuarioInput {
 }
 
 /**
- * Cria a conta no Supabase Auth via convite por e-mail (`inviteUserByEmail`) — o usuário define
- * a própria senha ao clicar no link, em vez do administrador escolher uma senha por ele. O link
- * aponta para `/definir-senha` (precisa estar na lista de Redirect URLs do painel do Supabase).
+ * Cria a conta no Supabase Auth e manda um CÓDIGO de acesso por e-mail (não um link clicável) —
+ * o usuário digita o código em `/definir-senha` e só então escolhe a própria senha.
  *
- * `inviteUserByEmail` só aceita `data` (vira `user_metadata`) — `perfil` precisa de uma segunda
- * chamada porque é `app_metadata` (só a API administrativa pode escrever ali, nunca o usuário).
+ * Por que código em vez de link: o fluxo original usava `inviteUserByEmail` (link mágico), mas
+ * confirmado em produção (2026-08-04) que o Gmail abre automaticamente os links do e-mail pra
+ * escanear em busca de phishing/malware — como o link da Supabase só pode ser usado uma vez, esse
+ * acesso automático consumia o token antes do usuário clicar de verdade, sempre mostrando "link
+ * expirado". Um código digitado manualmente é imune a isso (nenhum scanner "digita" nada).
+ *
+ * Também por isso não dá pra usar `inviteUserByEmail` (o template "Invite" da Supabase não
+ * suporta a variável `{{ .Token }}` — só os templates "Magic Link/OTP", "Change Email" e
+ * "Reauthentication" suportam). Por isso o fluxo é: cria o usuário direto (`admin.createUser`,
+ * senha aleatória que nunca é usada) e dispara um OTP por e-mail (`signInWithOtp`), que usa o
+ * template "Magic Link/OTP" — o mesmo mecanismo já usado pelo login por código do site.
  */
 export async function convidarUsuario(
   supabase: ReturnType<typeof createAdminClient>,
   dados: ConvidarUsuarioInput
 ): Promise<string> {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
-  if (!siteUrl) throw new Error("NEXT_PUBLIC_SITE_URL não configurado.");
+  const senhaAleatoria = crypto.randomBytes(24).toString("base64url");
 
-  const { data, error } = await supabase.auth.admin.inviteUserByEmail(dados.email, {
-    data: { nome: dados.nome, telefone: dados.telefone, cpf_cnpj: dados.cpfCnpj ?? "" },
-    redirectTo: `${siteUrl}/definir-senha`,
+  const { data, error } = await supabase.auth.admin.createUser({
+    email: dados.email,
+    password: senhaAleatoria,
+    email_confirm: true,
+    user_metadata: { nome: dados.nome, telefone: dados.telefone, cpf_cnpj: dados.cpfCnpj ?? "" },
   });
   if (error || !data.user) {
-    // O erro que volta do SMTP (via Supabase) costuma vir sem mensagem útil (ex.: literalmente
-    // "{}") — registra os detalhes completos no log do servidor e devolve algo acionável, já que
-    // a causa mais comum enquanto o Resend estiver em modo de teste é o destinatário não ser o
-    // e-mail da própria conta Resend (só esse é aceito antes de verificar um domínio).
-    console.error("[auth-invite] Falha ao convidar usuário:", JSON.stringify(error));
-    throw new Error(
-      "Não foi possível enviar o convite por e-mail. Se o Resend ainda estiver em modo de teste, " +
-        "ele só entrega para o e-mail cadastrado na conta Resend — verifique um domínio próprio " +
-        "para convidar outros destinatários."
-    );
+    throw new Error(error?.message ?? "Não foi possível criar a conta do usuário.");
   }
 
   const { error: metaError } = await supabase.auth.admin.updateUserById(data.user.id, {
@@ -48,6 +49,20 @@ export async function convidarUsuario(
   if (metaError) {
     await supabase.auth.admin.deleteUser(data.user.id);
     throw new Error(metaError.message);
+  }
+
+  const { error: otpError } = await supabase.auth.signInWithOtp({
+    email: dados.email,
+    options: { shouldCreateUser: false },
+  });
+  if (otpError) {
+    console.error("[auth-invite] Falha ao enviar código de acesso:", JSON.stringify(otpError));
+    await supabase.auth.admin.deleteUser(data.user.id);
+    throw new Error(
+      "Não foi possível enviar o código de acesso por e-mail. Se o Resend ainda estiver em modo " +
+        "de teste, ele só entrega para o e-mail cadastrado na conta Resend — verifique um domínio " +
+        "próprio para cadastrar outros destinatários."
+    );
   }
 
   return data.user.id;
