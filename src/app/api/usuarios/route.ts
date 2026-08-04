@@ -2,6 +2,9 @@ import type { NextRequest } from "next/server";
 import { criarUsuarioInterno, listarUsuarios, listarUsuariosInternos } from "@/lib/server/usuarios.service";
 import { handleRoute } from "@/lib/server/route-helpers";
 
+// O envio do convite por e-mail (SMTP) pode levar mais que o padrão de 10s da Vercel.
+export const maxDuration = 30;
+
 export async function GET(request: NextRequest) {
   const internos = request.nextUrl.searchParams.get("internos") === "true";
   return handleRoute(() => (internos ? listarUsuariosInternos() : listarUsuarios()));

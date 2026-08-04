@@ -8,6 +8,10 @@ import {
 } from "@/lib/server/contratos.service";
 import { handleRoute } from "@/lib/server/route-helpers";
 
+// A criação de contrato gera o PDF e envia para assinatura na DocuSign — pode levar mais que o
+// padrão de 10s da Vercel.
+export const maxDuration = 30;
+
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
   const clienteId = params.get("clienteId");
