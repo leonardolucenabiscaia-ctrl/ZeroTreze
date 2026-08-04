@@ -17,6 +17,12 @@ export async function atualizarCliente(id: string, dados: Partial<Cliente>): Pro
   return apiFetch<Cliente>(`/api/clientes/${id}`, { method: "PATCH", body: JSON.stringify(dados) });
 }
 
+/** Apaga o cliente e tudo que depende dele (contratos, parcelas, multas, chamados etc.) —
+ * irreversível. */
+export async function excluirCliente(id: string): Promise<void> {
+  await apiFetch<null>(`/api/clientes/${id}`, { method: "DELETE" });
+}
+
 export interface NovoClienteInput {
   nomeCompleto: string;
   email: string;

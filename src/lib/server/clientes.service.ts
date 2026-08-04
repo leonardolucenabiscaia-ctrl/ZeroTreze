@@ -24,6 +24,26 @@ export async function buscarClientePorUsuarioId(usuarioId: string): Promise<Clie
   return data ? mapCliente(data) : undefined;
 }
 
+/**
+ * Apaga o cliente definitivamente — remove a conta do Supabase Auth, o que em cascata (FKs
+ * `on delete cascade`) apaga a linha em `clientes` e tudo que depende dela: contratos, parcelas,
+ * movimentos de extrato, multas, chamados, mensagens, avaliações, acordos, documentos, score e
+ * notificações. Ação irreversível — a confirmação fica a cargo da UI.
+ */
+export async function excluirCliente(id: string): Promise<void> {
+  const supabase = createAdminClient();
+  const { data: clienteRow, error } = await supabase
+    .from("clientes")
+    .select("usuario_id")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!clienteRow) throw new Error("Cliente não encontrado");
+
+  const { error: deleteError } = await supabase.auth.admin.deleteUser(clienteRow.usuario_id);
+  if (deleteError) throw new Error(deleteError.message);
+}
+
 export async function atualizarCliente(id: string, dados: Partial<Cliente>): Promise<Cliente> {
   const supabase = createAdminClient();
   const patch: Record<string, unknown> = {};

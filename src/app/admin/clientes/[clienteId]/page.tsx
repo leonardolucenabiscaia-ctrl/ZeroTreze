@@ -2,16 +2,19 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { Award, FileText, Wallet, AlertTriangle, Car } from "lucide-react";
+import { useParams, useRouter } from "next/navigation";
+import { Award, FileText, Wallet, AlertTriangle, Car, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
-import { buscarClientePorId } from "@/lib/services/clientes.service";
+import { buscarClientePorId, excluirCliente } from "@/lib/services/clientes.service";
 import { listarContratosPorCliente } from "@/lib/services/contratos.service";
 import { listarParcelasPorContrato, obterParametrosFinanceiros } from "@/lib/services/financeiro.service";
 import { listarMultasPorContrato } from "@/lib/services/multas.service";
 import { listarVeiculos } from "@/lib/services/veiculos.service";
 import { buscarScorePorCliente } from "@/lib/services/score.service";
 import { buscarUsuarioPorId } from "@/lib/services/usuarios.service";
+import { registrarAcao } from "@/lib/services/auditoria.service";
+import { useAuth } from "@/lib/auth/auth-context";
 import { calcularValorAtualizado } from "@/lib/calculations/juros-multa-correcao";
 import { formatCurrency, formatDate, formatDocument } from "@/lib/utils/formatters";
 import type {
@@ -31,6 +34,17 @@ import { StatusPill } from "@/components/shared/status-pill";
 import { StatCard } from "@/components/shared/stat-card";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -42,6 +56,8 @@ import {
 
 export default function ClienteDetalhePage() {
   const params = useParams<{ clienteId: string }>();
+  const router = useRouter();
+  const { usuario: usuarioLogado } = useAuth();
   const [cliente, setCliente] = React.useState<Cliente | null>(null);
   const [usuario, setUsuario] = React.useState<Usuario | null>(null);
   const [contratos, setContratos] = React.useState<Contrato[]>([]);
@@ -51,6 +67,38 @@ export default function ClienteDetalhePage() {
   const [parametros, setParametros] = React.useState<ParametrosFinanceiros | null>(null);
   const [score, setScore] = React.useState<ScoreLocatario | null>(null);
   const [carregando, setCarregando] = React.useState(true);
+  const [etapaExclusao, setEtapaExclusao] = React.useState<"aviso" | "confirmar" | null>(null);
+  const [nomeDigitado, setNomeDigitado] = React.useState("");
+  const [excluindo, setExcluindo] = React.useState(false);
+
+  async function handleExcluirCliente() {
+    if (!cliente) return;
+    setExcluindo(true);
+    try {
+      await excluirCliente(cliente.id);
+      if (usuarioLogado) {
+        await registrarAcao({
+          usuarioId: usuarioLogado.id,
+          usuarioNome: usuarioLogado.nome,
+          acao: "Apagou o cliente",
+          entidade: "Cliente",
+          entidadeId: cliente.nome,
+        });
+      }
+      toast.success("Cliente apagado com sucesso.");
+      router.push("/admin/clientes");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível apagar o cliente.");
+      setExcluindo(false);
+    }
+  }
+
+  function fecharDialogExclusao(open: boolean) {
+    if (!open) {
+      setEtapaExclusao(null);
+      setNomeDigitado("");
+    }
+  }
 
   React.useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -109,12 +157,18 @@ export default function ClienteDetalhePage() {
           <h1 className="text-xl font-semibold text-foreground">{cliente.nome}</h1>
           <p className="text-sm text-muted-foreground">{formatDocument(cliente.documento)}</p>
         </div>
-        {score && (
-          <Badge variant="gold" className="gap-1.5 text-sm">
-            <Award className="size-3.5" />
-            {score.pontuacao} · {score.categoria}
-          </Badge>
-        )}
+        <div className="flex items-center gap-2">
+          {score && (
+            <Badge variant="gold" className="gap-1.5 text-sm">
+              <Award className="size-3.5" />
+              {score.pontuacao} · {score.categoria}
+            </Badge>
+          )}
+          <Button size="sm" variant="destructive" onClick={() => setEtapaExclusao("aviso")}>
+            <Trash2 className="size-4" />
+            Apagar cliente
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -237,6 +291,61 @@ export default function ClienteDetalhePage() {
           </Table>
         )}
       </div>
+
+      <Dialog open={etapaExclusao === "aviso"} onOpenChange={fecharDialogExclusao}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Apagar {cliente.nome}?</DialogTitle>
+            <DialogDescription>
+              Essa ação é definitiva e não pode ser desfeita. Junto com o cliente, serão apagados
+              todos os contratos, parcelas, extratos, multas, chamados, acordos, documentos e o
+              score vinculados a ele.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => fecharDialogExclusao(false)}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={() => setEtapaExclusao("confirmar")}>
+              Entendo, continuar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={etapaExclusao === "confirmar"} onOpenChange={fecharDialogExclusao}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirme digitando o nome do cliente</DialogTitle>
+            <DialogDescription>
+              Para confirmar que você realmente quer apagar este cliente, digite{" "}
+              <strong className="text-foreground">{cliente.nome}</strong> abaixo.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="confirmacaoNome">Nome do cliente</Label>
+            <Input
+              id="confirmacaoNome"
+              value={nomeDigitado}
+              onChange={(e) => setNomeDigitado(e.target.value)}
+              placeholder={cliente.nome}
+              autoComplete="off"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => fecharDialogExclusao(false)} disabled={excluindo}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleExcluirCliente}
+              disabled={excluindo || nomeDigitado.trim() !== cliente.nome}
+            >
+              {excluindo ? "Apagando…" : "Apagar definitivamente"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
