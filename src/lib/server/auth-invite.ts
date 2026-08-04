@@ -30,7 +30,16 @@ export async function convidarUsuario(
     redirectTo: `${siteUrl}/definir-senha`,
   });
   if (error || !data.user) {
-    throw new Error(error?.message ?? "Não foi possível enviar o convite por e-mail.");
+    // O erro que volta do SMTP (via Supabase) costuma vir sem mensagem útil (ex.: literalmente
+    // "{}") — registra os detalhes completos no log do servidor e devolve algo acionável, já que
+    // a causa mais comum enquanto o Resend estiver em modo de teste é o destinatário não ser o
+    // e-mail da própria conta Resend (só esse é aceito antes de verificar um domínio).
+    console.error("[auth-invite] Falha ao convidar usuário:", JSON.stringify(error));
+    throw new Error(
+      "Não foi possível enviar o convite por e-mail. Se o Resend ainda estiver em modo de teste, " +
+        "ele só entrega para o e-mail cadastrado na conta Resend — verifique um domínio próprio " +
+        "para convidar outros destinatários."
+    );
   }
 
   const { error: metaError } = await supabase.auth.admin.updateUserById(data.user.id, {
