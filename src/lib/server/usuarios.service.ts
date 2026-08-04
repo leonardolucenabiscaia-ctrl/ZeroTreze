@@ -1,5 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/server";
+import { convidarUsuario } from "./auth-invite";
 import { mapUsuario } from "./mappers";
 import type { PerfilUsuario, Usuario } from "@/lib/types";
 
@@ -65,8 +66,8 @@ export interface NovoUsuarioInternoInput {
 }
 
 /**
- * Cadastra um novo gestor ou operador — cria a conta de verdade no Supabase Auth (senha padrão
- * de demonstração; o primeiro acesso funciona igual ao do cliente).
+ * Cadastra um novo gestor ou operador — convida por e-mail (ver `convidarUsuario`), sem senha
+ * definida pelo administrador; o usuário escolhe a própria senha ao aceitar o convite.
  */
 export async function criarUsuarioInterno(dados: NovoUsuarioInternoInput): Promise<Usuario> {
   const supabase = createAdminClient();
@@ -78,22 +79,18 @@ export async function criarUsuarioInterno(dados: NovoUsuarioInternoInput): Promi
     .maybeSingle();
   if (existente) throw new Error("Já existe uma conta cadastrada com esse e-mail.");
 
-  const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+  const usuarioId = await convidarUsuario(supabase, {
     email: dados.email,
-    password: "123456",
-    email_confirm: true,
-    user_metadata: { nome: dados.nome, telefone: dados.telefone },
-    app_metadata: { perfil: dados.perfil },
+    nome: dados.nome,
+    telefone: dados.telefone,
+    perfil: dados.perfil,
   });
-  if (authError || !authData.user) {
-    throw new Error(authError?.message ?? "Não foi possível criar o usuário.");
-  }
 
   const { data: usuarioRow, error } = await supabase
     .from("usuarios")
     .select("*")
-    .eq("id", authData.user.id)
+    .eq("id", usuarioId)
     .single();
-  if (error || !usuarioRow) throw new Error("Usuário criado, mas não foi possível carregar o perfil.");
+  if (error || !usuarioRow) throw new Error("Usuário convidado, mas não foi possível carregar o perfil.");
   return mapUsuario(usuarioRow);
 }

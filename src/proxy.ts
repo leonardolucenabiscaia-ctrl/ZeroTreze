@@ -4,7 +4,7 @@ import type { NextRequest } from "next/server";
 import { atualizarSessao } from "@/lib/supabase/middleware";
 import type { PerfilUsuario } from "@/lib/types";
 
-const ROTAS_PUBLICAS = ["/login", "/esqueci-senha", "/verificar-codigo"];
+const ROTAS_PUBLICAS = ["/login", "/esqueci-senha", "/verificar-codigo", "/definir-senha"];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;

@@ -1,6 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/server";
 import { categoriaPorPontuacao } from "@/lib/calculations/score";
+import { convidarUsuario } from "./auth-invite";
 import { mapCliente } from "./mappers";
 import type { Cliente } from "@/lib/types";
 
@@ -77,9 +78,9 @@ export interface NovoClienteInput {
   anexos: File[];
 }
 
-/** Cria a conta real no Supabase Auth (perfil "cliente") + linha em `clientes` + score inicial
- * (500 pontos) + um documento por anexo enviado (metadados apenas — sem armazenamento de
- * arquivo real configurado ainda). */
+/** Convida o cliente por e-mail (perfil "cliente", sem senha definida pelo admin — ver
+ * `convidarUsuario`) + linha em `clientes` + score inicial (500 pontos) + um documento por anexo
+ * enviado (metadados apenas — sem armazenamento de arquivo real configurado ainda). */
 export async function criarCliente(dados: NovoClienteInput): Promise<Cliente> {
   const supabase = createAdminClient();
 
@@ -98,17 +99,13 @@ export async function criarCliente(dados: NovoClienteInput): Promise<Cliente> {
     .maybeSingle();
   if (emailExistente) throw new Error("Já existe uma conta cadastrada com esse e-mail.");
 
-  const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+  const usuarioId = await convidarUsuario(supabase, {
     email: dados.email,
-    password: "123456",
-    email_confirm: true,
-    user_metadata: { nome: dados.nomeCompleto, telefone: dados.telefone, cpf_cnpj: cpfNormalizado },
-    app_metadata: { perfil: "cliente" },
+    nome: dados.nomeCompleto,
+    telefone: dados.telefone,
+    cpfCnpj: cpfNormalizado,
+    perfil: "cliente",
   });
-  if (authError || !authData.user) {
-    throw new Error(authError?.message ?? "Não foi possível criar a conta do cliente.");
-  }
-  const usuarioId = authData.user.id;
 
   const agora = new Date().toISOString();
   const { data: clienteRow, error: clienteError } = await supabase

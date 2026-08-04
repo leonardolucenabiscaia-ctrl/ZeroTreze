@@ -77,8 +77,8 @@ function NovoUsuarioConteudo() {
       <div>
         <h1 className="text-xl font-semibold text-foreground">Adicionar usuário</h1>
         <p className="text-sm text-muted-foreground">
-          Cadastre um novo gestor ou operador. O primeiro acesso funciona do mesmo jeito que o do
-          cliente: senha padrão ou login por código enviado por SMS/e-mail.
+          Cadastre um novo gestor ou operador. Um convite é enviado por e-mail para que a pessoa
+          defina a própria senha no primeiro acesso.
         </p>
       </div>
 
