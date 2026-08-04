@@ -3,15 +3,15 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { criarNotificacao } from "@/lib/server/notificacoes.service";
 
 /**
- * Recebe as notificações do DocuSign Connect, configuradas manualmente no painel deles
- * (Settings → Connect → Add Configuration → URL to Publish: esta rota, formato JSON, eventos de
- * envelope: Sent/Delivered/Completed/Declined/Voided).
+ * Recebe as notificações do DocuSign Connect (configurado no painel deles: Settings → Connect →
+ * Configuration ID 22263629 → formato REST v2.1/JSON → eventos Sent/Delivered/Completed/Declined/
+ * Voided → URL desta rota).
  *
- * TODO(quando os primeiros webhooks reais chegarem): a forma exata do payload JSON do Connect
- * (aggregate vs. "Send Individual Messages", eventData incluído ou não) não pôde ser confirmada
- * contra a documentação ao vivo da DocuSign no momento em que este código foi escrito — o parsing
- * abaixo tenta os caminhos mais comumente documentados (`data.envelopeId`/`data.envelopeSummary.status`
- * e variações "achatadas"), e loga o payload bruto pra calibrar assim que um webhook real chegar.
+ * Confirmado contra webhooks reais (2026-08-04): o payload não inclui `envelopeSummary.status`
+ * nem `data.status` "limpo" — o status usável é o próprio nome do evento em `event`
+ * (ex.: "envelope-sent", "envelope-delivered", "envelope-completed"). O parsing abaixo tenta os
+ * campos mais estruturados primeiro só por robustez, mas na prática sempre cai no fallback
+ * `payload.event`.
  */
 export async function POST(request: NextRequest) {
   let payload: Record<string, unknown>;
