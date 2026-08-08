@@ -9,7 +9,6 @@ import {
   Percent,
   RefreshCw,
   Headset,
-  Wrench,
   Award,
 } from "lucide-react";
 import {
@@ -313,20 +312,6 @@ export default function AdminDashboardPage() {
           </CardContent>
         </Card>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Wrench className="size-4 text-gold" />
-            Veículos em manutenção
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            Nenhum veículo em manutenção registrado no momento.
-          </p>
-        </CardContent>
-      </Card>
     </div>
   );
 }
