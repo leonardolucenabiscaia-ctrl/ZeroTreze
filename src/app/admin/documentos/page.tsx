@@ -92,18 +92,53 @@ export default function AdminDocumentosPage() {
     return true;
   });
 
+  // Ao escolher uma pessoa, só faz sentido oferecer no filtro de veículo os carros que ela
+  // já teve em algum contrato — e vice-versa — senão a combinação dos dois filtros sempre dá
+  // lista vazia.
+  const veiculosDisponiveis =
+    filtroClienteId === TODOS
+      ? veiculos
+      : veiculos.filter((v) => contratos.some((c) => c.clienteId === filtroClienteId && c.veiculoId === v.id));
+
+  const clientesDisponiveis =
+    filtroVeiculoId === TODOS
+      ? clientes
+      : clientes.filter((c) => contratos.some((ct) => ct.veiculoId === filtroVeiculoId && ct.clienteId === c.id));
+
+  function handleFiltroCliente(novoClienteId: string) {
+    setFiltroClienteId(novoClienteId);
+    if (
+      novoClienteId !== TODOS &&
+      filtroVeiculoId !== TODOS &&
+      !contratos.some((c) => c.clienteId === novoClienteId && c.veiculoId === filtroVeiculoId)
+    ) {
+      setFiltroVeiculoId(TODOS);
+    }
+  }
+
+  function handleFiltroVeiculo(novoVeiculoId: string) {
+    setFiltroVeiculoId(novoVeiculoId);
+    if (
+      novoVeiculoId !== TODOS &&
+      filtroClienteId !== TODOS &&
+      !contratos.some((c) => c.veiculoId === novoVeiculoId && c.clienteId === filtroClienteId)
+    ) {
+      setFiltroClienteId(TODOS);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-xl font-semibold text-foreground">Documentos</h1>
 
       <div className="flex flex-wrap gap-2">
-        <Select value={filtroClienteId} onValueChange={setFiltroClienteId}>
+        <Select value={filtroClienteId} onValueChange={handleFiltroCliente}>
           <SelectTrigger className="w-56">
             <SelectValue placeholder="Filtrar por pessoa" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={TODOS}>Todas as pessoas</SelectItem>
-            {clientes.map((cliente) => (
+            {clientesDisponiveis.map((cliente) => (
               <SelectItem key={cliente.id} value={cliente.id}>
                 {cliente.nome}
               </SelectItem>
@@ -111,13 +146,13 @@ export default function AdminDocumentosPage() {
           </SelectContent>
         </Select>
 
-        <Select value={filtroVeiculoId} onValueChange={setFiltroVeiculoId}>
+        <Select value={filtroVeiculoId} onValueChange={handleFiltroVeiculo}>
           <SelectTrigger className="w-56">
             <SelectValue placeholder="Filtrar por veículo" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={TODOS}>Todos os veículos</SelectItem>
-            {veiculos.map((veiculo) => (
+            {veiculosDisponiveis.map((veiculo) => (
               <SelectItem key={veiculo.id} value={veiculo.id}>
                 {veiculo.marca} {veiculo.modelo} — {veiculo.placa}
               </SelectItem>

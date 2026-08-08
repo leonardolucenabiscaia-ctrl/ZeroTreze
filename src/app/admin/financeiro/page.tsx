@@ -166,6 +166,41 @@ export default function AdminFinanceiroPage() {
     .reduce((soma, l) => soma + calcularValorAtualizado(l.parcela, parametros).multa, 0);
   const aguardandoConfirmacao = linhas.filter((l) => l.parcela.status === "aguardando_confirmacao");
 
+  // Ao escolher um cliente, só faz sentido oferecer no filtro de carro os veículos que ele já
+  // teve em algum contrato — e vice-versa — senão a combinação dos dois filtros sempre dá lista
+  // vazia.
+  const veiculosDisponiveis =
+    filtroClienteId === TODOS
+      ? veiculos
+      : veiculos.filter((v) => linhas.some((l) => l.clienteId === filtroClienteId && l.veiculoId === v.id));
+
+  const clientesDisponiveis =
+    filtroVeiculoId === TODOS
+      ? clientes
+      : clientes.filter((c) => linhas.some((l) => l.veiculoId === filtroVeiculoId && l.clienteId === c.id));
+
+  function handleFiltroCliente(novoClienteId: string) {
+    setFiltroClienteId(novoClienteId);
+    if (
+      novoClienteId !== TODOS &&
+      filtroVeiculoId !== TODOS &&
+      !linhas!.some((l) => l.clienteId === novoClienteId && l.veiculoId === filtroVeiculoId)
+    ) {
+      setFiltroVeiculoId(TODOS);
+    }
+  }
+
+  function handleFiltroVeiculo(novoVeiculoId: string) {
+    setFiltroVeiculoId(novoVeiculoId);
+    if (
+      novoVeiculoId !== TODOS &&
+      filtroClienteId !== TODOS &&
+      !linhas!.some((l) => l.veiculoId === novoVeiculoId && l.clienteId === filtroClienteId)
+    ) {
+      setFiltroClienteId(TODOS);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-xl font-semibold text-foreground">Financeiro</h1>
@@ -196,13 +231,13 @@ export default function AdminFinanceiroPage() {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <Select value={filtroClienteId} onValueChange={setFiltroClienteId}>
+        <Select value={filtroClienteId} onValueChange={handleFiltroCliente}>
           <SelectTrigger className="w-56">
             <SelectValue placeholder="Filtrar por cliente" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={TODOS}>Todos os clientes</SelectItem>
-            {clientes.map((cliente) => (
+            {clientesDisponiveis.map((cliente) => (
               <SelectItem key={cliente.id} value={cliente.id}>
                 {cliente.nome}
               </SelectItem>
@@ -210,13 +245,13 @@ export default function AdminFinanceiroPage() {
           </SelectContent>
         </Select>
 
-        <Select value={filtroVeiculoId} onValueChange={setFiltroVeiculoId}>
+        <Select value={filtroVeiculoId} onValueChange={handleFiltroVeiculo}>
           <SelectTrigger className="w-56">
             <SelectValue placeholder="Filtrar por carro" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={TODOS}>Todos os carros</SelectItem>
-            {veiculos.map((veiculo) => (
+            {veiculosDisponiveis.map((veiculo) => (
               <SelectItem key={veiculo.id} value={veiculo.id}>
                 {veiculo.marca} {veiculo.modelo} — {veiculo.placa}
               </SelectItem>
