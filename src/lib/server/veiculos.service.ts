@@ -79,6 +79,33 @@ export interface NovoVeiculoInput {
   categoria: string;
   combustivel: string;
   anexos: File[];
+  foto?: File;
+}
+
+const BUCKET_FOTOS_VEICULOS = "veiculos-fotos";
+
+/** Sobe a foto de perfil enviada pelo admin para o Storage e devolve a URL pública — melhor
+ * esforço: se falhar, o veículo continua com a foto padrão já atribuída (não bloqueia o
+ * cadastro). */
+async function enviarFotoVeiculo(
+  supabase: ReturnType<typeof createAdminClient>,
+  veiculoId: string,
+  foto: File
+): Promise<string | null> {
+  try {
+    const extensao = foto.type === "image/png" ? "png" : foto.type === "image/webp" ? "webp" : "jpg";
+    const caminho = `${veiculoId}.${extensao}`;
+    const { error: uploadError } = await supabase.storage
+      .from(BUCKET_FOTOS_VEICULOS)
+      .upload(caminho, await foto.arrayBuffer(), { contentType: foto.type, upsert: true });
+    if (uploadError) throw new Error(uploadError.message);
+
+    const { data } = supabase.storage.from(BUCKET_FOTOS_VEICULOS).getPublicUrl(caminho);
+    return `${data.publicUrl}?v=${Date.now()}`;
+  } catch (error) {
+    console.error("[veiculos] Falha ao enviar foto de perfil do veículo:", error);
+    return null;
+  }
 }
 
 export async function criarVeiculo(dados: NovoVeiculoInput): Promise<Veiculo> {
@@ -118,6 +145,19 @@ export async function criarVeiculo(dados: NovoVeiculoInput): Promise<Veiculo> {
     .select()
     .single();
   if (error || !veiculoRow) throw new Error(error?.message ?? "Não foi possível cadastrar o veículo.");
+
+  if (dados.foto) {
+    const urlFoto = await enviarFotoVeiculo(supabase, veiculoRow.id, dados.foto);
+    if (urlFoto) {
+      const { data: atualizado } = await supabase
+        .from("veiculos")
+        .update({ foto_url: urlFoto })
+        .eq("id", veiculoRow.id)
+        .select()
+        .single();
+      if (atualizado) Object.assign(veiculoRow, atualizado);
+    }
+  }
 
   if (dados.anexos.length > 0) {
     await supabase.from("documentos").insert(

@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { FileUploader } from "@/components/shared/file-uploader";
+import { ImageUploader } from "@/components/shared/image-uploader";
 
 const CATEGORIAS = ["Hatch", "Sedan", "SUV", "Picape", "Utilitário"];
 const COMBUSTIVEIS = ["Flex", "Gasolina", "Diesel", "Híbrido", "Elétrico"];
@@ -67,6 +68,7 @@ export default function NovoVeiculoPage() {
   const router = useRouter();
   const { usuario } = useAuth();
   const [anexos, setAnexos] = React.useState<File[]>([]);
+  const [foto, setFoto] = React.useState<File | null>(null);
   const [enviando, setEnviando] = React.useState(false);
 
   const {
@@ -85,7 +87,7 @@ export default function NovoVeiculoPage() {
   async function onSubmit(values: VeiculoFormValues) {
     setEnviando(true);
     try {
-      const veiculo = await criarVeiculo({ ...values, anexos });
+      const veiculo = await criarVeiculo({ ...values, anexos, foto: foto ?? undefined });
       if (usuario) {
         await registrarAcao({
           usuarioId: usuario.id,
@@ -216,6 +218,16 @@ export default function NovoVeiculoPage() {
                 )}
               />
             </Campo>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-foreground">Foto de perfil do veículo</CardTitle>
+            <CardDescription>Essa é a foto que o cliente verá no contrato e no dashboard.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ImageUploader arquivo={foto} onChange={setFoto} />
           </CardContent>
         </Card>
 

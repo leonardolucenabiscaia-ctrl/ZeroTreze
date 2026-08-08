@@ -7,10 +7,13 @@ export async function GET(request: NextRequest) {
   return handleRoute(() => (bloqueados ? listarVeiculosBloqueados() : listarVeiculos()));
 }
 
+export const maxDuration = 30;
+
 export async function POST(request: NextRequest) {
   return handleRoute(async () => {
     const formData = await request.formData();
     const anexos = formData.getAll("anexos").filter((v): v is File => v instanceof File);
+    const foto = formData.get("foto");
     const dados = {
       marca: String(formData.get("marca") ?? ""),
       modelo: String(formData.get("modelo") ?? ""),
@@ -22,6 +25,7 @@ export async function POST(request: NextRequest) {
       categoria: String(formData.get("categoria") ?? ""),
       combustivel: String(formData.get("combustivel") ?? ""),
       anexos,
+      foto: foto instanceof File ? foto : undefined,
     };
     return criarVeiculo(dados);
   }, 201);

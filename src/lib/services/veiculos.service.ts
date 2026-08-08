@@ -34,6 +34,7 @@ export interface NovoVeiculoInput {
   categoria: string;
   combustivel: string;
   anexos: File[];
+  foto?: File;
 }
 
 export async function criarVeiculo(dados: NovoVeiculoInput): Promise<Veiculo> {
@@ -48,6 +49,7 @@ export async function criarVeiculo(dados: NovoVeiculoInput): Promise<Veiculo> {
   formData.append("categoria", dados.categoria);
   formData.append("combustivel", dados.combustivel);
   dados.anexos.forEach((arquivo) => formData.append("anexos", arquivo));
+  if (dados.foto) formData.append("foto", dados.foto);
 
   return apiFetch<Veiculo>("/api/veiculos", { method: "POST", body: formData });
 }
