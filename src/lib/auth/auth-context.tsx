@@ -4,7 +4,6 @@ import * as React from "react";
 
 import { createClient } from "@/lib/supabase/client";
 import { apiFetch } from "@/lib/services/api-client";
-import { socialAuthProvider, type ProvedorSocial } from "@/lib/integrations/social-auth";
 import type { Cliente, Usuario } from "@/lib/types";
 
 interface PerfilResponse {
@@ -17,7 +16,6 @@ interface AuthContextValue {
   cliente: Cliente | null;
   isLoading: boolean;
   login: (identificador: string, senha: string) => Promise<Usuario>;
-  loginComProvedor: (provedor: ProvedorSocial) => Promise<Usuario>;
   iniciarLoginPorCodigo: (destino: string) => Promise<{ email: string }>;
   confirmarLoginPorCodigo: (email: string, codigo: string) => Promise<Usuario>;
   logout: () => Promise<void>;
@@ -82,21 +80,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return perfil.usuario;
   }, []);
 
-  const loginComProvedor = React.useCallback(async (provedor: ProvedorSocial) => {
-    // TODO(integração real): trocar por OAuth de verdade (supabase.auth.signInWithOAuth) quando
-    // os provedores estiverem configurados no painel do Supabase (exige criar o app OAuth no
-    // console do Google/Apple). Por ora, resolve o e-mail mockado do provedor e autentica com a
-    // senha padrão de demonstração dos usuários semeados.
-    const { email } = await socialAuthProvider.autenticar(provedor);
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({ email, password: "123456" });
-    if (error) throw new Error("Não encontramos uma conta vinculada a este provedor.");
-    const perfil = await buscarPerfilLogado();
-    setUsuario(perfil.usuario);
-    setCliente(perfil.cliente);
-    return perfil.usuario;
-  }, []);
-
   const iniciarLoginPorCodigo = React.useCallback(async (destino: string) => {
     const email = await resolverEmail(destino);
     const supabase = createClient();
@@ -131,12 +114,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       cliente,
       isLoading,
       login,
-      loginComProvedor,
       iniciarLoginPorCodigo,
       confirmarLoginPorCodigo,
       logout,
     }),
-    [usuario, cliente, isLoading, login, loginComProvedor, iniciarLoginPorCodigo, confirmarLoginPorCodigo, logout]
+    [usuario, cliente, isLoading, login, iniciarLoginPorCodigo, confirmarLoginPorCodigo, logout]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

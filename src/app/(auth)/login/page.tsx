@@ -6,17 +6,15 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { useAuth } from "@/lib/auth/auth-context";
-import type { ProvedorSocial } from "@/lib/integrations/social-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { GoogleIcon, AppleIcon } from "@/components/shared/social-icons";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, loginComProvedor, iniciarLoginPorCodigo } = useAuth();
+  const { login, iniciarLoginPorCodigo } = useAuth();
 
   const [identificador, setIdentificador] = React.useState("");
   const [senha, setSenha] = React.useState("");
@@ -24,8 +22,6 @@ export default function LoginPage() {
 
   const [destinoCodigo, setDestinoCodigo] = React.useState("");
   const [enviandoCodigo, setEnviandoCodigo] = React.useState(false);
-
-  const [provedorCarregando, setProvedorCarregando] = React.useState<ProvedorSocial | null>(null);
 
   async function handleLoginSenha(event: React.FormEvent) {
     event.preventDefault();
@@ -38,19 +34,6 @@ export default function LoginPage() {
       toast.error(error instanceof Error ? error.message : "Não foi possível entrar.");
     } finally {
       setCarregando(false);
-    }
-  }
-
-  async function handleLoginProvedor(provedor: ProvedorSocial) {
-    setProvedorCarregando(provedor);
-    try {
-      const usuario = await loginComProvedor(provedor);
-      toast.success(`Bem-vindo(a), ${usuario.nome.split(" ")[0]}!`);
-      router.push(usuario.perfil === "cliente" ? "/dashboard" : "/admin/dashboard");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Não foi possível entrar.");
-    } finally {
-      setProvedorCarregando(null);
     }
   }
 
@@ -132,35 +115,6 @@ export default function LoginPage() {
           </form>
         </TabsContent>
       </Tabs>
-
-      <div className="my-5 flex items-center gap-3">
-        <div className="h-px flex-1 bg-border" />
-        <span className="text-xs text-muted-foreground">ou continue com</span>
-        <div className="h-px flex-1 bg-border" />
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          size="lg"
-          disabled={provedorCarregando !== null}
-          onClick={() => handleLoginProvedor("google")}
-        >
-          <GoogleIcon className="size-4" />
-          {provedorCarregando === "google" ? "Entrando…" : "Entrar com Google"}
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="lg"
-          disabled={provedorCarregando !== null}
-          onClick={() => handleLoginProvedor("apple")}
-        >
-          <AppleIcon className="size-4" />
-          {provedorCarregando === "apple" ? "Entrando…" : "Entrar com Apple"}
-        </Button>
-      </div>
     </Card>
   );
 }
