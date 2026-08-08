@@ -33,7 +33,14 @@ export async function createSessionClient() {
         },
         setAll(cookiesToSet) {
           try {
-            cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options));
+            // @supabase/ssr sempre grava maxAge (400 dias) por conta própria, ignorando
+            // qualquer valor de cookieOptions passado aqui (bug confirmado lendo o código-fonte
+            // da versão instalada) — removendo maxAge/expires do que repassamos ao Next.js, o
+            // cookie vira um cookie de sessão de verdade (apagado ao fechar o navegador).
+            cookiesToSet.forEach(({ name, value, options }) => {
+              const { maxAge: _maxAge, expires: _expires, ...semExpiracao } = options ?? {};
+              cookieStore.set(name, value, semExpiracao);
+            });
           } catch {
             // Chamado a partir de um contexto que não pode escrever cookies (ex.: Server
             // Component) — sem problema, o proxy já cuida de renovar a sessão a cada navegação.

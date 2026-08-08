@@ -21,7 +21,14 @@ export async function atualizarSessao(request: NextRequest) {
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
           response = NextResponse.next({ request });
-          cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
+          // @supabase/ssr sempre grava maxAge (400 dias) por conta própria, ignorando qualquer
+          // cookieOptions passado (bug confirmado lendo o código-fonte da versão instalada) —
+          // removendo maxAge/expires aqui, o cookie vira um cookie de sessão de verdade
+          // (apagado ao fechar o navegador) em vez de sobreviver ~400 dias.
+          cookiesToSet.forEach(({ name, value, options }) => {
+            const { maxAge: _maxAge, expires: _expires, ...semExpiracao } = options ?? {};
+            response.cookies.set(name, value, semExpiracao);
+          });
         },
       },
     }
