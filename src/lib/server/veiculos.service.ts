@@ -78,6 +78,7 @@ export interface NovoVeiculoInput {
   chassi: string;
   categoria: string;
   combustivel: string;
+  quilometragem: number;
   anexos: File[];
   foto?: File;
 }
@@ -132,7 +133,7 @@ export async function criarVeiculo(dados: NovoVeiculoInput): Promise<Veiculo> {
       chassi: dados.chassi.toUpperCase(),
       categoria: dados.categoria,
       combustivel: dados.combustivel,
-      quilometragem: 0,
+      quilometragem: dados.quilometragem,
       foto_url: fotoDoVeiculo(dados.marca, dados.modelo),
       ultima_revisao: agora.toISOString(),
       proxima_revisao: addMonths(agora, 6).toISOString(),
@@ -173,4 +174,28 @@ export async function criarVeiculo(dados: NovoVeiculoInput): Promise<Veiculo> {
   }
 
   return mapVeiculo(veiculoRow, []);
+}
+
+/** A quilometragem só pode subir (odômetro real não anda pra trás) — rejeita valores menores que
+ * o atual. */
+export async function atualizarQuilometragem(veiculoId: string, quilometragem: number): Promise<Veiculo> {
+  const supabase = createAdminClient();
+
+  const { data: atual } = await supabase.from("veiculos").select("quilometragem").eq("id", veiculoId).maybeSingle();
+  if (!atual) throw new Error("Veículo não encontrado");
+  if (quilometragem < atual.quilometragem) {
+    throw new Error(
+      `A nova quilometragem não pode ser menor que a atual (${atual.quilometragem.toLocaleString("pt-BR")} km).`
+    );
+  }
+
+  const { data, error } = await supabase
+    .from("veiculos")
+    .update({ quilometragem })
+    .eq("id", veiculoId)
+    .select()
+    .single();
+  if (error || !data) throw new Error("Veículo não encontrado");
+  const [veiculo] = await anexarHistorico(supabase, [data]);
+  return veiculo;
 }

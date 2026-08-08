@@ -60,6 +60,7 @@ const veiculoSchema = z.object({
     .refine((v) => v.length === 17, "Chassi deve ter 17 caracteres"),
   categoria: z.string().min(1, "Selecione a categoria"),
   combustivel: z.string().min(1, "Selecione o combustível"),
+  quilometragem: z.number().int("Quilometragem inválida").min(0, "Quilometragem inválida"),
 });
 
 type VeiculoFormValues = z.infer<typeof veiculoSchema>;
@@ -134,6 +135,15 @@ export default function NovoVeiculoPage() {
                 min={1980}
                 max={anoAtual + 1}
                 placeholder={String(anoAtual)}
+              />
+            </Campo>
+
+            <Campo label="Quilometragem atual" erro={errors.quilometragem?.message}>
+              <Input
+                {...register("quilometragem", { valueAsNumber: true })}
+                type="number"
+                min={0}
+                placeholder="0"
               />
             </Campo>
 

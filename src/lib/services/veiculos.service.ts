@@ -23,6 +23,14 @@ export async function desbloquearVeiculo(veiculoId: string): Promise<Veiculo> {
   return apiFetch<Veiculo>(`/api/veiculos/${veiculoId}/desbloquear`, { method: "POST" });
 }
 
+/** A quilometragem só pode subir — o servidor rejeita valores menores que o atual. */
+export async function atualizarQuilometragem(veiculoId: string, quilometragem: number): Promise<Veiculo> {
+  return apiFetch<Veiculo>(`/api/veiculos/${veiculoId}/quilometragem`, {
+    method: "POST",
+    body: JSON.stringify({ quilometragem }),
+  });
+}
+
 export interface NovoVeiculoInput {
   marca: string;
   modelo: string;
@@ -33,6 +41,7 @@ export interface NovoVeiculoInput {
   chassi: string;
   categoria: string;
   combustivel: string;
+  quilometragem: number;
   anexos: File[];
   foto?: File;
 }
@@ -48,6 +57,7 @@ export async function criarVeiculo(dados: NovoVeiculoInput): Promise<Veiculo> {
   formData.append("chassi", dados.chassi);
   formData.append("categoria", dados.categoria);
   formData.append("combustivel", dados.combustivel);
+  formData.append("quilometragem", String(dados.quilometragem));
   dados.anexos.forEach((arquivo) => formData.append("anexos", arquivo));
   if (dados.foto) formData.append("foto", dados.foto);
 

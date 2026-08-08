@@ -24,6 +24,7 @@ export async function POST(request: NextRequest) {
       chassi: String(formData.get("chassi") ?? ""),
       categoria: String(formData.get("categoria") ?? ""),
       combustivel: String(formData.get("combustivel") ?? ""),
+      quilometragem: Number(formData.get("quilometragem") ?? 0),
       anexos,
       foto: foto instanceof File ? foto : undefined,
     };
