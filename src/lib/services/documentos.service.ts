@@ -9,6 +9,10 @@ export async function listarDocumentosPorCliente(
   return apiFetch<Documento[]>(`/api/documentos${query}`);
 }
 
+export async function listarDocumentosPorVeiculo(veiculoId: string): Promise<Documento[]> {
+  return apiFetch<Documento[]>(`/api/documentos?veiculoId=${veiculoId}`);
+}
+
 export async function listarDocumentos(): Promise<Documento[]> {
   return apiFetch<Documento[]>("/api/documentos");
 }

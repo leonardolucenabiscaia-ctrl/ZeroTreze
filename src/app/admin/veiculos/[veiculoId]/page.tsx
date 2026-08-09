@@ -2,20 +2,23 @@
 
 import * as React from "react";
 import { useParams } from "next/navigation";
-import { Pencil, Wrench } from "lucide-react";
+import { FileText, FolderOpen, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
 import { buscarVeiculoPorId, atualizarQuilometragem } from "@/lib/services/veiculos.service";
+import { listarDocumentosPorVeiculo } from "@/lib/services/documentos.service";
 import { registrarAcao } from "@/lib/services/auditoria.service";
 import { useAuth } from "@/lib/auth/auth-context";
 import { formatDate } from "@/lib/utils/formatters";
-import type { Veiculo } from "@/lib/types";
+import type { Documento, Veiculo } from "@/lib/types";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/shared/empty-state";
 import {
   Dialog,
   DialogContent,
@@ -25,16 +28,31 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 
+const CATEGORIA_LABEL: Record<string, string> = {
+  contrato: "Contrato",
+  crlv: "CRLV",
+  licenciamento: "Licenciamento",
+  apolice: "Apólice",
+  comprovante: "Comprovante",
+  boleto: "Boleto",
+  nota_fiscal: "Nota fiscal",
+  recibo: "Recibo",
+  cadastro: "Cadastro",
+  acordo: "Acordo",
+};
+
 export default function AdminVeiculoDetalhePage() {
   const params = useParams<{ veiculoId: string }>();
   const { usuario } = useAuth();
   const [veiculo, setVeiculo] = React.useState<Veiculo | null>(null);
+  const [documentos, setDocumentos] = React.useState<Documento[]>([]);
   const [editandoKm, setEditandoKm] = React.useState(false);
   const [novaQuilometragem, setNovaQuilometragem] = React.useState("");
   const [salvandoKm, setSalvandoKm] = React.useState(false);
 
   React.useEffect(() => {
     buscarVeiculoPorId(params.veiculoId).then((v) => setVeiculo(v ?? null));
+    listarDocumentosPorVeiculo(params.veiculoId).then(setDocumentos);
   }, [params.veiculoId]);
 
   function abrirEdicaoKm() {
@@ -152,20 +170,27 @@ export default function AdminVeiculoDetalhePage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-foreground">
-            <Wrench className="size-4 text-gold" />
-            Histórico de manutenção
+            <FileText className="size-4 text-gold" />
+            Documentos
           </CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col divide-y divide-border">
-          {veiculo.historicoManutencao.map((item) => (
-            <div key={item.id} className="flex items-center justify-between py-2 text-sm">
-              <div>
-                <p className="font-medium text-foreground">{item.descricao}</p>
-                <p className="text-xs text-muted-foreground">{item.oficina}</p>
-              </div>
-              <p className="text-xs text-muted-foreground">{formatDate(item.data)}</p>
+        <CardContent>
+          {documentos.length === 0 ? (
+            <EmptyState icon={FolderOpen} title="Nenhum documento vinculado a este veículo" />
+          ) : (
+            <div className="flex flex-col divide-y divide-border">
+              {documentos.map((doc) => (
+                <div key={doc.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <FileText className="size-4 shrink-0 text-gold" />
+                    <span className="font-medium text-foreground">{doc.nome}</span>
+                    <Badge variant="outline">{CATEGORIA_LABEL[doc.categoria] ?? doc.categoria}</Badge>
+                  </div>
+                  <p className="shrink-0 text-xs text-muted-foreground">{formatDate(doc.criadoEm)}</p>
+                </div>
+              ))}
             </div>
-          ))}
+          )}
         </CardContent>
       </Card>
     </div>

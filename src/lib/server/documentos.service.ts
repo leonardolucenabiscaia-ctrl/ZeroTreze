@@ -15,6 +15,13 @@ export async function listarDocumentosPorCliente(
   return (data ?? []).map(mapDocumento);
 }
 
+export async function listarDocumentosPorVeiculo(veiculoId: string): Promise<Documento[]> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase.from("documentos").select("*").eq("veiculo_id", veiculoId);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map(mapDocumento);
+}
+
 export async function listarDocumentos(): Promise<Documento[]> {
   const supabase = createAdminClient();
   const { data, error } = await supabase.from("documentos").select("*");
