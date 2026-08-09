@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { AlertTriangle, Lock, Printer, Unlock } from "lucide-react";
+import { AlertTriangle, FileCheck2, Lock, Printer, Unlock } from "lucide-react";
 import { toast } from "sonner";
 
 import { useAuth } from "@/lib/auth/auth-context";
@@ -16,6 +16,7 @@ import {
   obterParametrosFinanceiros,
 } from "@/lib/services/financeiro.service";
 import { registrarAcao } from "@/lib/services/auditoria.service";
+import { formatDateTime } from "@/lib/utils/formatters";
 import type { Cliente, Contrato, ParametrosFinanceiros, Parcela, Veiculo } from "@/lib/types";
 
 import { VehicleCard } from "@/components/shared/vehicle-card";
@@ -24,6 +25,13 @@ import { ParcelaDetalheDialog, type DescontoParcelaInput } from "@/components/sh
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+
+/** O status da DocuSign é uma string livre (reflete o que a API deles manda) — "completed"
+ * aparece tanto puro quanto prefixado (ex.: "envelope-completed"), daí o teste por substring. */
+function assinaturaConcluida(status: string): boolean {
+  return /completed|signed|assin/i.test(status);
+}
 import {
   Dialog,
   DialogContent,
@@ -142,16 +150,37 @@ export default function AdminContratoDetalhePage() {
   return (
     <div className="flex flex-col gap-4">
       <Card className="flex-row items-center justify-between">
-        {cliente ? (
-          <div>
-            <p className="text-xs text-muted-foreground">Cliente</p>
-            <Link href={`/admin/clientes/${cliente.id}`} className="text-lg font-semibold text-foreground hover:text-gold">
-              {cliente.nome}
-            </Link>
-          </div>
-        ) : (
-          <div />
-        )}
+        <div className="flex items-center gap-6">
+          {cliente ? (
+            <div>
+              <p className="text-xs text-muted-foreground">Cliente</p>
+              <Link href={`/admin/clientes/${cliente.id}`} className="text-lg font-semibold text-foreground hover:text-gold">
+                {cliente.nome}
+              </Link>
+            </div>
+          ) : (
+            <div />
+          )}
+
+          {contrato.assinatura && (
+            <div>
+              <p className="text-xs text-muted-foreground">Assinatura eletrônica</p>
+              {assinaturaConcluida(contrato.assinatura.status) ? (
+                <div className="flex items-center gap-1.5">
+                  <Badge variant="success">
+                    <FileCheck2 className="size-3" />
+                    Assinado
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">
+                    em {formatDateTime(contrato.assinatura.atualizadoEm ?? contrato.assinatura.enviadoEm)}
+                  </span>
+                </div>
+              ) : (
+                <Badge variant="warning">{contrato.assinatura.status}</Badge>
+              )}
+            </div>
+          )}
+        </div>
         <div className="flex gap-2">
           <Button asChild size="sm" variant="outline">
             <Link href={`/imprimir/contrato/${contrato.id}`}>
