@@ -16,8 +16,6 @@ interface AuthContextValue {
   cliente: Cliente | null;
   isLoading: boolean;
   login: (identificador: string, senha: string) => Promise<Usuario>;
-  iniciarLoginPorCodigo: (destino: string) => Promise<{ email: string }>;
-  confirmarLoginPorCodigo: (email: string, codigo: string) => Promise<Usuario>;
   logout: () => Promise<void>;
 }
 
@@ -80,27 +78,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return perfil.usuario;
   }, []);
 
-  const iniciarLoginPorCodigo = React.useCallback(async (destino: string) => {
-    const email = await resolverEmail(destino);
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: { shouldCreateUser: false },
-    });
-    if (error) throw new Error("Não foi possível enviar o código. Verifique os dados informados.");
-    return { email };
-  }, []);
-
-  const confirmarLoginPorCodigo = React.useCallback(async (email: string, codigo: string) => {
-    const supabase = createClient();
-    const { error } = await supabase.auth.verifyOtp({ email, token: codigo, type: "email" });
-    if (error) throw new Error("Código inválido. Tente novamente.");
-    const perfil = await buscarPerfilLogado();
-    setUsuario(perfil.usuario);
-    setCliente(perfil.cliente);
-    return perfil.usuario;
-  }, []);
-
   const logout = React.useCallback(async () => {
     const supabase = createClient();
     await supabase.auth.signOut();
@@ -114,11 +91,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       cliente,
       isLoading,
       login,
-      iniciarLoginPorCodigo,
-      confirmarLoginPorCodigo,
       logout,
     }),
-    [usuario, cliente, isLoading, login, iniciarLoginPorCodigo, confirmarLoginPorCodigo, logout]
+    [usuario, cliente, isLoading, login, logout]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
