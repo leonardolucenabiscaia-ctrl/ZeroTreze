@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { CheckCircle2 } from "lucide-react";
 
@@ -13,21 +14,25 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type Etapa = "codigo" | "senha" | "concluido";
 
 /**
- * Fluxo de duas etapas — email+código, depois senha — em vez de um link clicável de e-mail: o
- * link mágico da Supabase se mostrou vulnerável a scanners de segurança de e-mail (ex.: o Gmail
- * abre automaticamente os links pra checar se são seguros, consumindo o token de uso único antes
- * do usuário clicar de verdade — ver `auth-invite.ts`). Um código digitado manualmente não sofre
- * disso.
+ * Email + código, depois senha. Nunca é um link que loga sozinho ao ser aberto: o link mágico
+ * "puro" da Supabase se mostrou vulnerável a scanners de segurança de e-mail (ex.: o Gmail abre
+ * automaticamente os links pra checar se são seguros, consumindo o token de uso único antes do
+ * usuário clicar de verdade — ver `auth-invite.ts`). Em vez disso, o link do e-mail só pré-enche
+ * email/código via query string (?email=...&codigo=...) — nada é validado até o usuário clicar
+ * em "Confirmar" de propósito, o que um scanner nunca faz. Digitar manualmente continua
+ * funcionando do mesmo jeito.
  */
-export default function DefinirSenhaPage() {
+function DefinirSenhaForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [etapa, setEtapa] = React.useState<Etapa>("codigo");
-  const [email, setEmail] = React.useState("");
-  const [codigo, setCodigo] = React.useState("");
+  const [email, setEmail] = React.useState(() => searchParams.get("email") ?? "");
+  const [codigo, setCodigo] = React.useState(() => searchParams.get("codigo") ?? "");
   const [senha, setSenha] = React.useState("");
   const [confirmarSenha, setConfirmarSenha] = React.useState("");
   const [enviando, setEnviando] = React.useState(false);
@@ -166,5 +171,13 @@ export default function DefinirSenhaPage() {
         </Button>
       </form>
     </Card>
+  );
+}
+
+export default function DefinirSenhaPage() {
+  return (
+    <Suspense fallback={<Skeleton className="h-72 w-full" />}>
+      <DefinirSenhaForm />
+    </Suspense>
   );
 }
