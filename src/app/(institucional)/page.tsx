@@ -75,6 +75,37 @@ export default function InicioPage() {
             alt="Frota da Zero Treze Transportes: sedan, van e ônibus"
             className="mx-auto mt-10 w-full max-w-3xl"
           />
+
+          <div className="mt-16 grid gap-10 sm:grid-cols-2">
+            <div className="flex flex-col gap-8">
+              <div>
+                <h3 className="text-center text-xl font-bold text-foreground">MISSÃO</h3>
+                <p className="mt-4 text-center text-muted-foreground">
+                  Oferecer transporte com segurança, qualidade, pontualidade, atingindo o grau
+                  máximo de satisfação dos nossos clientes.
+                </p>
+              </div>
+              <div>
+                <h3 className="text-center text-xl font-bold text-foreground">VISÃO</h3>
+                <p className="mt-4 text-center text-muted-foreground">
+                  Estar entre as melhores Empresas nacionais de Transporte de Pessoas e ser
+                  reconhecida pela excelência no atendimento ao cliente, colaboradores e parceiros.
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-center text-xl font-bold text-foreground">VALORES</h3>
+              <ul className="mt-4 flex flex-col gap-2 text-muted-foreground">
+                <li>- Segurança. A vida em primeiro lugar;</li>
+                <li>- Reconhecimento por quem faz nossa empresa;</li>
+                <li>- Comprometimento com a qualidade e resultados;</li>
+                <li>- Respeito aos nossos clientes, colaboradores e parceiros;</li>
+                <li>- Honestidade em nossa conduta e gerenciamento;</li>
+                <li>- Simplicidade e Transparência em nosso relacionamento e comunicação.</li>
+              </ul>
+            </div>
+          </div>
         </div>
       </section>
 
