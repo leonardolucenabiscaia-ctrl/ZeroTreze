@@ -137,8 +137,12 @@ export default function InicioPage() {
               <MessageCircle className="size-6 text-gold" />
               <h3 className="mt-4 text-lg font-semibold text-foreground">Telefone e e-mail</h3>
               <p className="mt-2 text-sm text-muted-foreground">
-                Página em finalização — me passe o telefone/WhatsApp e o e-mail de contato que
-                você quer publicar aqui.
+                <a href="https://wa.me/5513992030351" className="block hover:text-gold">
+                  (13) 99203-0351
+                </a>
+                <a href="mailto:comercial@zerotrezetransportes.com.br" className="mt-1 block hover:text-gold">
+                  comercial@zerotrezetransportes.com.br
+                </a>
               </p>
             </div>
           </div>
