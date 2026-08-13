@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MapPin, MessageCircle } from "lucide-react";
+import { Mail, Phone } from "lucide-react";
 
 import { HeroSlider } from "@/components/shared/hero-slider";
 
@@ -124,26 +124,26 @@ export default function InicioPage() {
           </p>
 
           <div className="mt-10 grid gap-4 sm:grid-cols-2">
-            <div className="rounded-xl border border-border bg-card p-6">
-              <MapPin className="size-6 text-gold" />
-              <h3 className="mt-4 text-lg font-semibold text-foreground">Endereço</h3>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Rua Antônio Pereira Roque, nº 882, Parque Balneário Oasis, Peruíbe/SP — CEP
-                11.750-000
-              </p>
+            <div className="rounded-xl border border-gold/30 bg-gold-muted p-6">
+              <Phone className="size-6 text-gold" />
+              <h3 className="mt-4 text-lg font-semibold text-foreground">Telefone</h3>
+              <a
+                href="https://wa.me/5513992030351"
+                className="mt-2 block text-sm text-muted-foreground hover:text-gold"
+              >
+                (13) 99203-0351
+              </a>
             </div>
 
             <div className="rounded-xl border border-gold/30 bg-gold-muted p-6">
-              <MessageCircle className="size-6 text-gold" />
-              <h3 className="mt-4 text-lg font-semibold text-foreground">Telefone e e-mail</h3>
-              <p className="mt-2 text-sm text-muted-foreground">
-                <a href="https://wa.me/5513992030351" className="block hover:text-gold">
-                  (13) 99203-0351
-                </a>
-                <a href="mailto:comercial@zerotrezetransportes.com.br" className="mt-1 block hover:text-gold">
-                  comercial@zerotrezetransportes.com.br
-                </a>
-              </p>
+              <Mail className="size-6 text-gold" />
+              <h3 className="mt-4 text-lg font-semibold text-foreground">E-mail</h3>
+              <a
+                href="mailto:comercial@zerotrezetransportes.com.br"
+                className="mt-2 block text-sm text-muted-foreground hover:text-gold"
+              >
+                comercial@zerotrezetransportes.com.br
+              </a>
             </div>
           </div>
 
