@@ -5,10 +5,6 @@ import { atualizarSessao } from "@/lib/supabase/middleware";
 import type { PerfilUsuario } from "@/lib/types";
 
 const ROTAS_AUTH = ["/login", "/esqueci-senha", "/definir-senha"];
-// Site institucional (Início, Sobre Nós, Credenciamentos, Contato) — sempre público, nunca
-// redireciona ninguém, esteja logado ou não (diferente das rotas de auth, que "empurram" quem já
-// está logado direto pro dashboard).
-const ROTAS_INSTITUCIONAIS = ["/sobre-nos", "/credenciamentos", "/contato"];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -17,7 +13,9 @@ export async function proxy(request: NextRequest) {
   // usuário), gravado ali exatamente para permitir essa checagem otimista sem consulta ao banco.
   const perfil = user?.app_metadata?.perfil as PerfilUsuario | undefined;
 
-  if (pathname === "/" || ROTAS_INSTITUCIONAIS.some((rota) => pathname.startsWith(rota))) {
+  // Página institucional (Início/Sobre Nós/Credenciamentos/Contato são âncoras dentro dela) —
+  // sempre pública, nunca redireciona ninguém, esteja logado ou não.
+  if (pathname === "/") {
     return response;
   }
 

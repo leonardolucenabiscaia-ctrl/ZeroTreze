@@ -1,10 +1,12 @@
 import Link from "next/link";
 
+// Página única — os itens (exceto "Acessar área do cliente") rolam até a seção correspondente
+// em vez de navegar pra uma URL diferente.
 const NAV_ITEMS = [
-  { href: "/", label: "Início" },
-  { href: "/sobre-nos", label: "Sobre Nós" },
-  { href: "/credenciamentos", label: "Credenciamentos" },
-  { href: "/contato", label: "Contato" },
+  { href: "/#inicio", label: "Início" },
+  { href: "/#sobre-nos", label: "Sobre Nós" },
+  { href: "/#credenciamentos", label: "Credenciamentos" },
+  { href: "/#contato", label: "Contato" },
 ];
 
 export default function InstitucionalLayout({ children }: { children: React.ReactNode }) {
