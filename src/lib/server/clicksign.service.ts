@@ -61,7 +61,7 @@ async function adicionarDocumento(envelopeId: string, nomeArquivo: string, pdfBu
         type: "documents",
         attributes: {
           filename: nomeArquivo.toLowerCase().endsWith(".pdf") ? nomeArquivo : `${nomeArquivo}.pdf`,
-          content_base64: pdfBuffer.toString("base64"),
+          content_base64: `data:application/pdf;base64,${pdfBuffer.toString("base64")}`,
         },
       },
     }),
@@ -92,18 +92,28 @@ async function adicionarSignatario(envelopeId: string, nome: string, email: stri
   return resp.data.id;
 }
 
+/** A ClickSign exige dois requisitos por signatário antes de ativar o envelope: a assinatura em
+ * si (`action: "agree"`, `role: "sign"`) e uma evidência de autenticação (`action:
+ * "provide_evidence"`) — sem essa segunda, a ativação falha com HTTP 422 ("há signatário(s) sem
+ * os requisitos necessários para ativação"), confirmado testando direto contra o sandbox. Usamos
+ * `auth: "email"` (o próprio link de assinatura por e-mail já basta como evidência). */
 async function criarRequisitoAssinatura(envelopeId: string, documentId: string, signerId: string): Promise<void> {
+  const relationships = {
+    document: { data: { type: "documents", id: documentId } },
+    signer: { data: { type: "signers", id: signerId } },
+  };
+
   await clicksignFetch(`/envelopes/${envelopeId}/requirements`, {
     method: "POST",
     body: JSON.stringify({
-      data: {
-        type: "requirements",
-        attributes: { action: "agree", role: "sign" },
-        relationships: {
-          document: { data: { type: "documents", id: documentId } },
-          signer: { data: { type: "signers", id: signerId } },
-        },
-      },
+      data: { type: "requirements", attributes: { action: "agree", role: "sign" }, relationships },
+    }),
+  });
+
+  await clicksignFetch(`/envelopes/${envelopeId}/requirements`, {
+    method: "POST",
+    body: JSON.stringify({
+      data: { type: "requirements", attributes: { action: "provide_evidence", auth: "email" }, relationships },
     }),
   });
 }
