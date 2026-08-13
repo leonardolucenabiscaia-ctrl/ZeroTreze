@@ -91,6 +91,28 @@ export default function InicioPage() {
         </div>
       </section>
 
+      {/* Credenciamentos */}
+      <section id="credenciamentos" className="scroll-mt-16 border-t border-border">
+        <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6">
+          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-gold">Credenciamentos</p>
+          <h2 className="mt-2 text-3xl font-bold text-foreground sm:text-4xl">
+            Órgãos que credenciam a Zero Treze
+          </h2>
+
+          <div className="mt-10 flex flex-wrap items-center justify-center gap-6 rounded-xl bg-white p-8 sm:justify-between">
+            {[
+              { src: "/credenciamentos/antt.png", alt: "ANTT — Agência Nacional de Transportes Terrestres" },
+              { src: "/credenciamentos/artesp.png", alt: "ARTESP" },
+              { src: "/credenciamentos/emtu.png", alt: "EMTU" },
+              { src: "/credenciamentos/embratur.png", alt: "EMBRATUR" },
+            ].map((logo) => (
+              // eslint-disable-next-line @next/next/no-img-element -- logos estáticos de órgãos reguladores
+              <img key={logo.src} src={logo.src} alt={logo.alt} className="h-10 w-auto object-contain sm:h-12" />
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Contato */}
       <section id="contato" className="scroll-mt-16 border-t border-border">
         <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6">
