@@ -39,6 +39,31 @@ export default function SobreNosPage() {
           </div>
         ))}
       </div>
+
+      <div className="mt-16 border-t border-border pt-12">
+        <h2 className="text-center text-2xl font-bold text-foreground">SOBRE NÓS</h2>
+        <div className="mx-auto mt-6 flex max-w-3xl flex-col gap-4 text-muted-foreground">
+          <p>
+            Com uma sólida experiência no ramo de transporte executivo, a Zero Treze Transportes e
+            Turismo possui a proposta de oferecer o serviço Premium, atuando em operações de
+            linhas de fretamento corporativo e turismo na Baixa Santista, Grande São Paulo e
+            demais regiões.
+          </p>
+          <p>
+            Dispomos de uma infraestrutura completa, contando com garagem e oficina própria para
+            qualidade, rapidez e eficiência em nossos serviços.
+          </p>
+          <p>
+            Valorizamos a dedicação no atendimento, informações e negociações com o cliente.
+            Prezamos por padrões de qualidade em todos os processos do transporte, do embarque à
+            chegada dos passageiros em seus destinos.
+          </p>
+          <p>
+            A ZERO TREZE Transportes e Turismo prioriza a fidelização dos seus clientes por meio
+            da completa satisfação e captação de novos parceiros.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
