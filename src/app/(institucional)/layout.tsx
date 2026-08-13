@@ -47,9 +47,7 @@ export default function InstitucionalLayout({ children }: { children: React.Reac
       <footer className="border-t border-border/60 py-8">
         <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 text-xs text-muted-foreground sm:px-6">
           <p className="font-medium text-foreground">Zero Treze Transportes</p>
-          <p>Rua Antônio Pereira Roque, nº 882, Parque Balneário Oasis, Peruíbe/SP — CEP 11.750-000</p>
-          <p>CNPJ 27.799.265/0001-58</p>
-          <p className="mt-2">© {new Date().getFullYear()} Zero Treze Transportes. Todos os direitos reservados.</p>
+          <p>© {new Date().getFullYear()} Zero Treze Transportes. Todos os direitos reservados.</p>
         </div>
       </footer>
     </div>
