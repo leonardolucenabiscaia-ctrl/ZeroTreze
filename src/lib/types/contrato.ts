@@ -8,8 +8,8 @@ export interface AditivoContrato {
   arquivoUrl: string;
 }
 
-/** Status da solicitação de assinatura eletrônica na DocuSign — string livre porque reflete
- * exatamente o que a API deles envia (ex.: "sent", "delivered", "completed", "declined", "voided"). */
+/** Status da solicitação de assinatura eletrônica na ClickSign — string livre porque reflete
+ * exatamente o que a API deles envia (ex.: "draft", "running", "closed", "canceled"). */
 export interface AssinaturaContrato {
   status: string;
   requestId: number;

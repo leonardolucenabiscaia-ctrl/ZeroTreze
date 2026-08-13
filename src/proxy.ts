@@ -55,6 +55,6 @@ export const config = {
   // Além das rotas internas do Next, libera qualquer arquivo estático da pasta public/
   // (imagens, ícones etc.) — sem isso o proxy tratava esses arquivos como navegação de página.
   // "api/" também fica de fora: rotas de API (ex.: webhooks de integrações externas, como a
-  // DocuSign) não têm cookie de sessão de navegador e devem cuidar da própria autenticação.
+  // ClickSign) não têm cookie de sessão de navegador e devem cuidar da própria autenticação.
   matcher: ["/((?!_next/static|_next/image|api/|mock/|.*\\.(?:ico|png|jpe?g|webp|gif|svg|avif)$).*)"],
 };

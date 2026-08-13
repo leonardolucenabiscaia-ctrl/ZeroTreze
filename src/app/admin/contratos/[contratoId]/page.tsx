@@ -27,10 +27,11 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
-/** O status da DocuSign é uma string livre (reflete o que a API deles manda) — "completed"
- * aparece tanto puro quanto prefixado (ex.: "envelope-completed"), daí o teste por substring. */
+/** O status da ClickSign é uma string livre (reflete o que a API deles manda ou o nome do evento
+ * de webhook) — o envelope fica "closed" quando todo mundo assina; "document_closed" é o nome do
+ * evento de webhook equivalente. */
 function assinaturaConcluida(status: string): boolean {
-  return /completed|signed|assin/i.test(status);
+  return /closed|completed|signed|assin/i.test(status);
 }
 import {
   Dialog,

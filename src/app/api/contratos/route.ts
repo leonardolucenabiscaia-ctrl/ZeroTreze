@@ -8,7 +8,7 @@ import {
 } from "@/lib/server/contratos.service";
 import { handleRoute } from "@/lib/server/route-helpers";
 
-// A criação de contrato gera o PDF e envia para assinatura na DocuSign — pode levar mais que o
+// A criação de contrato gera o PDF e envia para assinatura na ClickSign — pode levar mais que o
 // padrão de 10s da Vercel.
 export const maxDuration = 30;
 
