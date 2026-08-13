@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Bus, Car, FileCheck2, MapPin, MessageCircle, Users } from "lucide-react";
+import { MapPin, MessageCircle } from "lucide-react";
 
 import { HeroSlider } from "@/components/shared/hero-slider";
 
@@ -15,24 +15,6 @@ const SLIDES = [
   {
     titulo: "Excursão e Turismo",
     subtitulo: "Viagens em grupo com toda a estrutura, do embarque ao destino.",
-  },
-];
-
-const SERVICOS = [
-  {
-    icon: Bus,
-    titulo: "Fretamento Diário",
-    descricao: "Transporte de funcionários e equipes com rotas fixas, pontualidade e segurança no dia a dia.",
-  },
-  {
-    icon: Car,
-    titulo: "Transporte Executivo",
-    descricao: "Veículos de alto padrão para executivos, reuniões e eventos corporativos.",
-  },
-  {
-    icon: Users,
-    titulo: "Excursão e Turismo",
-    descricao: "Viagens em grupo para eventos, passeios e turismo religioso, com estrutura completa.",
   },
 ];
 
@@ -104,51 +86,6 @@ export default function InicioPage() {
                 <li>- Honestidade em nossa conduta e gerenciamento;</li>
                 <li>- Simplicidade e Transparência em nosso relacionamento e comunicação.</li>
               </ul>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Serviços */}
-      <section className="border-t border-border">
-        <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-gold">Nossos serviços</p>
-          <h2 className="mt-2 text-2xl font-bold text-foreground sm:text-3xl">
-            Soluções completas em transporte
-          </h2>
-
-          <div className="mt-8 grid gap-4 sm:grid-cols-3">
-            {SERVICOS.map((servico) => (
-              <div key={servico.titulo} className="rounded-xl border border-border bg-card p-6">
-                <servico.icon className="size-6 text-gold" />
-                <h3 className="mt-4 text-lg font-semibold text-foreground">{servico.titulo}</h3>
-                <p className="mt-2 text-sm text-muted-foreground">{servico.descricao}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Credenciamentos */}
-      <section id="credenciamentos" className="scroll-mt-16 border-t border-border">
-        <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-gold">Credenciamentos</p>
-          <h2 className="mt-2 text-3xl font-bold text-foreground sm:text-4xl">
-            Regularidade e conformidade
-          </h2>
-          <p className="mt-4 max-w-2xl text-muted-foreground">
-            A Zero Treze Transportes opera em conformidade com os órgãos reguladores de transporte
-            de passageiros, mantendo toda a documentação da frota e da empresa em dia.
-          </p>
-
-          <div className="mt-10 flex items-start gap-3 rounded-xl border border-gold/30 bg-gold-muted p-6">
-            <FileCheck2 className="mt-0.5 size-5 shrink-0 text-gold" />
-            <div className="text-sm text-foreground">
-              <p className="font-medium">Página em finalização</p>
-              <p className="mt-1 text-muted-foreground">
-                Assim que você me passar os números de registro (ANTT, licenças municipais,
-                apólice de seguro etc.), eu coloco cada credenciamento aqui com os dados corretos.
-              </p>
             </div>
           </div>
         </div>

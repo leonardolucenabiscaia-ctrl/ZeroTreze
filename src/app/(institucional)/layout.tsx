@@ -5,7 +5,6 @@ import Link from "next/link";
 const NAV_ITEMS = [
   { href: "/#inicio", label: "Início" },
   { href: "/#sobre-nos", label: "Sobre Nós" },
-  { href: "/#credenciamentos", label: "Credenciamentos" },
   { href: "/#contato", label: "Contato" },
 ];
 
