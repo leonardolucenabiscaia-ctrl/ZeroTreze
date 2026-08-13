@@ -106,6 +106,13 @@ export default function InicioPage() {
                 meio da completa satisfação e captação de novos parceiros.
               </p>
             </div>
+
+            {/* eslint-disable-next-line @next/next/no-img-element -- imagem estática da frota */}
+            <img
+              src="/frota-zero-treze.webp"
+              alt="Frota da Zero Treze Transportes: sedan, van e ônibus"
+              className="mx-auto mt-10 w-full max-w-3xl"
+            />
           </div>
         </div>
       </section>
