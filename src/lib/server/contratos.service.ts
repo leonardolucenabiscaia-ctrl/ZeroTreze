@@ -183,8 +183,10 @@ export async function criarContrato(dados: NovoContratoInput): Promise<Contrato>
  * cliente não tiver e-mail, o contrato continua criado normalmente — só não fica com `assinatura`
  * preenchido, e o erro fica registrado no log do servidor.
  *
- * `assinatura_document_key` guarda o `envelopeId` da ClickSign (identificador canônico do envio)
- * — `assinatura_request_id`/`assinatura_signing_key` não têm equivalente direto no modelo da
+ * `assinatura_document_key` guarda o `documentId` da ClickSign — não o `envelopeId`, apesar do
+ * nome da coluna: confirmado testando ao vivo que o payload do webhook (`document_closed`) só
+ * traz `document.key`, então é isso que precisa bater na hora de encontrar o contrato de volta.
+ * `assinatura_request_id`/`assinatura_signing_key` não têm equivalente direto no modelo da
  * ClickSign e ficam null.
  */
 async function enviarContratoParaAssinaturaSeConfigurado(
@@ -222,7 +224,7 @@ async function enviarContratoParaAssinaturaSeConfigurado(
     const { data: atualizado } = await supabase
       .from("contratos")
       .update({
-        assinatura_document_key: resultado.envelopeId,
+        assinatura_document_key: resultado.documentId,
         assinatura_status: resultado.status,
         assinatura_enviado_em: agora,
         assinatura_atualizado_em: agora,

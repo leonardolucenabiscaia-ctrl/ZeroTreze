@@ -9,7 +9,9 @@ export interface EnviarParaAssinaturaInput {
 }
 
 export interface RespostaEnvioClickSign {
-  envelopeId: string;
+  /** ID do *documento* (não do envelope) — confirmado testando ao vivo que é esse o identificador
+   * que vem no payload do webhook (`document.key`), não o envelopeId. */
+  documentId: string;
   status: string;
 }
 
@@ -145,5 +147,5 @@ export async function enviarDocumentoParaAssinatura(
   await criarRequisitoAssinatura(envelopeId, documentId, signerId);
   const status = await ativarEnvelope(envelopeId);
 
-  return { envelopeId, status };
+  return { documentId, status };
 }

@@ -4,15 +4,17 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { criarNotificacao } from "@/lib/server/notificacoes.service";
 
 /**
- * Recebe as notificações da ClickSign (configurado no painel deles: Configurações → Webhooks →
- * URL desta rota). Assinatura verificada via HMAC-SHA256 no header `x-clicksign-signature`
- * (CLICKSIGN_WEBHOOK_SECRET, gerado quando o webhook é cadastrado) — se o segredo ainda não
- * estiver configurado, não bloqueia (melhor esforço, igual o resto das integrações deste app).
+ * Recebe as notificações da ClickSign (configurado via API — ver `setup-clicksign-webhook.mjs`
+ * no histórico do projeto — assinado pra `document_closed`, `close`, `sign`, `deadline`,
+ * `cancel`, `refusal`). Assinatura verificada via HMAC-SHA256 no header `x-clicksign-signature`
+ * (CLICKSIGN_WEBHOOK_SECRET) — se o segredo ainda não estiver configurado, não bloqueia
+ * (melhor esforço, igual o resto das integrações deste app).
  *
- * Formato do payload ainda não confirmado contra um evento real (só documentado): `event.name`
- * (ex.: "document_closed") + um array `document`. O parsing abaixo tenta achar o identificador do
- * envelope em alguns lugares plausíveis — ajustar depois de ver um payload real, como aconteceu
- * com a DocuSign.
+ * Formato confirmado testando ao vivo (2026-08-14): `payload.document` é um **objeto único**, não
+ * array — `document.key` é o identificador que precisa bater com `assinatura_document_key`
+ * (guarda o `documentId`, não o `envelopeId` — ver comentário em `contratos.service.ts`).
+ * `payload.event.name` dá o nome do evento (ex.: "sign" por signatário, "document_closed" quando
+ * todo mundo já assinou — só esse último conta como "concluído").
  */
 function assinaturaValida(corpoBruto: string, assinaturaRecebida: string | null): boolean {
   const segredo = process.env.CLICKSIGN_WEBHOOK_SECRET;
@@ -39,49 +41,24 @@ export async function POST(request: NextRequest) {
 
   console.log("[clicksign:webhook] payload recebido:", corpoBruto);
 
-  // DEBUG TEMPORÁRIO — grava o payload bruto na auditoria pra inspecionar sem acesso aos logs do
-  // Vercel. Remover depois de confirmar o formato real do evento contra um teste de ponta a
-  // ponta.
-  try {
-    const supabaseDebug = createAdminClient();
-    const { data: usuarioQualquer } = await supabaseDebug.from("usuarios").select("id").limit(1).single();
-    if (usuarioQualquer) {
-      await supabaseDebug.from("auditoria").insert({
-        usuario_id: usuarioQualquer.id,
-        usuario_nome: "Webhook ClickSign (debug)",
-        acao: "Payload recebido",
-        entidade: "Debug ClickSign",
-        entidade_id: corpoBruto.slice(0, 900),
-      });
-    }
-  } catch (erroDebug) {
-    console.error("[clicksign:webhook] falha ao gravar debug:", erroDebug);
-  }
-
   const event = payload.event as Record<string, unknown> | undefined;
   const eventName = event?.name as string | undefined;
-  const documentField = payload.document;
-  const documento = Array.isArray(documentField) ? documentField[0] : documentField;
-  const documentoObj = documento as Record<string, unknown> | undefined;
-  const envelopeId =
-    (documentoObj?.envelope_id as string | undefined) ??
-    ((documentoObj?.envelope as Record<string, unknown> | undefined)?.id as string | undefined) ??
-    (payload.envelope_id as string | undefined) ??
-    ((payload.envelope as Record<string, unknown> | undefined)?.id as string | undefined);
+  const documento = payload.document as Record<string, unknown> | undefined;
+  const documentId = documento?.key as string | undefined;
 
-  if (!envelopeId || !eventName) {
-    return NextResponse.json({ recebido: true, ignorado: "sem envelopeId/evento reconhecível" });
+  if (!documentId || !eventName) {
+    return NextResponse.json({ recebido: true, ignorado: "sem documentId/evento reconhecível" });
   }
 
   const supabase = createAdminClient();
   const { data: contrato } = await supabase
     .from("contratos")
     .select("id, numero, cliente_id, assinatura_status")
-    .eq("assinatura_document_key", envelopeId)
+    .eq("assinatura_document_key", documentId)
     .maybeSingle();
 
   if (!contrato) {
-    return NextResponse.json({ recebido: true, ignorado: "envelopeId não corresponde a nenhum contrato" });
+    return NextResponse.json({ recebido: true, ignorado: "documentId não corresponde a nenhum contrato" });
   }
 
   await supabase
