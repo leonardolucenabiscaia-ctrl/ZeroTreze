@@ -6,15 +6,12 @@ import { AnimatePresence, motion } from "framer-motion";
 interface Slide {
   titulo: string;
   subtitulo: string;
+  /** Opcional — sem ela, o slide usa só o gradiente preto/dourado da marca como fundo. */
+  imagemUrl?: string;
 }
 
 const INTERVALO_MS = 5000;
 
-/**
- * Sem foto por enquanto — cada slide usa um gradiente na identidade visual (preto & dourado) em
- * vez de imagem. Pra trocar por foto depois, basta adicionar `imagemUrl` a um slide e renderizar
- * um <img> de fundo condicionalmente aqui.
- */
 export function HeroSlider({ slides }: { slides: Slide[] }) {
   const [indice, setIndice] = React.useState(0);
 
@@ -29,6 +26,16 @@ export function HeroSlider({ slides }: { slides: Slide[] }) {
 
   return (
     <div className="relative flex h-[420px] w-full items-center overflow-hidden bg-gradient-to-br from-black via-neutral-900 to-black sm:h-[480px]">
+      {slide.imagemUrl && (
+        // eslint-disable-next-line @next/next/no-img-element -- imagem de fundo, muda a cada slide
+        <img
+          key={slide.imagemUrl}
+          src={slide.imagemUrl}
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+      )}
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-black/85 via-black/55 to-black/20" />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_30%,_oklch(0.75_0.13_85_/_18%),_transparent_55%)]" />
 
       <AnimatePresence mode="wait">

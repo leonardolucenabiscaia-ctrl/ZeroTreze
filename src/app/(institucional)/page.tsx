@@ -7,14 +7,22 @@ const SLIDES = [
   {
     titulo: "Fretamento Diário",
     subtitulo: "Transporte corporativo e industrial com pontualidade e segurança, todos os dias.",
+    imagemUrl: "/hero/fretamento-diario.webp",
   },
   {
     titulo: "Transporte Executivo",
     subtitulo: "Conforto e discrição para executivos, eventos e ocasiões especiais.",
+    imagemUrl: "/hero/transporte-executivo.webp",
   },
   {
     titulo: "Excursão e Turismo",
     subtitulo: "Viagens em grupo com toda a estrutura, do embarque ao destino.",
+    imagemUrl: "/hero/excursao-turismo.webp",
+  },
+  {
+    titulo: "Fretamento de Veículos",
+    subtitulo: "Locação de veículos para empresas e particulares, com frota própria e revisada.",
+    imagemUrl: "/hero/fretamento-veiculos.webp",
   },
 ];
 
@@ -25,7 +33,50 @@ export default function InicioPage() {
         <HeroSlider slides={SLIDES} />
       </section>
 
-      {/* Sobre Nós — logo abaixo dos slides */}
+      {/* Contato — logo abaixo dos slides */}
+      <section id="contato" className="scroll-mt-16 border-t border-border">
+        <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6">
+          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-gold">Contato</p>
+          <h2 className="mt-2 text-3xl font-bold text-foreground sm:text-4xl">Fale com a gente</h2>
+          <p className="mt-4 max-w-2xl text-muted-foreground">
+            Tire dúvidas, peça um orçamento ou fale sobre fretamento, transporte executivo e
+            excursões.
+          </p>
+
+          <div className="mt-10 grid gap-4 sm:grid-cols-2">
+            <div className="rounded-xl border border-gold/30 bg-gold-muted p-6">
+              <Phone className="size-6 text-gold" />
+              <h3 className="mt-4 text-lg font-semibold text-foreground">Telefone</h3>
+              <a
+                href="https://wa.me/5513992030351"
+                className="mt-2 block text-sm text-muted-foreground hover:text-gold"
+              >
+                (13) 99203-0351
+              </a>
+            </div>
+
+            <div className="rounded-xl border border-gold/30 bg-gold-muted p-6">
+              <Mail className="size-6 text-gold" />
+              <h3 className="mt-4 text-lg font-semibold text-foreground">E-mail</h3>
+              <a
+                href="mailto:comercial@zerotrezetransportes.com.br"
+                className="mt-2 block text-sm text-muted-foreground hover:text-gold"
+              >
+                comercial@zerotrezetransportes.com.br
+              </a>
+            </div>
+          </div>
+
+          <Link
+            href="/login"
+            className="mt-10 inline-block rounded-lg bg-gold px-5 py-3 text-sm font-semibold text-gold-foreground transition-opacity hover:opacity-90"
+          >
+            Acessar área do cliente
+          </Link>
+        </div>
+      </section>
+
+      {/* Sobre Nós */}
       <section id="sobre-nos" className="scroll-mt-16 border-t border-border">
         <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6">
           <h2 className="text-center text-2xl font-bold text-foreground">SOBRE NÓS</h2>
@@ -50,13 +101,6 @@ export default function InicioPage() {
               da completa satisfação e captação de novos parceiros.
             </p>
           </div>
-
-          {/* eslint-disable-next-line @next/next/no-img-element -- imagem estática da frota */}
-          <img
-            src="/frota-zero-treze.webp"
-            alt="Frota da Zero Treze Transportes: sedan, van e ônibus"
-            className="mx-auto mt-10 w-full max-w-3xl"
-          />
 
           <div className="mt-16 grid gap-10 sm:grid-cols-2">
             <div className="flex flex-col gap-8">
@@ -110,49 +154,6 @@ export default function InicioPage() {
               <img key={logo.src} src={logo.src} alt={logo.alt} className="h-10 w-auto object-contain sm:h-12" />
             ))}
           </div>
-        </div>
-      </section>
-
-      {/* Contato */}
-      <section id="contato" className="scroll-mt-16 border-t border-border">
-        <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-gold">Contato</p>
-          <h2 className="mt-2 text-3xl font-bold text-foreground sm:text-4xl">Fale com a gente</h2>
-          <p className="mt-4 max-w-2xl text-muted-foreground">
-            Tire dúvidas, peça um orçamento ou fale sobre fretamento, transporte executivo e
-            excursões.
-          </p>
-
-          <div className="mt-10 grid gap-4 sm:grid-cols-2">
-            <div className="rounded-xl border border-gold/30 bg-gold-muted p-6">
-              <Phone className="size-6 text-gold" />
-              <h3 className="mt-4 text-lg font-semibold text-foreground">Telefone</h3>
-              <a
-                href="https://wa.me/5513992030351"
-                className="mt-2 block text-sm text-muted-foreground hover:text-gold"
-              >
-                (13) 99203-0351
-              </a>
-            </div>
-
-            <div className="rounded-xl border border-gold/30 bg-gold-muted p-6">
-              <Mail className="size-6 text-gold" />
-              <h3 className="mt-4 text-lg font-semibold text-foreground">E-mail</h3>
-              <a
-                href="mailto:comercial@zerotrezetransportes.com.br"
-                className="mt-2 block text-sm text-muted-foreground hover:text-gold"
-              >
-                comercial@zerotrezetransportes.com.br
-              </a>
-            </div>
-          </div>
-
-          <Link
-            href="/login"
-            className="mt-10 inline-block rounded-lg bg-gold px-5 py-3 text-sm font-semibold text-gold-foreground transition-opacity hover:opacity-90"
-          >
-            Acessar área do cliente
-          </Link>
         </div>
       </section>
     </div>
