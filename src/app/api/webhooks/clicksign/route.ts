@@ -39,6 +39,25 @@ export async function POST(request: NextRequest) {
 
   console.log("[clicksign:webhook] payload recebido:", corpoBruto);
 
+  // DEBUG TEMPORÁRIO — grava o payload bruto na auditoria pra inspecionar sem acesso aos logs do
+  // Vercel. Remover depois de confirmar o formato real do evento contra um teste de ponta a
+  // ponta.
+  try {
+    const supabaseDebug = createAdminClient();
+    const { data: usuarioQualquer } = await supabaseDebug.from("usuarios").select("id").limit(1).single();
+    if (usuarioQualquer) {
+      await supabaseDebug.from("auditoria").insert({
+        usuario_id: usuarioQualquer.id,
+        usuario_nome: "Webhook ClickSign (debug)",
+        acao: "Payload recebido",
+        entidade: "Debug ClickSign",
+        entidade_id: corpoBruto.slice(0, 900),
+      });
+    }
+  } catch (erroDebug) {
+    console.error("[clicksign:webhook] falha ao gravar debug:", erroDebug);
+  }
+
   const event = payload.event as Record<string, unknown> | undefined;
   const eventName = event?.name as string | undefined;
   const documentField = payload.document;
