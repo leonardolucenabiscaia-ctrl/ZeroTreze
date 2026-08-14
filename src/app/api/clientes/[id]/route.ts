@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { atualizarCliente, buscarClientePorId, excluirCliente } from "@/lib/server/clientes.service";
-import { handleRoute } from "@/lib/server/route-helpers";
+import { handleRoute, PERFIS_STAFF } from "@/lib/server/route-helpers";
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -20,5 +20,5 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
   return handleRoute(async () => {
     await excluirCliente(id);
     return null;
-  });
+  }, 200, PERFIS_STAFF);
 }

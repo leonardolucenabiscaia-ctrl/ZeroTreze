@@ -1,10 +1,14 @@
 import type { NextRequest } from "next/server";
 import { criarAcordo, listarAcordos, listarAcordosPorCliente } from "@/lib/server/acordos.service";
-import { handleRoute } from "@/lib/server/route-helpers";
+import { handleRoute, PERFIS_STAFF } from "@/lib/server/route-helpers";
 
 export async function GET(request: NextRequest) {
   const clienteId = request.nextUrl.searchParams.get("clienteId");
-  return handleRoute(async () => (clienteId ? await listarAcordosPorCliente(clienteId) : await listarAcordos()));
+  return handleRoute(
+    async () => (clienteId ? await listarAcordosPorCliente(clienteId) : await listarAcordos()),
+    200,
+    clienteId ? undefined : PERFIS_STAFF
+  );
 }
 
 export async function POST(request: NextRequest) {
@@ -22,5 +26,5 @@ export async function POST(request: NextRequest) {
       anexos,
     };
     return criarAcordo(dados);
-  }, 201);
+  }, 201, PERFIS_STAFF);
 }

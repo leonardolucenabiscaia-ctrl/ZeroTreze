@@ -1,14 +1,19 @@
 import type { NextRequest } from "next/server";
 import { buscarClientePorUsuarioId, criarCliente, listarClientes } from "@/lib/server/clientes.service";
-import { handleRoute } from "@/lib/server/route-helpers";
+import { handleRoute, PERFIS_STAFF } from "@/lib/server/route-helpers";
 
 // O envio do convite por e-mail (SMTP) pode levar mais que o padrão de 10s da Vercel.
 export const maxDuration = 30;
 
 export async function GET(request: NextRequest) {
   const usuarioId = request.nextUrl.searchParams.get("usuarioId");
-  return handleRoute(async () =>
-    usuarioId ? await buscarClientePorUsuarioId(usuarioId) : await listarClientes()
+  // Sem `usuarioId`, a rota lista TODOS os clientes (nome, CPF, endereço, dados bancários) —
+  // só a equipe interna (páginas de admin) usa essa variante; o portal do cliente sempre passa
+  // o próprio `usuarioId`.
+  return handleRoute(
+    async () => (usuarioId ? await buscarClientePorUsuarioId(usuarioId) : await listarClientes()),
+    200,
+    usuarioId ? undefined : PERFIS_STAFF
   );
 }
 
@@ -37,5 +42,5 @@ export async function POST(request: NextRequest) {
       anexos,
     };
     return criarCliente(dados);
-  }, 201);
+  }, 201, PERFIS_STAFF);
 }

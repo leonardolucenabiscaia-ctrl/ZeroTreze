@@ -6,7 +6,7 @@ import {
   listarContratos,
   listarContratosPorCliente,
 } from "@/lib/server/contratos.service";
-import { handleRoute } from "@/lib/server/route-helpers";
+import { handleRoute, PERFIS_STAFF } from "@/lib/server/route-helpers";
 
 // A criação de contrato gera o PDF e envia para assinatura na ClickSign — pode levar mais que o
 // padrão de 10s da Vercel.
@@ -17,18 +17,23 @@ export async function GET(request: NextRequest) {
   const clienteId = params.get("clienteId");
   const clienteAtivoId = params.get("clienteAtivoId");
   const veiculoAtivoId = params.get("veiculoAtivoId");
+  const semFiltro = !clienteId && !clienteAtivoId && !veiculoAtivoId;
 
-  return handleRoute(async () => {
-    if (clienteAtivoId) return await contratoAtivoPorCliente(clienteAtivoId);
-    if (veiculoAtivoId) return await contratoAtivoPorVeiculo(veiculoAtivoId);
-    if (clienteId) return await listarContratosPorCliente(clienteId);
-    return await listarContratos();
-  });
+  return handleRoute(
+    async () => {
+      if (clienteAtivoId) return await contratoAtivoPorCliente(clienteAtivoId);
+      if (veiculoAtivoId) return await contratoAtivoPorVeiculo(veiculoAtivoId);
+      if (clienteId) return await listarContratosPorCliente(clienteId);
+      return await listarContratos();
+    },
+    200,
+    semFiltro ? PERFIS_STAFF : undefined
+  );
 }
 
 export async function POST(request: NextRequest) {
   return handleRoute(async () => {
     const dados = await request.json();
     return criarContrato(dados);
-  }, 201);
+  }, 201, PERFIS_STAFF);
 }
