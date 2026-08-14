@@ -9,8 +9,14 @@ const inter = Inter({
   subsets: ["latin"],
 });
 
+// TODO: trocar pro domínio próprio (zerotrezetransportes.com.br) assim que ele for conectado —
+// usado pra resolver URLs relativas de imagem nas meta tags (og:image etc.).
 export const metadata: Metadata = {
-  title: "Zero Treze Transportes",
+  metadataBase: new URL("https://zero-treze.vercel.app"),
+  title: {
+    default: "Zero Treze Transportes",
+    template: "%s | Zero Treze Transportes",
+  },
   description:
     "Portal do Locatário e Backoffice da Zero Treze Transportes — administre sua locação de veículos em um só lugar.",
 };

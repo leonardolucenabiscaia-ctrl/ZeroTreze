@@ -1,7 +1,18 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Mail, Phone } from "lucide-react";
 
 import { HeroSlider } from "@/components/shared/hero-slider";
+
+export const metadata: Metadata = {
+  title: "Fretamento, Transporte Executivo e Locação de Veículos",
+  description:
+    "Fretamento diário, transporte executivo, excursões e locação de veículos na Baixa Santista e Grande São Paulo. Frota própria, segurança e pontualidade.",
+  openGraph: {
+    type: "website",
+    locale: "pt_BR",
+  },
+};
 
 const SLIDES = [
   {
