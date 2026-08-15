@@ -50,7 +50,7 @@ export default function InicioPage() {
           <p className="text-xs font-semibold uppercase tracking-[0.3em] text-gold">Contato</p>
           <h2 className="mt-2 text-3xl font-bold text-foreground sm:text-4xl">Fale com a gente</h2>
           <p className="mt-4 max-w-2xl text-muted-foreground">
-            Tire dúvidas, peça um orçamento ou fale sobre fretamento, transporte executivo e
+            Tire dúvidas, peça um orçamento ou fale sobre locação, transporte executivo e
             excursões.
           </p>
 
