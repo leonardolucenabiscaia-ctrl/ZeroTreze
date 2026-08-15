@@ -13,9 +13,10 @@ export async function proxy(request: NextRequest) {
   // usuário), gravado ali exatamente para permitir essa checagem otimista sem consulta ao banco.
   const perfil = user?.app_metadata?.perfil as PerfilUsuario | undefined;
 
-  // Página institucional (Início/Sobre Nós/Credenciamentos/Contato são âncoras dentro dela) —
-  // sempre pública, nunca redireciona ninguém, esteja logado ou não.
-  if (pathname === "/") {
+  // Página institucional (Início/Sobre Nós/Credenciamentos/Contato são âncoras dentro dela) e
+  // robots.txt — sempre públicos, nunca redirecionam ninguém, esteja logado ou não (sem essa
+  // exceção, os buscadores recebiam um redirect pra /login em vez das regras de indexação).
+  if (pathname === "/" || pathname === "/robots.txt") {
     return response;
   }
 

@@ -18,7 +18,7 @@ export default function InstitucionalLayout({ children }: { children: React.Reac
             {/* eslint-disable-next-line @next/next/no-img-element -- logo estático */}
             <img src="/logo-zero-treze.webp" alt="Zero Treze Transportes" width={40} height={40} className="rounded-lg" />
             <span className="text-sm font-semibold tracking-wide text-foreground">
-              ZERO TREZE <span className="text-gold">TRANSPORTES</span>
+              <span className="text-gold">Z</span>ERO <span className="text-gold">T</span>REZE TRANSPORTES
             </span>
           </Link>
 
