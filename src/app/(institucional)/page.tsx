@@ -33,7 +33,7 @@ const SLIDES = [
   {
     titulo: "Locação de Automóveis",
     subtitulo: "Locação de veículos para empresas e particulares, com frota própria e revisada.",
-    imagemUrl: "/hero/fretamento-veiculos.webp",
+    imagemUrl: "/hero/locacao-automoveis.webp",
   },
 ];
 
