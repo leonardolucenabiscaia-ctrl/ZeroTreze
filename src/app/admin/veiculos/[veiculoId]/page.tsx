@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { FileText, FolderOpen, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
-import { buscarVeiculoPorId, atualizarQuilometragem } from "@/lib/services/veiculos.service";
+import { buscarVeiculoPorId, atualizarQuilometragem, atualizarVeiculo } from "@/lib/services/veiculos.service";
 import { listarDocumentosPorVeiculo } from "@/lib/services/documentos.service";
 import { registrarAcao } from "@/lib/services/auditoria.service";
 import { useAuth } from "@/lib/auth/auth-context";
@@ -49,6 +49,11 @@ export default function AdminVeiculoDetalhePage() {
   const [editandoKm, setEditandoKm] = React.useState(false);
   const [novaQuilometragem, setNovaQuilometragem] = React.useState("");
   const [salvandoKm, setSalvandoKm] = React.useState(false);
+  const [editandoDados, setEditandoDados] = React.useState(false);
+  const [cor, setCor] = React.useState("");
+  const [combustivel, setCombustivel] = React.useState("");
+  const [categoria, setCategoria] = React.useState("");
+  const [salvandoDados, setSalvandoDados] = React.useState(false);
 
   React.useEffect(() => {
     buscarVeiculoPorId(params.veiculoId).then((v) => setVeiculo(v ?? null));
@@ -87,6 +92,39 @@ export default function AdminVeiculoDetalhePage() {
     }
   }
 
+  function abrirEdicaoDados() {
+    if (!veiculo) return;
+    setCor(veiculo.cor);
+    setCombustivel(veiculo.combustivel);
+    setCategoria(veiculo.categoria);
+    setEditandoDados(true);
+  }
+
+  async function handleSalvarDados(event: React.FormEvent) {
+    event.preventDefault();
+    if (!veiculo) return;
+    setSalvandoDados(true);
+    try {
+      const atualizado = await atualizarVeiculo(veiculo.id, { cor, combustivel, categoria });
+      setVeiculo(atualizado);
+      if (usuario) {
+        await registrarAcao({
+          usuarioId: usuario.id,
+          usuarioNome: usuario.nome,
+          acao: "Completou os dados do veículo",
+          entidade: "Veículo",
+          entidadeId: `${atualizado.marca} ${atualizado.modelo} — ${atualizado.placa}`,
+        });
+      }
+      toast.success("Dados do veículo atualizados com sucesso!");
+      setEditandoDados(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível atualizar os dados.");
+    } finally {
+      setSalvandoDados(false);
+    }
+  }
+
   if (!veiculo) return <Skeleton className="h-96 w-full" />;
 
   const ficha: [string, string][] = [
@@ -107,9 +145,15 @@ export default function AdminVeiculoDetalhePage() {
           <img src={veiculo.fotoUrl} alt={veiculo.modelo} className="h-full w-full object-contain p-4" />
         </div>
         <div>
-          <h1 className="text-xl font-semibold text-foreground">
-            {veiculo.marca} {veiculo.modelo} ({veiculo.ano})
-          </h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-semibold text-foreground">
+              {veiculo.marca} {veiculo.modelo} ({veiculo.ano})
+            </h1>
+            <Button size="sm" variant="outline" onClick={abrirEdicaoDados}>
+              <Pencil className="size-3.5" />
+              Completar dados
+            </Button>
+          </div>
           <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-4">
             <div>
               <dt className="text-[11px] uppercase text-muted-foreground">Quilometragem</dt>
@@ -161,6 +205,54 @@ export default function AdminVeiculoDetalhePage() {
               </Button>
               <Button type="submit" disabled={salvandoKm}>
                 {salvandoKm ? "Salvando…" : "Salvar"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={editandoDados} onOpenChange={setEditandoDados}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Completar dados do veículo</DialogTitle>
+            <DialogDescription>
+              Preencha o que estiver faltando para {veiculo.marca} {veiculo.modelo} ({veiculo.placa}).
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSalvarDados} className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="veiculo-cor">Cor</Label>
+              <Input id="veiculo-cor" value={cor} onChange={(e) => setCor(e.target.value)} required />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="veiculo-combustivel">Combustível</Label>
+              <Input
+                id="veiculo-combustivel"
+                value={combustivel}
+                onChange={(e) => setCombustivel(e.target.value)}
+                required
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="veiculo-categoria">Categoria</Label>
+              <Input
+                id="veiculo-categoria"
+                value={categoria}
+                onChange={(e) => setCategoria(e.target.value)}
+                required
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setEditandoDados(false)}
+                disabled={salvandoDados}
+              >
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={salvandoDados}>
+                {salvandoDados ? "Salvando…" : "Salvar"}
               </Button>
             </DialogFooter>
           </form>

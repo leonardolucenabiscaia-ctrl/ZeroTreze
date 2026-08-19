@@ -176,6 +176,21 @@ export async function criarVeiculo(dados: NovoVeiculoInput): Promise<Veiculo> {
   return mapVeiculo(veiculoRow, []);
 }
 
+export async function atualizarVeiculo(veiculoId: string, dados: Partial<Veiculo>): Promise<Veiculo> {
+  const supabase = createAdminClient();
+  const patch: Record<string, unknown> = {};
+  if (dados.cor !== undefined) patch.cor = dados.cor;
+  if (dados.combustivel !== undefined) patch.combustivel = dados.combustivel;
+  if (dados.categoria !== undefined) patch.categoria = dados.categoria;
+  if (dados.seguradora !== undefined) patch.seguradora = dados.seguradora;
+  if (dados.numeroApolice !== undefined) patch.numero_apolice = dados.numeroApolice;
+
+  const { data, error } = await supabase.from("veiculos").update(patch).eq("id", veiculoId).select().single();
+  if (error || !data) throw new Error("Veículo não encontrado");
+  const [veiculo] = await anexarHistorico(supabase, [data]);
+  return veiculo;
+}
+
 /** A quilometragem só pode subir (odômetro real não anda pra trás) — rejeita valores menores que
  * o atual. */
 export async function atualizarQuilometragem(veiculoId: string, quilometragem: number): Promise<Veiculo> {

@@ -23,6 +23,13 @@ export async function desbloquearVeiculo(veiculoId: string): Promise<Veiculo> {
   return apiFetch<Veiculo>(`/api/veiculos/${veiculoId}/desbloquear`, { method: "POST" });
 }
 
+export async function atualizarVeiculo(veiculoId: string, dados: Partial<Veiculo>): Promise<Veiculo> {
+  return apiFetch<Veiculo>(`/api/veiculos/${veiculoId}`, {
+    method: "PATCH",
+    body: JSON.stringify(dados),
+  });
+}
+
 /** A quilometragem só pode subir — o servidor rejeita valores menores que o atual. */
 export async function atualizarQuilometragem(veiculoId: string, quilometragem: number): Promise<Veiculo> {
   return apiFetch<Veiculo>(`/api/veiculos/${veiculoId}/quilometragem`, {

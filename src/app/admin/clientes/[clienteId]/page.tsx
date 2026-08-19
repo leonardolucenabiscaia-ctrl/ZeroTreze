@@ -3,10 +3,10 @@
 import * as React from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { Award, FileText, Wallet, AlertTriangle, Car, Trash2 } from "lucide-react";
+import { Award, FileText, Wallet, AlertTriangle, Car, Trash2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
-import { buscarClientePorId, excluirCliente } from "@/lib/services/clientes.service";
+import { atualizarCliente, buscarClientePorId, excluirCliente } from "@/lib/services/clientes.service";
 import { listarContratosPorCliente } from "@/lib/services/contratos.service";
 import { listarParcelasPorContrato, obterParametrosFinanceiros } from "@/lib/services/financeiro.service";
 import { listarMultasPorContrato } from "@/lib/services/multas.service";
@@ -70,6 +70,14 @@ export default function ClienteDetalhePage() {
   const [etapaExclusao, setEtapaExclusao] = React.useState<"aviso" | "confirmar" | null>(null);
   const [nomeDigitado, setNomeDigitado] = React.useState("");
   const [excluindo, setExcluindo] = React.useState(false);
+  const [editandoDados, setEditandoDados] = React.useState(false);
+  const [nacionalidade, setNacionalidade] = React.useState("");
+  const [profissao, setProfissao] = React.useState("");
+  const [banco, setBanco] = React.useState("");
+  const [agencia, setAgencia] = React.useState("");
+  const [conta, setConta] = React.useState("");
+  const [chavePix, setChavePix] = React.useState("");
+  const [salvandoDados, setSalvandoDados] = React.useState(false);
 
   async function handleExcluirCliente() {
     if (!cliente) return;
@@ -90,6 +98,46 @@ export default function ClienteDetalhePage() {
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível apagar o cliente.");
       setExcluindo(false);
+    }
+  }
+
+  function abrirEdicaoDados() {
+    if (!cliente) return;
+    setNacionalidade(cliente.nacionalidade);
+    setProfissao(cliente.profissao);
+    setBanco(cliente.dadosBancarios.banco);
+    setAgencia(cliente.dadosBancarios.agencia);
+    setConta(cliente.dadosBancarios.conta);
+    setChavePix(cliente.dadosBancarios.chavePix);
+    setEditandoDados(true);
+  }
+
+  async function handleSalvarDados(event: React.FormEvent) {
+    event.preventDefault();
+    if (!cliente) return;
+    setSalvandoDados(true);
+    try {
+      const atualizado = await atualizarCliente(cliente.id, {
+        nacionalidade,
+        profissao,
+        dadosBancarios: { banco, agencia, conta, chavePix },
+      });
+      setCliente(atualizado);
+      if (usuarioLogado) {
+        await registrarAcao({
+          usuarioId: usuarioLogado.id,
+          usuarioNome: usuarioLogado.nome,
+          acao: "Completou os dados do cliente",
+          entidade: "Cliente",
+          entidadeId: atualizado.nome,
+        });
+      }
+      toast.success("Dados do cliente atualizados com sucesso!");
+      setEditandoDados(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível atualizar os dados.");
+    } finally {
+      setSalvandoDados(false);
     }
   }
 
@@ -164,12 +212,78 @@ export default function ClienteDetalhePage() {
               {score.pontuacao} · {score.categoria}
             </Badge>
           )}
+          <Button size="sm" variant="outline" onClick={abrirEdicaoDados}>
+            <Pencil className="size-3.5" />
+            Completar dados
+          </Button>
           <Button size="sm" variant="destructive" onClick={() => setEtapaExclusao("aviso")}>
             <Trash2 className="size-4" />
             Apagar cliente
           </Button>
         </div>
       </div>
+
+      <Dialog open={editandoDados} onOpenChange={setEditandoDados}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Completar dados de {cliente.nome}</DialogTitle>
+            <DialogDescription>Preencha o que estiver faltando no cadastro.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSalvarDados} className="flex flex-col gap-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="cliente-nacionalidade">Nacionalidade</Label>
+                <Input
+                  id="cliente-nacionalidade"
+                  value={nacionalidade}
+                  onChange={(e) => setNacionalidade(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="cliente-profissao">Profissão</Label>
+                <Input
+                  id="cliente-profissao"
+                  value={profissao}
+                  onChange={(e) => setProfissao(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="cliente-banco">Banco</Label>
+                <Input id="cliente-banco" value={banco} onChange={(e) => setBanco(e.target.value)} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="cliente-agencia">Agência</Label>
+                <Input id="cliente-agencia" value={agencia} onChange={(e) => setAgencia(e.target.value)} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="cliente-conta">Conta</Label>
+                <Input id="cliente-conta" value={conta} onChange={(e) => setConta(e.target.value)} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="cliente-pix">Chave PIX</Label>
+                <Input id="cliente-pix" value={chavePix} onChange={(e) => setChavePix(e.target.value)} />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setEditandoDados(false)}
+                disabled={salvandoDados}
+              >
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={salvandoDados}>
+                {salvandoDados ? "Salvando…" : "Salvar"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard label="Total pago" value={formatCurrency(totalPago)} icon={Wallet} tone="success" />
