@@ -3,10 +3,15 @@
 import * as React from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { Award, FileText, Wallet, AlertTriangle, Car, Trash2, Pencil } from "lucide-react";
+import { Award, FileText, Wallet, AlertTriangle, Car, Trash2, Pencil, Mail } from "lucide-react";
 import { toast } from "sonner";
 
-import { atualizarCliente, buscarClientePorId, excluirCliente } from "@/lib/services/clientes.service";
+import {
+  atualizarCliente,
+  buscarClientePorId,
+  excluirCliente,
+  reenviarConviteCliente,
+} from "@/lib/services/clientes.service";
 import { listarContratosPorCliente } from "@/lib/services/contratos.service";
 import { listarParcelasPorContrato, obterParametrosFinanceiros } from "@/lib/services/financeiro.service";
 import { listarMultasPorContrato } from "@/lib/services/multas.service";
@@ -74,6 +79,7 @@ export default function ClienteDetalhePage() {
   const [nacionalidade, setNacionalidade] = React.useState("");
   const [profissao, setProfissao] = React.useState("");
   const [salvandoDados, setSalvandoDados] = React.useState(false);
+  const [reenviandoConvite, setReenviandoConvite] = React.useState(false);
 
   async function handleExcluirCliente() {
     if (!cliente) return;
@@ -126,6 +132,28 @@ export default function ClienteDetalhePage() {
       toast.error(error instanceof Error ? error.message : "Não foi possível atualizar os dados.");
     } finally {
       setSalvandoDados(false);
+    }
+  }
+
+  async function handleReenviarConvite() {
+    if (!cliente) return;
+    setReenviandoConvite(true);
+    try {
+      await reenviarConviteCliente(cliente.id);
+      if (usuarioLogado) {
+        await registrarAcao({
+          usuarioId: usuarioLogado.id,
+          usuarioNome: usuarioLogado.nome,
+          acao: "Reenviou o convite de acesso por e-mail",
+          entidade: "Cliente",
+          entidadeId: cliente.nome,
+        });
+      }
+      toast.success("Convite reenviado por e-mail com sucesso!");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível reenviar o convite.");
+    } finally {
+      setReenviandoConvite(false);
     }
   }
 
@@ -203,6 +231,10 @@ export default function ClienteDetalhePage() {
           <Button size="sm" variant="outline" onClick={abrirEdicaoDados}>
             <Pencil className="size-3.5" />
             Completar dados
+          </Button>
+          <Button size="sm" variant="outline" onClick={handleReenviarConvite} disabled={reenviandoConvite}>
+            <Mail className="size-3.5" />
+            {reenviandoConvite ? "Enviando…" : "Enviar convite via e-mail"}
           </Button>
           <Button size="sm" variant="destructive" onClick={() => setEtapaExclusao("aviso")}>
             <Trash2 className="size-4" />

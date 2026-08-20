@@ -23,6 +23,11 @@ export async function excluirCliente(id: string): Promise<void> {
   await apiFetch<null>(`/api/clientes/${id}`, { method: "DELETE" });
 }
 
+/** Reenvia o e-mail com o código de primeiro acesso — pra quando o e-mail original não chegou. */
+export async function reenviarConviteCliente(id: string): Promise<void> {
+  await apiFetch<null>(`/api/clientes/${id}/reenviar-convite`, { method: "POST" });
+}
+
 export interface NovoClienteInput {
   nomeCompleto: string;
   email: string;

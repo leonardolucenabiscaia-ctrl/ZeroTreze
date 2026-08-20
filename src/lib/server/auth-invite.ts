@@ -67,3 +67,19 @@ export async function convidarUsuario(
 
   return data.user.id;
 }
+
+/** Reenvia o código de primeiro acesso por e-mail (mesmo mecanismo de `convidarUsuario`, sem
+ * criar uma conta nova) — usado quando o e-mail original não chegou ao cliente. */
+export async function reenviarCodigoAcesso(
+  supabase: ReturnType<typeof createAdminClient>,
+  email: string
+): Promise<void> {
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: { shouldCreateUser: false },
+  });
+  if (error) {
+    console.error("[auth-invite] Falha ao reenviar código de acesso:", JSON.stringify(error));
+    throw new Error("Não foi possível reenviar o código de acesso por e-mail.");
+  }
+}
