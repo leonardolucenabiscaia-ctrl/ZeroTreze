@@ -73,10 +73,6 @@ export default function ClienteDetalhePage() {
   const [editandoDados, setEditandoDados] = React.useState(false);
   const [nacionalidade, setNacionalidade] = React.useState("");
   const [profissao, setProfissao] = React.useState("");
-  const [banco, setBanco] = React.useState("");
-  const [agencia, setAgencia] = React.useState("");
-  const [conta, setConta] = React.useState("");
-  const [chavePix, setChavePix] = React.useState("");
   const [salvandoDados, setSalvandoDados] = React.useState(false);
 
   async function handleExcluirCliente() {
@@ -105,10 +101,6 @@ export default function ClienteDetalhePage() {
     if (!cliente) return;
     setNacionalidade(cliente.nacionalidade);
     setProfissao(cliente.profissao);
-    setBanco(cliente.dadosBancarios.banco);
-    setAgencia(cliente.dadosBancarios.agencia);
-    setConta(cliente.dadosBancarios.conta);
-    setChavePix(cliente.dadosBancarios.chavePix);
     setEditandoDados(true);
   }
 
@@ -117,11 +109,7 @@ export default function ClienteDetalhePage() {
     if (!cliente) return;
     setSalvandoDados(true);
     try {
-      const atualizado = await atualizarCliente(cliente.id, {
-        nacionalidade,
-        profissao,
-        dadosBancarios: { banco, agencia, conta, chavePix },
-      });
+      const atualizado = await atualizarCliente(cliente.id, { nacionalidade, profissao });
       setCliente(atualizado);
       if (usuarioLogado) {
         await registrarAcao({
@@ -248,24 +236,6 @@ export default function ClienteDetalhePage() {
                   onChange={(e) => setProfissao(e.target.value)}
                   required
                 />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="cliente-banco">Banco</Label>
-                <Input id="cliente-banco" value={banco} onChange={(e) => setBanco(e.target.value)} />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="cliente-agencia">Agência</Label>
-                <Input id="cliente-agencia" value={agencia} onChange={(e) => setAgencia(e.target.value)} />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="cliente-conta">Conta</Label>
-                <Input id="cliente-conta" value={conta} onChange={(e) => setConta(e.target.value)} />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="cliente-pix">Chave PIX</Label>
-                <Input id="cliente-pix" value={chavePix} onChange={(e) => setChavePix(e.target.value)} />
               </div>
             </div>
             <DialogFooter>
