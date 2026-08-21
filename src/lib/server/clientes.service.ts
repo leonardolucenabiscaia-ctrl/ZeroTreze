@@ -44,21 +44,14 @@ export async function excluirCliente(id: string): Promise<void> {
   if (deleteError) throw new Error(deleteError.message);
 }
 
-/** Reenvia o e-mail com o código de primeiro acesso pro cliente — útil quando o e-mail original
- * (enviado ao cadastrar) não chegou. */
+/** Reenvia o código de primeiro acesso por WhatsApp pro cliente — útil quando o convite
+ * original não chegou. */
 export async function reenviarConviteCliente(id: string): Promise<void> {
   const supabase = createAdminClient();
   const { data: clienteRow } = await supabase.from("clientes").select("usuario_id").eq("id", id).maybeSingle();
   if (!clienteRow) throw new Error("Cliente não encontrado");
 
-  const { data: usuarioRow } = await supabase
-    .from("usuarios")
-    .select("email")
-    .eq("id", clienteRow.usuario_id)
-    .maybeSingle();
-  if (!usuarioRow?.email) throw new Error("Cliente sem e-mail cadastrado.");
-
-  await reenviarCodigoAcesso(supabase, usuarioRow.email);
+  await reenviarCodigoAcesso(clienteRow.usuario_id);
 }
 
 export async function atualizarCliente(id: string, dados: Partial<Cliente>): Promise<Cliente> {

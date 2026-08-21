@@ -144,12 +144,12 @@ export default function ClienteDetalhePage() {
         await registrarAcao({
           usuarioId: usuarioLogado.id,
           usuarioNome: usuarioLogado.nome,
-          acao: "Reenviou o convite de acesso por e-mail",
+          acao: "Reenviou o convite de acesso por WhatsApp",
           entidade: "Cliente",
           entidadeId: cliente.nome,
         });
       }
-      toast.success("Convite reenviado por e-mail com sucesso!");
+      toast.success("Convite reenviado por WhatsApp com sucesso!");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível reenviar o convite.");
     } finally {
@@ -234,7 +234,7 @@ export default function ClienteDetalhePage() {
           </Button>
           <Button size="sm" variant="outline" onClick={handleReenviarConvite} disabled={reenviandoConvite}>
             <Mail className="size-3.5" />
-            {reenviandoConvite ? "Enviando…" : "Enviar convite via e-mail"}
+            {reenviandoConvite ? "Enviando…" : "Enviar convite via WhatsApp"}
           </Button>
           <Button size="sm" variant="destructive" onClick={() => setEtapaExclusao("aviso")}>
             <Trash2 className="size-4" />

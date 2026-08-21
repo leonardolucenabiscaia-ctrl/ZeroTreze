@@ -66,7 +66,7 @@ export interface NovoUsuarioInternoInput {
 }
 
 /**
- * Cadastra um novo gestor ou operador — convida por e-mail (ver `convidarUsuario`), sem senha
+ * Cadastra um novo gestor ou operador — convida por WhatsApp (ver `convidarUsuario`), sem senha
  * definida pelo administrador; o usuário escolhe a própria senha ao aceitar o convite.
  */
 export async function criarUsuarioInterno(dados: NovoUsuarioInternoInput): Promise<Usuario> {

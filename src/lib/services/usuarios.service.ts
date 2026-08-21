@@ -30,7 +30,7 @@ export interface NovoUsuarioInternoInput {
 
 /**
  * Cadastra um novo gestor ou operador. O primeiro acesso funciona igual ao do cliente:
- * senha padrão ou login por código enviado por e-mail.
+ * código de acesso enviado por WhatsApp, depois escolhe a própria senha.
  */
 export async function criarUsuarioInterno(dados: NovoUsuarioInternoInput): Promise<Usuario> {
   return apiFetch<Usuario>("/api/usuarios", { method: "POST", body: JSON.stringify(dados) });

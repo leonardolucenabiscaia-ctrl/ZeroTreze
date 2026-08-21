@@ -1,6 +1,7 @@
 import "server-only";
 import crypto from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/server";
+import { gerarEEnviarCodigoAcesso } from "./codigos-acesso.service";
 import type { PerfilUsuario } from "@/lib/types";
 
 export interface ConvidarUsuarioInput {
@@ -12,20 +13,21 @@ export interface ConvidarUsuarioInput {
 }
 
 /**
- * Cria a conta no Supabase Auth e manda um CÓDIGO de acesso por e-mail (não um link clicável) —
- * o usuário digita o código em `/definir-senha` e só então escolhe a própria senha.
+ * Cria a conta no Supabase Auth e manda um CÓDIGO de acesso por WHATSAPP (não e-mail, não um
+ * link clicável) — o usuário digita o código em `/definir-senha` e só então escolhe a própria
+ * senha.
  *
- * Por que código em vez de link: o fluxo original usava `inviteUserByEmail` (link mágico), mas
- * confirmado em produção (2026-08-04) que o Gmail abre automaticamente os links do e-mail pra
- * escanear em busca de phishing/malware — como o link da Supabase só pode ser usado uma vez, esse
- * acesso automático consumia o token antes do usuário clicar de verdade, sempre mostrando "link
- * expirado". Um código digitado manualmente é imune a isso (nenhum scanner "digita" nada).
+ * Histórico: usava e-mail com link mágico, mas o Gmail abre automaticamente links de e-mail pra
+ * escanear em busca de phishing, consumindo o token de uso único antes do clique real do
+ * usuário. Trocado pra código digitado (imune a isso), e depois trocado de novo de e-mail (via
+ * Resend) pra WhatsApp (2026-08-21) — a conta de hospedagem do cliente ficou instável dependendo
+ * de configuração de DNS de terceiros pro e-mail funcionar, WhatsApp remove essa dependência.
  *
- * Também por isso não dá pra usar `inviteUserByEmail` (o template "Invite" da Supabase não
- * suporta a variável `{{ .Token }}` — só os templates "Magic Link/OTP", "Change Email" e
- * "Reauthentication" suportam). Por isso o fluxo é: cria o usuário direto (`admin.createUser`,
- * senha aleatória que nunca é usada) e dispara um OTP por e-mail (`signInWithOtp`), que usa o
- * template "Magic Link/OTP" — o mesmo mecanismo já usado pelo login por código do site.
+ * O envio em si é melhor esforço (não desfaz a criação da conta se falhar): a integração do
+ * WhatsApp só manda mensagem de verdade pra qualquer cliente depois da revisão do app pela Meta
+ * (enquanto isso não sai, todo envio automático de convite falha, e cancelar o cadastro do
+ * cliente por causa disso travaria a operação inteira). O admin sempre pode reenviar manualmente
+ * pelo botão "Enviar convite via WhatsApp" assim que a integração estiver funcionando.
  */
 export async function convidarUsuario(
   supabase: ReturnType<typeof createAdminClient>,
@@ -51,35 +53,17 @@ export async function convidarUsuario(
     throw new Error(metaError.message);
   }
 
-  const { error: otpError } = await supabase.auth.signInWithOtp({
-    email: dados.email,
-    options: { shouldCreateUser: false },
-  });
-  if (otpError) {
-    console.error("[auth-invite] Falha ao enviar código de acesso:", JSON.stringify(otpError));
-    await supabase.auth.admin.deleteUser(data.user.id);
-    throw new Error(
-      "Não foi possível enviar o código de acesso por e-mail. Se o Resend ainda estiver em modo " +
-        "de teste, ele só entrega para o e-mail cadastrado na conta Resend — verifique um domínio " +
-        "próprio para cadastrar outros destinatários."
-    );
+  try {
+    await gerarEEnviarCodigoAcesso(data.user.id);
+  } catch (erroEnvio) {
+    console.error("[auth-invite] Convite criado, mas envio do código falhou:", erroEnvio);
   }
 
   return data.user.id;
 }
 
-/** Reenvia o código de primeiro acesso por e-mail (mesmo mecanismo de `convidarUsuario`, sem
- * criar uma conta nova) — usado quando o e-mail original não chegou ao cliente. */
-export async function reenviarCodigoAcesso(
-  supabase: ReturnType<typeof createAdminClient>,
-  email: string
-): Promise<void> {
-  const { error } = await supabase.auth.signInWithOtp({
-    email,
-    options: { shouldCreateUser: false },
-  });
-  if (error) {
-    console.error("[auth-invite] Falha ao reenviar código de acesso:", JSON.stringify(error));
-    throw new Error("Não foi possível reenviar o código de acesso por e-mail.");
-  }
+/** Reenvia o código de primeiro acesso por WhatsApp (mesmo mecanismo de `convidarUsuario`, sem
+ * criar uma conta nova) — usado quando o convite original não chegou ao cliente. */
+export async function reenviarCodigoAcesso(usuarioId: string): Promise<void> {
+  await gerarEEnviarCodigoAcesso(usuarioId);
 }

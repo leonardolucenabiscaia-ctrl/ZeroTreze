@@ -77,7 +77,7 @@ function NovoUsuarioConteudo() {
       <div>
         <h1 className="text-xl font-semibold text-foreground">Adicionar usuário</h1>
         <p className="text-sm text-muted-foreground">
-          Cadastre um novo gestor ou operador. Um convite é enviado por e-mail para que a pessoa
+          Cadastre um novo gestor ou operador. Um convite é enviado por WhatsApp para que a pessoa
           defina a própria senha no primeiro acesso.
         </p>
       </div>
@@ -85,7 +85,7 @@ function NovoUsuarioConteudo() {
       <Card>
         <CardHeader>
           <CardTitle className="text-foreground">Dados do usuário</CardTitle>
-          <CardDescription>Nome e e-mail são usados para o primeiro acesso.</CardDescription>
+          <CardDescription>Telefone é usado para o convite de primeiro acesso por WhatsApp.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>

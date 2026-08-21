@@ -19,13 +19,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 type Etapa = "codigo" | "senha" | "concluido";
 
 /**
- * Email + código, depois senha. Nunca é um link que loga sozinho ao ser aberto: o link mágico
- * "puro" da Supabase se mostrou vulnerável a scanners de segurança de e-mail (ex.: o Gmail abre
- * automaticamente os links pra checar se são seguros, consumindo o token de uso único antes do
- * usuário clicar de verdade — ver `auth-invite.ts`). Em vez disso, o link do e-mail só pré-enche
- * email/código via query string (?email=...&codigo=...) — nada é validado até o usuário clicar
- * em "Confirmar" de propósito, o que um scanner nunca faz. Digitar manualmente continua
- * funcionando do mesmo jeito.
+ * E-mail (identifica a conta) + código (recebido por WhatsApp), depois senha. A verificação de
+ * verdade do código só acontece junto com a definição da senha, numa chamada só
+ * (`POST /api/auth/definir-senha`) — a etapa "código" aqui é só uma transição de tela, pra manter
+ * a experiência de duas telas sem precisar guardar um estado "verificado" no meio do caminho.
  */
 function DefinirSenhaForm() {
   const router = useRouter();
@@ -37,19 +34,9 @@ function DefinirSenhaForm() {
   const [confirmarSenha, setConfirmarSenha] = React.useState("");
   const [enviando, setEnviando] = React.useState(false);
 
-  async function handleVerificarCodigo(event: React.FormEvent) {
+  function handleContinuarComCodigo(event: React.FormEvent) {
     event.preventDefault();
-    setEnviando(true);
-    try {
-      const supabase = createClient();
-      const { error } = await supabase.auth.verifyOtp({ email, token: codigo, type: "email" });
-      if (error) throw new Error("Código inválido ou expirado. Confira o e-mail e tente de novo.");
-      setEtapa("senha");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Não foi possível verificar o código.");
-    } finally {
-      setEnviando(false);
-    }
+    setEtapa("senha");
   }
 
   async function handleDefinirSenha(event: React.FormEvent) {
@@ -65,8 +52,13 @@ function DefinirSenhaForm() {
 
     setEnviando(true);
     try {
+      await apiFetch("/api/auth/definir-senha", {
+        method: "POST",
+        body: JSON.stringify({ email, codigo, novaSenha: senha }),
+      });
+
       const supabase = createClient();
-      const { error } = await supabase.auth.updateUser({ password: senha });
+      const { error } = await supabase.auth.signInWithPassword({ email, password: senha });
       if (error) throw new Error(error.message);
 
       const { usuario } = await apiFetch<{ usuario: Usuario }>("/api/auth/perfil");
@@ -98,6 +90,13 @@ function DefinirSenhaForm() {
       <Card>
         <form onSubmit={handleDefinirSenha} className="flex flex-col gap-4">
           <div>
+            <button
+              type="button"
+              onClick={() => setEtapa("codigo")}
+              className="mb-1 text-xs text-muted-foreground hover:text-foreground"
+            >
+              ← Voltar e conferir o código
+            </button>
             <h2 className="text-base font-semibold text-foreground">Defina sua senha</h2>
             <p className="text-xs text-muted-foreground">
               Escolha uma senha para acessar sua conta daqui pra frente.
@@ -135,11 +134,11 @@ function DefinirSenhaForm() {
 
   return (
     <Card>
-      <form onSubmit={handleVerificarCodigo} className="flex flex-col gap-4">
+      <form onSubmit={handleContinuarComCodigo} className="flex flex-col gap-4">
         <div>
           <h2 className="text-base font-semibold text-foreground">Confirme seu acesso</h2>
           <p className="text-xs text-muted-foreground">
-            Digite o e-mail cadastrado e o código de 8 dígitos que enviamos para ele.
+            Digite o e-mail cadastrado e o código de 6 dígitos que enviamos por WhatsApp.
           </p>
         </div>
         <div className="flex flex-col gap-1.5">
@@ -158,16 +157,16 @@ function DefinirSenhaForm() {
           <Input
             id="codigo"
             inputMode="numeric"
-            maxLength={8}
-            placeholder="00000000"
+            maxLength={6}
+            placeholder="000000"
             value={codigo}
             onChange={(e) => setCodigo(e.target.value)}
             className="text-center text-lg tracking-[0.35em]"
             required
           />
         </div>
-        <Button type="submit" size="lg" disabled={enviando} className="mt-2">
-          {enviando ? "Verificando…" : "Confirmar"}
+        <Button type="submit" size="lg">
+          Continuar
         </Button>
       </form>
     </Card>
