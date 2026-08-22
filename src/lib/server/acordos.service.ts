@@ -2,7 +2,7 @@ import "server-only";
 import { addMonths } from "date-fns";
 import { createAdminClient } from "@/lib/supabase/server";
 import { formatCurrency } from "@/lib/utils/formatters";
-import { criarNotificacao } from "./notificacoes.service";
+import { criarNotificacao, enviarWhatsAppNotificacao } from "./notificacoes.service";
 import { mapAcordo } from "./mappers";
 import type { Acordo } from "@/lib/types";
 
@@ -121,6 +121,10 @@ export async function criarAcordo(dados: NovoAcordoInput): Promise<Acordo> {
     criadoEm: new Date().toISOString(),
     link: "/acordos",
   });
+  await enviarWhatsAppNotificacao(cliente.usuario_id, "WHATSAPP_TEMPLATE_ACORDO_CRIADO", [
+    numero,
+    formatCurrency(valorTotal),
+  ]);
 
   const [acordo] = await anexarCronograma(supabase, [acordoRow]);
   return acordo;

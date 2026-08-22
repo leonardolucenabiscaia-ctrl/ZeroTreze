@@ -1,7 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/server";
 import { formatCurrency, formatDateTime } from "@/lib/utils/formatters";
-import { criarNotificacao } from "./notificacoes.service";
+import { criarNotificacao, enviarWhatsAppNotificacao } from "./notificacoes.service";
 import { mapMulta } from "./mappers";
 import type { Multa } from "@/lib/types";
 
@@ -149,6 +149,10 @@ export async function criarMulta(dados: NovaMultaInput): Promise<Multa> {
       criadoEm: new Date().toISOString(),
       link: "/multas",
     });
+    await enviarWhatsAppNotificacao(cliente.usuario_id, "WHATSAPP_TEMPLATE_NOVA_MULTA", [
+      dados.descricao,
+      formatCurrency(dados.valor),
+    ]);
   }
 
   return mapMulta(multaRow);

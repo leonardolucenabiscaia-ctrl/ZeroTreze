@@ -10,7 +10,10 @@ export type TipoNotificacao =
   | "contrato_vencendo"
   | "revisao_agendada"
   | "documento_disponivel"
-  | "chat_respondido";
+  | "chat_respondido"
+  | "parcela_falta_2_dias"
+  | "parcela_vence_hoje"
+  | "parcela_venceu_ontem";
 
 export interface Notificacao {
   id: string;

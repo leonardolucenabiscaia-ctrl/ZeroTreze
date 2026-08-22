@@ -1,5 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/server";
+import { criarNotificacao, enviarWhatsAppNotificacao } from "./notificacoes.service";
 import { mapChamado, mapMensagem } from "./mappers";
 import type { CategoriaChamado, Chamado, Mensagem, PrioridadeChamado } from "@/lib/types";
 
@@ -130,6 +131,27 @@ export async function enviarMensagem(
 
   const novoStatus = autor.autorPerfil === "cliente" && chamado.status === "resolvido" ? "em_andamento" : chamado.status;
   await supabase.from("chamados").update({ atualizado_em: agora, status: novoStatus }).eq("id", chamadoId);
+
+  if (autor.autorPerfil !== "cliente") {
+    const { data: cliente } = await supabase
+      .from("clientes")
+      .select("usuario_id")
+      .eq("id", chamado.cliente_id)
+      .maybeSingle();
+    if (cliente) {
+      await criarNotificacao({
+        id: crypto.randomUUID(),
+        usuarioId: cliente.usuario_id,
+        tipo: "chat_respondido",
+        titulo: "Seu chamado foi respondido",
+        mensagem: `Chamado ${chamado.numero}: ${autor.autorNome} respondeu sua mensagem.`,
+        lida: false,
+        criadoEm: agora,
+        link: "/atendimento",
+      });
+      await enviarWhatsAppNotificacao(cliente.usuario_id, "WHATSAPP_TEMPLATE_CHAT_RESPONDIDO", [chamado.numero]);
+    }
+  }
 
   return mapMensagem(mensagemRow);
 }

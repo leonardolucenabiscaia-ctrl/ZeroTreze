@@ -50,6 +50,18 @@ const TEMPLATES: Record<TipoNotificacao, { titulo: string; mensagem: string }> =
     titulo: "Mensagem da Zero Treze",
     mensagem: "Você recebeu uma nova mensagem de cobrança. Confira os detalhes no financeiro.",
   },
+  parcela_falta_2_dias: {
+    titulo: "Parcela vence em 2 dias",
+    mensagem: "Sua parcela vence em 2 dias. Evite juros e multa pagando em dia.",
+  },
+  parcela_vence_hoje: {
+    titulo: "Parcela vence hoje",
+    mensagem: "Sua parcela vence hoje. Evite juros e multa pagando em dia.",
+  },
+  parcela_venceu_ontem: {
+    titulo: "Parcela venceu ontem",
+    mensagem: "Sua parcela venceu ontem e ainda está em aberto.",
+  },
 };
 
 // "multa_ciencia_confirmada" é dirigida ao administrador (ver `confirmarCienciaMulta`) e
