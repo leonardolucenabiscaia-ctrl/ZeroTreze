@@ -3,6 +3,8 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { mapNotificacao } from "./mappers";
 import type { Notificacao } from "@/lib/types";
 
+const CONTATO_SUPORTE = "Caso tenha alguma dúvida, contatar (13) 97809-6805.";
+
 export async function criarNotificacao(notificacao: Notificacao): Promise<void> {
   const supabase = createAdminClient();
   const { error } = await supabase.from("notificacoes").insert({
@@ -10,7 +12,7 @@ export async function criarNotificacao(notificacao: Notificacao): Promise<void> 
     usuario_id: notificacao.usuarioId,
     tipo: notificacao.tipo,
     titulo: notificacao.titulo,
-    mensagem: notificacao.mensagem,
+    mensagem: `${notificacao.mensagem} ${CONTATO_SUPORTE}`,
     lida: notificacao.lida,
     criado_em: notificacao.criadoEm,
     link: notificacao.link ?? null,
