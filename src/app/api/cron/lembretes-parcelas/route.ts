@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { differenceInCalendarDays } from "date-fns";
+import { addDays, differenceInCalendarDays, startOfDay, subDays } from "date-fns";
 import crypto from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/server";
 import { criarNotificacao, enviarWhatsAppNotificacao } from "@/lib/server/notificacoes.service";
@@ -55,11 +55,20 @@ export async function GET(request: NextRequest) {
   const supabase = createAdminClient();
   const hoje = new Date();
 
+  // A janela de datas relevante é só [hoje-1, hoje+2] (as 3 regras cobrem esse intervalo) — com
+  // margem de 1 dia de folga pra não cortar nada por fuso horário. Filtrar por data direto na
+  // consulta evita esbarrar no limite padrão de 1000 linhas do Supabase (o total de parcelas do
+  // banco inteiro passa disso).
+  const inicioJanela = startOfDay(subDays(hoje, 2)).toISOString();
+  const fimJanela = startOfDay(addDays(hoje, 4)).toISOString();
+
   const { data: parcelas, error } = await supabase
     .from("parcelas")
     .select("id, valor_original, data_vencimento, contrato_id, contratos!inner(cliente_id, status)")
     .in("status", ["em_aberto", "vencido"])
-    .neq("contratos.status", "encerrado");
+    .neq("contratos.status", "encerrado")
+    .gte("data_vencimento", inicioJanela)
+    .lte("data_vencimento", fimJanela);
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
