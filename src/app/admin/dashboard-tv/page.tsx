@@ -1,15 +1,17 @@
 "use client";
 
 import * as React from "react";
-import { Car, Key, Wrench, PaintBucket, Lock, RefreshCw } from "lucide-react";
+import { Car, Key, Wrench, PaintBucket, Lock, RefreshCw, Maximize2, Minimize2 } from "lucide-react";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 
 import { listarVeiculos } from "@/lib/services/veiculos.service";
 import { listarContratos } from "@/lib/services/contratos.service";
 import { formatDateTime } from "@/lib/utils/formatters";
+import { cn } from "@/lib/utils/cn";
 import type { Contrato, Veiculo } from "@/lib/types";
 
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
 type StatusFrota = "disponivel" | "locado" | "mecanica" | "funilaria" | "bloqueado";
@@ -36,6 +38,7 @@ export default function DashboardTvPage() {
   const [veiculos, setVeiculos] = React.useState<Veiculo[] | null>(null);
   const [contratos, setContratos] = React.useState<Contrato[]>([]);
   const [atualizadoEm, setAtualizadoEm] = React.useState<string>("");
+  const [modoTV, setModoTV] = React.useState(false);
 
   const carregar = React.useCallback(() => {
     Promise.all([listarVeiculos(), listarContratos()]).then(([v, c]) => {
@@ -50,6 +53,34 @@ export default function DashboardTvPage() {
     const intervalo = setInterval(carregar, 60000);
     return () => clearInterval(intervalo);
   }, [carregar]);
+
+  React.useEffect(() => {
+    function aoMudarFullscreen() {
+      if (!document.fullscreenElement) setModoTV(false);
+    }
+    document.addEventListener("fullscreenchange", aoMudarFullscreen);
+    return () => document.removeEventListener("fullscreenchange", aoMudarFullscreen);
+  }, []);
+
+  async function ativarModoTV() {
+    try {
+      await document.documentElement.requestFullscreen();
+    } catch {
+      // navegador pode bloquear tela cheia (ex.: sem gesto do usuário) — segue só escondendo a barra lateral
+    }
+    setModoTV(true);
+  }
+
+  async function sairModoTV() {
+    if (document.fullscreenElement) {
+      try {
+        await document.exitFullscreen();
+      } catch {
+        // já pode ter saído do fullscreen por outro caminho (Esc)
+      }
+    }
+    setModoTV(false);
+  }
 
   if (!veiculos) return <Skeleton className="h-96 w-full" />;
 
@@ -73,84 +104,102 @@ export default function DashboardTvPage() {
   })).filter((d) => d.value > 0);
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-foreground">Dashboard de TV — Status da Frota</h1>
-          <p className="text-sm text-muted-foreground">Visão geral dos {veiculos.length} veículos</p>
-        </div>
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <RefreshCw className="size-3.5" />
-          Atualizado em: {atualizadoEm ? formatDateTime(atualizadoEm) : "—"}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        {ORDEM.map((status) => {
-          const config = STATUS_CONFIG[status];
-          const Icon = config.icon;
-          const qtd = contagem[status];
-          const percentual = ((qtd / total) * 100).toFixed(2);
-          return (
-            <Card key={status} className={`gap-2 border ${config.corFundo}`}>
-              <Icon className={`size-6 ${config.corTexto}`} />
-              <span className={`text-xs font-semibold uppercase tracking-wide ${config.corTexto}`}>
-                {config.label}
-              </span>
-              <span className="text-3xl font-bold text-foreground">{qtd}</span>
-              <span className="text-xs text-muted-foreground">{percentual}%</span>
-            </Card>
-          );
-        })}
-      </div>
-
-      <Card>
-        <h2 className="mb-3 text-sm font-medium text-muted-foreground">Distribuição por status</h2>
-        <div className="flex flex-col items-center gap-4 sm:flex-row">
-          <div className="h-56 w-56 shrink-0">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={dadosGrafico} dataKey="value" nameKey="name" innerRadius={60} outerRadius={100} paddingAngle={2}>
-                  {dadosGrafico.map((d) => (
-                    <Cell key={d.name} fill={d.cor} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8 }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+    <div className={cn(modoTV && "fixed inset-0 z-[100] overflow-hidden bg-background p-4")}>
+      <div className={cn("flex flex-col gap-3", modoTV && "h-full")}>
+        <div className="flex shrink-0 items-center justify-between">
+          <div>
+            <h1 className="text-xl font-semibold text-foreground">Dashboard de TV — Status da Frota</h1>
+            <p className="text-sm text-muted-foreground">Visão geral dos {veiculos.length} veículos</p>
           </div>
-          <div className="grid flex-1 grid-cols-2 gap-2 sm:grid-cols-1">
-            {ORDEM.map((status) => (
-              <div key={status} className="flex items-center gap-2 text-sm">
-                <span className="size-3 shrink-0 rounded-full" style={{ backgroundColor: STATUS_CONFIG[status].cor }} />
-                <span className="text-foreground">{STATUS_CONFIG[status].label}</span>
-                <span className="text-muted-foreground">
-                  {contagem[status]} ({((contagem[status] / total) * 100).toFixed(2)}%)
-                </span>
-              </div>
-            ))}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <RefreshCw className="size-3.5" />
+              Atualizado em: {atualizadoEm ? formatDateTime(atualizadoEm) : "—"}
+            </div>
+            {modoTV ? (
+              <Button size="sm" variant="outline" onClick={sairModoTV}>
+                <Minimize2 className="size-3.5" />
+                Sair da tela cheia
+              </Button>
+            ) : (
+              <Button size="sm" variant="outline" onClick={ativarModoTV}>
+                <Maximize2 className="size-3.5" />
+                Tela cheia
+              </Button>
+            )}
           </div>
         </div>
-      </Card>
 
-      <div>
-        <h2 className="mb-3 text-sm font-medium text-muted-foreground">Frota — visão geral</h2>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8">
-          {veiculos.map((veiculo) => {
-            const status = statusPorVeiculo.get(veiculo.id) ?? "disponivel";
+        <div className="grid shrink-0 grid-cols-2 gap-3 lg:grid-cols-5">
+          {ORDEM.map((status) => {
             const config = STATUS_CONFIG[status];
+            const Icon = config.icon;
+            const qtd = contagem[status];
+            const percentual = ((qtd / total) * 100).toFixed(2);
             return (
-              <Card key={veiculo.id} className={`items-center gap-1.5 border py-3 text-center ${config.corFundo}`}>
-                <span className="text-[11px] text-muted-foreground">{veiculo.placa}</span>
-                <span className="text-xs font-medium text-foreground">
-                  {veiculo.marca} {veiculo.modelo}
+              <Card key={status} className={`gap-1.5 border p-3 ${config.corFundo}`}>
+                <Icon className={`size-5 ${config.corTexto}`} />
+                <span className={`text-xs font-semibold uppercase tracking-wide ${config.corTexto}`}>
+                  {config.label}
                 </span>
-                <span className={`text-[11px] font-semibold uppercase ${config.corTexto}`}>{config.label}</span>
+                <span className="text-2xl font-bold text-foreground">{qtd}</span>
+                <span className="text-xs text-muted-foreground">{percentual}%</span>
               </Card>
             );
           })}
+        </div>
+
+        <div className={cn("flex min-h-0 flex-1 flex-col gap-3 lg:flex-row", !modoTV && "lg:min-h-[420px]")}>
+          <Card className="shrink-0 gap-2 p-3 lg:w-64">
+            <h2 className="text-xs font-medium text-muted-foreground">Distribuição por status</h2>
+            <div className="flex flex-1 flex-col items-center gap-3">
+              <div className="h-32 w-32 shrink-0">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={dadosGrafico} dataKey="value" nameKey="name" innerRadius={36} outerRadius={60} paddingAngle={2}>
+                      {dadosGrafico.map((d) => (
+                        <Cell key={d.name} fill={d.cor} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8 }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="flex w-full flex-col gap-1.5">
+                {ORDEM.map((status) => (
+                  <div key={status} className="flex items-center gap-2 text-xs">
+                    <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: STATUS_CONFIG[status].cor }} />
+                    <span className="text-foreground">{STATUS_CONFIG[status].label}</span>
+                    <span className="ml-auto text-muted-foreground">{contagem[status]}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Card>
+
+          <Card className="min-h-0 flex-1 gap-2 overflow-hidden p-3">
+            <h2 className="shrink-0 text-xs font-medium text-muted-foreground">Frota — visão geral</h2>
+            <div className="flex flex-1 flex-wrap content-start gap-1.5 overflow-hidden">
+              {veiculos.map((veiculo) => {
+                const status = statusPorVeiculo.get(veiculo.id) ?? "disponivel";
+                const config = STATUS_CONFIG[status];
+                return (
+                  <div
+                    key={veiculo.id}
+                    className={`flex w-[9.5rem] shrink-0 flex-col items-center gap-0.5 rounded-lg border px-2 py-1.5 text-center ${config.corFundo}`}
+                  >
+                    <span className="text-[10px] text-muted-foreground">{veiculo.placa}</span>
+                    <span className="truncate text-[11px] font-medium text-foreground">
+                      {veiculo.marca} {veiculo.modelo}
+                    </span>
+                    <span className={`text-[10px] font-semibold uppercase ${config.corTexto}`}>{config.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
         </div>
       </div>
     </div>
