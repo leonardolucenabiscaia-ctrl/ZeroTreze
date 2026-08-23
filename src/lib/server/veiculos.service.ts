@@ -68,6 +68,42 @@ export async function desbloquearVeiculo(veiculoId: string): Promise<Veiculo> {
   return veiculo;
 }
 
+export async function listarVeiculosEmManutencao(): Promise<Veiculo[]> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase.from("veiculos").select("*").not("manutencao_tipo", "is", null);
+  if (error) throw new Error(error.message);
+  return anexarHistorico(supabase, data ?? []);
+}
+
+export async function colocarVeiculoEmManutencao(
+  veiculoId: string,
+  tipo: "mecanica" | "funilaria"
+): Promise<Veiculo> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("veiculos")
+    .update({ manutencao_tipo: tipo, manutencao_desde: new Date().toISOString() })
+    .eq("id", veiculoId)
+    .select()
+    .single();
+  if (error || !data) throw new Error("Veículo não encontrado");
+  const [veiculo] = await anexarHistorico(supabase, [data]);
+  return veiculo;
+}
+
+export async function retirarVeiculoDeManutencao(veiculoId: string): Promise<Veiculo> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("veiculos")
+    .update({ manutencao_tipo: null, manutencao_desde: null })
+    .eq("id", veiculoId)
+    .select()
+    .single();
+  if (error || !data) throw new Error("Veículo não encontrado");
+  const [veiculo] = await anexarHistorico(supabase, [data]);
+  return veiculo;
+}
+
 export interface NovoVeiculoInput {
   marca: string;
   modelo: string;

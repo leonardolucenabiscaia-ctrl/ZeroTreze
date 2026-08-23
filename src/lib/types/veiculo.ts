@@ -30,4 +30,7 @@ export interface Veiculo {
    * impedido de uso. Ver `bloquearVeiculo`/`desbloquearVeiculo` em `veiculos.service`. */
   bloqueado: boolean;
   bloqueadoEm?: string;
+  /** Estado de manutenção — separado do bloqueio manual. Ver `colocarVeiculoEmManutencao`. */
+  manutencaoTipo?: "mecanica" | "funilaria";
+  manutencaoDesde?: string;
 }

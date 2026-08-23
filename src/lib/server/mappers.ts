@@ -96,6 +96,8 @@ export function mapVeiculo(
     garantiaAte: row.garantia_ate as string,
     bloqueado: row.bloqueado as boolean,
     bloqueadoEm: (row.bloqueado_em as string | null) ?? undefined,
+    manutencaoTipo: (row.manutencao_tipo as "mecanica" | "funilaria" | null) ?? undefined,
+    manutencaoDesde: (row.manutencao_desde as string | null) ?? undefined,
     historicoManutencao: historico.map((h) => ({
       id: h.id as string,
       data: h.data as string,

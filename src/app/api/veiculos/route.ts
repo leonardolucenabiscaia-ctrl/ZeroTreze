@@ -1,12 +1,23 @@
 import type { NextRequest } from "next/server";
-import { criarVeiculo, listarVeiculos, listarVeiculosBloqueados } from "@/lib/server/veiculos.service";
+import {
+  criarVeiculo,
+  listarVeiculos,
+  listarVeiculosBloqueados,
+  listarVeiculosEmManutencao,
+} from "@/lib/server/veiculos.service";
 import { handleRoute, PERFIS_STAFF } from "@/lib/server/route-helpers";
 
 // A frota inteira (com localização/estado de cada veículo) só é usada pelo backoffice — o
 // portal do cliente não lista veículos, só enxerga o próprio via contrato.
 export async function GET(request: NextRequest) {
-  const bloqueados = request.nextUrl.searchParams.get("bloqueados") === "true";
-  return handleRoute(() => (bloqueados ? listarVeiculosBloqueados() : listarVeiculos()), 200, PERFIS_STAFF);
+  const params = request.nextUrl.searchParams;
+  const bloqueados = params.get("bloqueados") === "true";
+  const emManutencao = params.get("emManutencao") === "true";
+  return handleRoute(
+    () => (emManutencao ? listarVeiculosEmManutencao() : bloqueados ? listarVeiculosBloqueados() : listarVeiculos()),
+    200,
+    PERFIS_STAFF
+  );
 }
 
 export const maxDuration = 30;

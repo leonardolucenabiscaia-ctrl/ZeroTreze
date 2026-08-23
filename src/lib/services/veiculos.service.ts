@@ -23,6 +23,24 @@ export async function desbloquearVeiculo(veiculoId: string): Promise<Veiculo> {
   return apiFetch<Veiculo>(`/api/veiculos/${veiculoId}/desbloquear`, { method: "POST" });
 }
 
+export async function listarVeiculosEmManutencao(): Promise<Veiculo[]> {
+  return apiFetch<Veiculo[]>("/api/veiculos?emManutencao=true");
+}
+
+export async function colocarVeiculoEmManutencao(
+  veiculoId: string,
+  tipo: "mecanica" | "funilaria"
+): Promise<Veiculo> {
+  return apiFetch<Veiculo>(`/api/veiculos/${veiculoId}/manutencao`, {
+    method: "POST",
+    body: JSON.stringify({ tipo }),
+  });
+}
+
+export async function retirarVeiculoDeManutencao(veiculoId: string): Promise<Veiculo> {
+  return apiFetch<Veiculo>(`/api/veiculos/${veiculoId}/manutencao`, { method: "DELETE" });
+}
+
 export async function atualizarVeiculo(veiculoId: string, dados: Partial<Veiculo>): Promise<Veiculo> {
   return apiFetch<Veiculo>(`/api/veiculos/${veiculoId}`, {
     method: "PATCH",
