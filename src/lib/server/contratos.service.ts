@@ -94,12 +94,18 @@ export async function criarContrato(dados: NovoContratoInput): Promise<Contrato>
   const dataFim = addMonths(dataInicio, PRAZO_MINIMO_MESES);
   const anoContrato = dataInicio.getFullYear();
 
-  const { count } = await supabase
+  // Usa o MAIOR sequencial já usado nesse ano (não a contagem de linhas) — os contratos reais
+  // importados têm numeração com lacunas (vieram do sistema antigo, não foram atribuídos em
+  // sequência 1..N), então "contar quantos existem + 1" colide com números já usados.
+  const { data: numerosDoAno } = await supabase
     .from("contratos")
-    .select("id", { count: "exact", head: true })
-    .gte("data_inicio", `${anoContrato}-01-01`)
-    .lt("data_inicio", `${anoContrato + 1}-01-01`);
-  const numero = formatarNumeroContrato(anoContrato, (count ?? 0) + 1);
+    .select("numero")
+    .like("numero", `CT-${anoContrato}-%`);
+  const maiorSequencial = (numerosDoAno ?? []).reduce((maior, { numero: numeroExistente }) => {
+    const sequencial = Number(numeroExistente.split("-").at(-1));
+    return Number.isFinite(sequencial) && sequencial > maior ? sequencial : maior;
+  }, 0);
+  const numero = formatarNumeroContrato(anoContrato, maiorSequencial + 1);
 
   // Monta no formato do tipo `Contrato` (camelCase) só pra reaproveitar gerarParcelas/gerarExtrato
   // (a mesma lógica de geração de parcelas semanais já usada e testada nesta sessão).
