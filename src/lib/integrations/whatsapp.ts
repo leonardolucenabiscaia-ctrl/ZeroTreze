@@ -77,7 +77,22 @@ const cloudApiProvider: WhatsAppProvider = {
       console.error("[whatsapp] WHATSAPP_TEMPLATE_CODIGO_ACESSO não configurado.");
       return { enviado: false };
     }
-    return enviarTemplateGenerico(telefone, nomeTemplate, [codigo]);
+    // Template de Autenticação com botão "Copiar código" — além da variável no corpo, a Cloud
+    // API exige um componente de botão separado com o mesmo código (sub_type "url" é o valor
+    // esperado pela API mesmo para o botão de copiar/preencher automaticamente, não é engano).
+    return chamarCloudApi({
+      messaging_product: "whatsapp",
+      to: normalizarTelefone(telefone),
+      type: "template",
+      template: {
+        name: nomeTemplate,
+        language: { code: "pt_BR" },
+        components: [
+          { type: "body", parameters: [{ type: "text", text: codigo }] },
+          { type: "button", sub_type: "url", index: "0", parameters: [{ type: "text", text: codigo }] },
+        ],
+      },
+    });
   },
 
   async enviarTemplate(telefone, nomeTemplate, parametros) {
