@@ -15,7 +15,6 @@ import {
   Award,
   Users,
   ShieldCheck,
-  BarChart3,
   Settings,
   ClipboardList,
   Lock,
@@ -84,7 +83,6 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
   { href: "/admin/manutencao", label: "Manutenção", icon: Wrench, recurso: "veiculos" },
   { href: "/admin/dashboard-tv", label: "Dashboard de TV", icon: Tv, recurso: "veiculos" },
   { href: "/admin/financeiro", label: "Financeiro", icon: Wallet, recurso: "financeiro" },
-  { href: "/admin/cobranca", label: "Cobrança", icon: Receipt, recurso: "cobranca" },
   { href: "/admin/acordos", label: "Acordos", icon: Handshake, recurso: "acordos" },
   { href: "/admin/notificacoes", label: "Notificações", icon: Bell, recurso: "notificacoes" },
   { href: "/admin/chamados", label: "Chamados", icon: Headset, recurso: "chamados" },
@@ -93,7 +91,6 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
   { href: "/admin/documentos", label: "Documentos", icon: FolderOpen, recurso: "documentos" },
   { href: "/admin/usuarios", label: "Usuários", icon: Users, recurso: "usuarios" },
   { href: "/admin/permissoes", label: "Permissões", icon: ShieldCheck, recurso: "permissoes" },
-  { href: "/admin/relatorios", label: "Relatórios", icon: BarChart3, recurso: "relatorios" },
   { href: "/admin/auditoria", label: "Auditoria", icon: ClipboardList, recurso: "auditoria" },
   { href: "/admin/configuracoes", label: "Configurações", icon: Settings, recurso: "configuracoes" },
 ];
