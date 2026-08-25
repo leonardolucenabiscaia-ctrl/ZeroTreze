@@ -20,7 +20,7 @@ export function ClientShell({ children }: { children: React.ReactNode }) {
               <PageTransition>{children}</PageTransition>
             </main>
           </div>
-          <BottomNav items={CLIENT_NAV_MOBILE} />
+          <BottomNav items={CLIENT_NAV_MOBILE} menuItems={CLIENT_NAV_ITEMS} />
         </div>
       </MultaCienciaGate>
     </ClientOnlyGuard>

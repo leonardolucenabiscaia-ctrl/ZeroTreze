@@ -27,7 +27,7 @@ function AdminShellInner({ children }: { children: React.ReactNode }) {
           <PageTransition>{children}</PageTransition>
         </main>
       </div>
-      <BottomNav items={itensMobile} />
+      <BottomNav items={itensMobile} menuItems={itensPermitidos} />
     </div>
   );
 }

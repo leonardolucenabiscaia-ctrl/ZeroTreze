@@ -48,12 +48,19 @@ export const CLIENT_NAV_ITEMS: NavItem[] = [
   { href: "/perfil", label: "Perfil", icon: User },
 ];
 
+function porHref(items: NavItem[], href: string): NavItem {
+  const item = items.find((i) => i.href === href);
+  if (!item) throw new Error(`Item de navegação não encontrado: ${href}`);
+  return item;
+}
+
+// Só os mais usados ficam fixos na barra — o resto (Extrato, Contratos, Veículo, Multas,
+// Notificações, Acordos, Assistência 24h, Documentos, Score) aparece na aba "Mais opções".
 export const CLIENT_NAV_MOBILE: NavItem[] = [
-  CLIENT_NAV_ITEMS[0],
-  CLIENT_NAV_ITEMS[1],
-  CLIENT_NAV_ITEMS[8],
-  CLIENT_NAV_ITEMS[6],
-  CLIENT_NAV_ITEMS[12],
+  porHref(CLIENT_NAV_ITEMS, "/dashboard"),
+  porHref(CLIENT_NAV_ITEMS, "/financeiro"),
+  porHref(CLIENT_NAV_ITEMS, "/atendimento"),
+  porHref(CLIENT_NAV_ITEMS, "/perfil"),
 ];
 
 export const ADMIN_NAV_ITEMS: NavItem[] = [
@@ -84,10 +91,11 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
   { href: "/admin/configuracoes", label: "Configurações", icon: Settings, recurso: "configuracoes" },
 ];
 
+// Só os mais usados ficam fixos na barra — o resto aparece na aba "Mais opções". Busca por href
+// (não por índice) de propósito: índice fixo já quebrou antes ao inserir um item no meio da lista.
 export const ADMIN_NAV_MOBILE: NavItem[] = [
-  ADMIN_NAV_ITEMS[0], // Dashboard
-  ADMIN_NAV_ITEMS[1], // Clientes
-  ADMIN_NAV_ITEMS[2], // Contratos
-  ADMIN_NAV_ITEMS[5], // Financeiro
-  ADMIN_NAV_ITEMS[9], // Chamados
+  porHref(ADMIN_NAV_ITEMS, "/admin/dashboard"),
+  porHref(ADMIN_NAV_ITEMS, "/admin/clientes"),
+  porHref(ADMIN_NAV_ITEMS, "/admin/contratos"),
+  porHref(ADMIN_NAV_ITEMS, "/admin/financeiro"),
 ];
