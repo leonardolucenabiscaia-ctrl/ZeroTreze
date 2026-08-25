@@ -41,6 +41,20 @@ export async function retirarVeiculoDeManutencao(veiculoId: string): Promise<Vei
   return apiFetch<Veiculo>(`/api/veiculos/${veiculoId}/manutencao`, { method: "DELETE" });
 }
 
+export async function listarVeiculosIndisponiveis(): Promise<Veiculo[]> {
+  return apiFetch<Veiculo[]>("/api/veiculos?indisponiveis=true");
+}
+
+/** Pausa temporária decidida pela equipe (reservado, aguardando limpeza/documentação etc.) —
+ * independente de bloqueio (geralmente por problema) e de manutenção (mecânica/funilaria). */
+export async function marcarVeiculoIndisponivel(veiculoId: string): Promise<Veiculo> {
+  return apiFetch<Veiculo>(`/api/veiculos/${veiculoId}/indisponivel`, { method: "POST" });
+}
+
+export async function marcarVeiculoDisponivel(veiculoId: string): Promise<Veiculo> {
+  return apiFetch<Veiculo>(`/api/veiculos/${veiculoId}/indisponivel`, { method: "DELETE" });
+}
+
 export async function atualizarVeiculo(veiculoId: string, dados: Partial<Veiculo>): Promise<Veiculo> {
   return apiFetch<Veiculo>(`/api/veiculos/${veiculoId}`, {
     method: "PATCH",

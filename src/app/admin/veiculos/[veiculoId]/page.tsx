@@ -9,8 +9,8 @@ import {
   buscarVeiculoPorId,
   atualizarQuilometragem,
   atualizarVeiculo,
-  bloquearVeiculo,
-  desbloquearVeiculo,
+  marcarVeiculoIndisponivel,
+  marcarVeiculoDisponivel,
 } from "@/lib/services/veiculos.service";
 import { listarDocumentosPorVeiculo } from "@/lib/services/documentos.service";
 import { registrarAcao } from "@/lib/services/auditoria.service";
@@ -59,8 +59,8 @@ export default function AdminVeiculoDetalhePage() {
   const [cor, setCor] = React.useState("");
   const [categoria, setCategoria] = React.useState("");
   const [salvandoDados, setSalvandoDados] = React.useState(false);
-  const [confirmandoBloqueio, setConfirmandoBloqueio] = React.useState(false);
-  const [alternandoBloqueio, setAlternandoBloqueio] = React.useState(false);
+  const [confirmandoIndisponibilidade, setConfirmandoIndisponibilidade] = React.useState(false);
+  const [alternandoIndisponibilidade, setAlternandoIndisponibilidade] = React.useState(false);
 
   React.useEffect(() => {
     buscarVeiculoPorId(params.veiculoId).then((v) => setVeiculo(v ?? null));
@@ -131,28 +131,30 @@ export default function AdminVeiculoDetalhePage() {
     }
   }
 
-  async function handleConfirmarBloqueio() {
+  async function handleConfirmarIndisponibilidade() {
     if (!veiculo) return;
-    setAlternandoBloqueio(true);
+    setAlternandoIndisponibilidade(true);
     try {
-      const vaiBloquear = !veiculo.bloqueado;
-      const atualizado = vaiBloquear ? await bloquearVeiculo(veiculo.id) : await desbloquearVeiculo(veiculo.id);
+      const vaiMarcar = !veiculo.indisponivel;
+      const atualizado = vaiMarcar
+        ? await marcarVeiculoIndisponivel(veiculo.id)
+        : await marcarVeiculoDisponivel(veiculo.id);
       setVeiculo(atualizado);
       if (usuario) {
         await registrarAcao({
           usuarioId: usuario.id,
           usuarioNome: usuario.nome,
-          acao: vaiBloquear ? "Marcou o veículo como indisponível" : "Marcou o veículo como disponível",
+          acao: vaiMarcar ? "Marcou o veículo como indisponível" : "Marcou o veículo como disponível",
           entidade: "Veículo",
           entidadeId: `${atualizado.marca} ${atualizado.modelo} — ${atualizado.placa}`,
         });
       }
-      toast.success(vaiBloquear ? "Veículo marcado como indisponível." : "Veículo disponível novamente.");
-      setConfirmandoBloqueio(false);
+      toast.success(vaiMarcar ? "Veículo marcado como indisponível." : "Veículo disponível novamente.");
+      setConfirmandoIndisponibilidade(false);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível atualizar a disponibilidade do veículo.");
     } finally {
-      setAlternandoBloqueio(false);
+      setAlternandoIndisponibilidade(false);
     }
   }
 
@@ -180,18 +182,19 @@ export default function AdminVeiculoDetalhePage() {
             <h1 className="text-xl font-semibold text-foreground">
               {veiculo.marca} {veiculo.modelo} ({veiculo.ano})
             </h1>
-            {veiculo.bloqueado && <Badge variant="destructive">Indisponível</Badge>}
+            {veiculo.bloqueado && <Badge variant="destructive">Bloqueado</Badge>}
+            {veiculo.indisponivel && <Badge variant="warning">Indisponível</Badge>}
             <Button size="sm" variant="outline" onClick={abrirEdicaoDados}>
               <Pencil className="size-3.5" />
               Completar dados
             </Button>
             <Button
               size="sm"
-              variant={veiculo.bloqueado ? "secondary" : "outline"}
-              onClick={() => setConfirmandoBloqueio(true)}
+              variant={veiculo.indisponivel ? "secondary" : "outline"}
+              onClick={() => setConfirmandoIndisponibilidade(true)}
             >
-              {veiculo.bloqueado ? <Unlock className="size-3.5" /> : <Lock className="size-3.5" />}
-              {veiculo.bloqueado ? "Marcar disponível" : "Marcar indisponível"}
+              {veiculo.indisponivel ? <Unlock className="size-3.5" /> : <Lock className="size-3.5" />}
+              {veiculo.indisponivel ? "Marcar disponível" : "Marcar indisponível"}
             </Button>
           </div>
           <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-4">
@@ -290,34 +293,34 @@ export default function AdminVeiculoDetalhePage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={confirmandoBloqueio} onOpenChange={setConfirmandoBloqueio}>
+      <Dialog open={confirmandoIndisponibilidade} onOpenChange={setConfirmandoIndisponibilidade}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              Marcar {veiculo.placa} como {veiculo.bloqueado ? "disponível" : "indisponível"}?
+              Marcar {veiculo.placa} como {veiculo.indisponivel ? "disponível" : "indisponível"}?
             </DialogTitle>
             <DialogDescription>
-              {veiculo.bloqueado
+              {veiculo.indisponivel
                 ? "O veículo volta a aparecer como disponível para novos contratos."
-                : "O veículo fica impedido de uso até ser marcado como disponível de novo. Se houver um contrato ativo vinculado, ele não é afetado — parcelas, prazo e status continuam normalmente."}
+                : "Marca o veículo como temporariamente indisponível (ex.: reservado, aguardando limpeza ou documentação) — diferente de bloqueio ou manutenção. Ele some da lista de veículos disponíveis até ser liberado de novo."}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setConfirmandoBloqueio(false)}
-              disabled={alternandoBloqueio}
+              onClick={() => setConfirmandoIndisponibilidade(false)}
+              disabled={alternandoIndisponibilidade}
             >
               Cancelar
             </Button>
             <Button
-              variant={veiculo.bloqueado ? "default" : "destructive"}
-              onClick={handleConfirmarBloqueio}
-              disabled={alternandoBloqueio}
+              variant={veiculo.indisponivel ? "default" : "destructive"}
+              onClick={handleConfirmarIndisponibilidade}
+              disabled={alternandoIndisponibilidade}
             >
-              {alternandoBloqueio
+              {alternandoIndisponibilidade
                 ? "Salvando…"
-                : veiculo.bloqueado
+                : veiculo.indisponivel
                   ? "Sim, marcar disponível"
                   : "Sim, marcar indisponível"}
             </Button>

@@ -21,6 +21,7 @@ import {
   Lock,
   Wrench,
   Tv,
+  CircleSlash,
 } from "lucide-react";
 
 import type { RecursoAdmin } from "@/lib/auth/permissions";
@@ -72,6 +73,12 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     href: "/admin/veiculos-bloqueados",
     label: "Veículos bloqueados",
     icon: Lock,
+    recurso: "veiculos",
+  },
+  {
+    href: "/admin/veiculos-indisponiveis",
+    label: "Veículos indisponíveis",
+    icon: CircleSlash,
     recurso: "veiculos",
   },
   { href: "/admin/manutencao", label: "Manutenção", icon: Wrench, recurso: "veiculos" },

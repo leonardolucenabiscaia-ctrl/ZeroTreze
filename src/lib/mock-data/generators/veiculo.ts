@@ -72,5 +72,6 @@ export function gerarVeiculo(): Veiculo {
     garantiaAte: addMonths(new Date(), 12).toISOString(),
     historicoManutencao: gerarHistoricoManutencao(km),
     bloqueado: false,
+    indisponivel: false,
   };
 }

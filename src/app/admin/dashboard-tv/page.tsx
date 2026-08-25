@@ -1,7 +1,18 @@
 "use client";
 
 import * as React from "react";
-import { Car, Key, Wrench, PaintBucket, Lock, Headset, RefreshCw, Maximize2, Minimize2 } from "lucide-react";
+import {
+  Car,
+  Key,
+  Wrench,
+  PaintBucket,
+  Lock,
+  CircleSlash,
+  Headset,
+  RefreshCw,
+  Maximize2,
+  Minimize2,
+} from "lucide-react";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 
 import { listarVeiculos } from "@/lib/services/veiculos.service";
@@ -16,22 +27,26 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
-type StatusFrota = "disponivel" | "locado" | "mecanica" | "funilaria" | "bloqueado";
+type StatusFrota = "disponivel" | "locado" | "mecanica" | "funilaria" | "indisponivel" | "bloqueado";
 
 const STATUS_CONFIG: Record<StatusFrota, { label: string; cor: string; corTexto: string; corFundo: string; icon: typeof Car }> = {
   disponivel: { label: "Disponíveis", cor: "#22c55e", corTexto: "text-green-400", corFundo: "bg-green-500/10 border-green-500/30", icon: Car },
   locado: { label: "Locados", cor: "#eab308", corTexto: "text-gold", corFundo: "bg-gold-muted border-gold/30", icon: Key },
   mecanica: { label: "Mecânica", cor: "#f97316", corTexto: "text-orange-400", corFundo: "bg-orange-500/10 border-orange-500/30", icon: Wrench },
   funilaria: { label: "Funilaria", cor: "#a855f7", corTexto: "text-purple-400", corFundo: "bg-purple-500/10 border-purple-500/30", icon: PaintBucket },
+  indisponivel: { label: "Indisponíveis", cor: "#64748b", corTexto: "text-slate-400", corFundo: "bg-slate-500/10 border-slate-500/30", icon: CircleSlash },
   bloqueado: { label: "Bloqueados", cor: "#ef4444", corTexto: "text-destructive", corFundo: "bg-destructive/10 border-destructive/30", icon: Lock },
 };
 
-const ORDEM: StatusFrota[] = ["disponivel", "locado", "mecanica", "funilaria", "bloqueado"];
+const ORDEM: StatusFrota[] = ["disponivel", "locado", "mecanica", "funilaria", "indisponivel", "bloqueado"];
 
+/** Bloqueio (geralmente por problema) e manutenção pesam mais que a simples pausa de
+ * "indisponível" decidida pela equipe — por isso vêm antes na prioridade. */
 function statusDoVeiculo(veiculo: Veiculo, veiculoIdsLocados: Set<string>): StatusFrota {
   if (veiculo.bloqueado) return "bloqueado";
   if (veiculo.manutencaoTipo === "mecanica") return "mecanica";
   if (veiculo.manutencaoTipo === "funilaria") return "funilaria";
+  if (veiculo.indisponivel) return "indisponivel";
   if (veiculoIdsLocados.has(veiculo.id)) return "locado";
   return "disponivel";
 }
@@ -102,6 +117,7 @@ export default function DashboardTvPage() {
     locado: 0,
     mecanica: 0,
     funilaria: 0,
+    indisponivel: 0,
     bloqueado: 0,
   };
   statusPorVeiculo.forEach((status) => contagem[status]++);
@@ -140,7 +156,7 @@ export default function DashboardTvPage() {
           </div>
         </div>
 
-        <div className="grid shrink-0 grid-cols-2 gap-3 lg:grid-cols-6">
+        <div className="grid shrink-0 grid-cols-2 gap-3 lg:grid-cols-7">
           {ORDEM.map((status) => {
             const config = STATUS_CONFIG[status];
             const Icon = config.icon;

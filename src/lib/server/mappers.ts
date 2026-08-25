@@ -98,6 +98,8 @@ export function mapVeiculo(
     bloqueadoEm: (row.bloqueado_em as string | null) ?? undefined,
     manutencaoTipo: (row.manutencao_tipo as "mecanica" | "funilaria" | null) ?? undefined,
     manutencaoDesde: (row.manutencao_desde as string | null) ?? undefined,
+    indisponivel: (row.indisponivel as boolean | null) ?? false,
+    indisponivelDesde: (row.indisponivel_desde as string | null) ?? undefined,
     historicoManutencao: historico.map((h) => ({
       id: h.id as string,
       data: h.data as string,

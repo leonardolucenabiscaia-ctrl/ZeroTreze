@@ -4,6 +4,7 @@ import {
   listarVeiculos,
   listarVeiculosBloqueados,
   listarVeiculosEmManutencao,
+  listarVeiculosIndisponiveis,
 } from "@/lib/server/veiculos.service";
 import { handleRoute, PERFIS_STAFF } from "@/lib/server/route-helpers";
 
@@ -13,8 +14,16 @@ export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
   const bloqueados = params.get("bloqueados") === "true";
   const emManutencao = params.get("emManutencao") === "true";
+  const indisponiveis = params.get("indisponiveis") === "true";
   return handleRoute(
-    () => (emManutencao ? listarVeiculosEmManutencao() : bloqueados ? listarVeiculosBloqueados() : listarVeiculos()),
+    () =>
+      emManutencao
+        ? listarVeiculosEmManutencao()
+        : bloqueados
+          ? listarVeiculosBloqueados()
+          : indisponiveis
+            ? listarVeiculosIndisponiveis()
+            : listarVeiculos(),
     200,
     PERFIS_STAFF
   );

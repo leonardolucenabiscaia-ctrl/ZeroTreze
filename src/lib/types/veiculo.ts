@@ -33,4 +33,9 @@ export interface Veiculo {
   /** Estado de manutenção — separado do bloqueio manual. Ver `colocarVeiculoEmManutencao`. */
   manutencaoTipo?: "mecanica" | "funilaria";
   manutencaoDesde?: string;
+  /** Pausa temporária decidida pela equipe (reservado, aguardando limpeza/documentação etc.) —
+   * independente de bloqueio (geralmente por problema) e de manutenção. Ver
+   * `marcarVeiculoIndisponivel`/`marcarVeiculoDisponivel` em `veiculos.service`. */
+  indisponivel: boolean;
+  indisponivelDesde?: string;
 }
