@@ -60,3 +60,18 @@ export async function listarSolicitacoes(): Promise<SolicitacaoAssistencia[]> {
   if (error) throw new Error(error.message);
   return (data ?? []).map(mapSolicitacaoAssistencia);
 }
+
+export async function atualizarStatusSolicitacao(
+  id: string,
+  status: SolicitacaoAssistencia["status"]
+): Promise<SolicitacaoAssistencia> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("solicitacoes_assistencia")
+    .update({ status })
+    .eq("id", id)
+    .select()
+    .single();
+  if (error || !data) throw new Error(error?.message ?? "Solicitação não encontrada");
+  return mapSolicitacaoAssistencia(data);
+}

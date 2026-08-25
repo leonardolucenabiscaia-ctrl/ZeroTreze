@@ -26,3 +26,13 @@ export async function listarSolicitacoesPorCliente(clienteId: string): Promise<S
 export async function listarSolicitacoes(): Promise<SolicitacaoAssistencia[]> {
   return apiFetch<SolicitacaoAssistencia[]>("/api/assistencia");
 }
+
+export async function atualizarStatusSolicitacao(
+  id: string,
+  status: SolicitacaoAssistencia["status"]
+): Promise<SolicitacaoAssistencia> {
+  return apiFetch<SolicitacaoAssistencia>(`/api/assistencia/${id}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
+}
