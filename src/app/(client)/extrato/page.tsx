@@ -13,13 +13,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SelectBusca } from "@/components/ui/select-busca";
 
 type Filtro = "todos" | TipoMovimentoExtrato;
 
@@ -72,16 +66,18 @@ export default function ExtratoPage() {
         <span className="text-2xl font-semibold text-gold">{formatCurrency(saldoAtual)}</span>
       </Card>
 
-      <Select value={filtro} onValueChange={(v) => setFiltro(v as Filtro)}>
-        <SelectTrigger className="w-48">
-          <SelectValue placeholder="Tipo" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="todos">Todos os tipos</SelectItem>
-          <SelectItem value="entrada">Entradas</SelectItem>
-          <SelectItem value="saida">Saídas</SelectItem>
-        </SelectContent>
-      </Select>
+      <SelectBusca
+        value={filtro}
+        onValueChange={(v) => setFiltro(v as Filtro)}
+        placeholder="Tipo"
+        searchPlaceholder="Buscar tipo…"
+        className="w-48"
+        options={[
+          { value: "todos", label: "Todos os tipos" },
+          { value: "entrada", label: "Entradas" },
+          { value: "saida", label: "Saídas" },
+        ]}
+      />
 
       {filtrados.length === 0 ? (
         <EmptyState icon={Receipt} title="Nenhuma movimentação encontrada" />

@@ -36,13 +36,7 @@ import type { Chamado, Cliente, Contrato, ParametrosFinanceiros, Parcela, ScoreL
 import { StatCard } from "@/components/shared/stat-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SelectBusca } from "@/components/ui/select-busca";
 
 const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 const MESES_COMPLETO = [
@@ -198,47 +192,39 @@ export default function AdminDashboardPage() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center gap-2">
-        <Select value={veiculoFiltro} onValueChange={handleTrocarVeiculo}>
-          <SelectTrigger className="w-56">
-            <SelectValue placeholder="Veículo" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todos">Todos os veículos</SelectItem>
-            {veiculos.map((v) => (
-              <SelectItem key={v.id} value={v.id}>
-                {v.modelo} — {v.placa}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <SelectBusca
+          value={veiculoFiltro}
+          onValueChange={handleTrocarVeiculo}
+          placeholder="Veículo"
+          searchPlaceholder="Buscar veículo…"
+          className="w-56"
+          options={[
+            { value: "todos", label: "Todos os veículos" },
+            ...veiculos.map((v) => ({ value: v.id, label: `${v.modelo} — ${v.placa}` })),
+          ]}
+        />
 
-        <Select value={mesFiltro} onValueChange={setMesFiltro}>
-          <SelectTrigger className="w-40">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todos">Todos os meses</SelectItem>
-            {MESES_COMPLETO.map((mes, indice) => (
-              <SelectItem key={mes} value={String(indice)}>
-                {mes}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <SelectBusca
+          value={mesFiltro}
+          onValueChange={setMesFiltro}
+          searchPlaceholder="Buscar mês…"
+          className="w-40"
+          options={[
+            { value: "todos", label: "Todos os meses" },
+            ...MESES_COMPLETO.map((mes, indice) => ({ value: String(indice), label: mes })),
+          ]}
+        />
 
-        <Select value={anoFiltro} onValueChange={setAnoFiltro}>
-          <SelectTrigger className="w-32">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todos">Todos os anos</SelectItem>
-            {anosDisponiveis.map((ano) => (
-              <SelectItem key={ano} value={String(ano)}>
-                {ano}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <SelectBusca
+          value={anoFiltro}
+          onValueChange={setAnoFiltro}
+          searchPlaceholder="Buscar ano…"
+          className="w-32"
+          options={[
+            { value: "todos", label: "Todos os anos" },
+            ...anosDisponiveis.map((ano) => ({ value: String(ano), label: String(ano) })),
+          ]}
+        />
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

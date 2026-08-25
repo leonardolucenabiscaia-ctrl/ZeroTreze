@@ -18,13 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SelectBusca } from "@/components/ui/select-busca";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Badge } from "@/components/ui/badge";
@@ -132,33 +126,32 @@ export default function AdminDocumentosPage() {
       <h1 className="text-xl font-semibold text-foreground">Documentos</h1>
 
       <div className="flex flex-wrap gap-2">
-        <Select value={filtroClienteId} onValueChange={handleFiltroCliente}>
-          <SelectTrigger className="w-56">
-            <SelectValue placeholder="Filtrar por pessoa" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={TODOS}>Todas as pessoas</SelectItem>
-            {clientesDisponiveis.map((cliente) => (
-              <SelectItem key={cliente.id} value={cliente.id}>
-                {cliente.nome}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <SelectBusca
+          value={filtroClienteId}
+          onValueChange={handleFiltroCliente}
+          placeholder="Filtrar por pessoa"
+          searchPlaceholder="Buscar pessoa…"
+          className="w-56"
+          options={[
+            { value: TODOS, label: "Todas as pessoas" },
+            ...clientesDisponiveis.map((cliente) => ({ value: cliente.id, label: cliente.nome })),
+          ]}
+        />
 
-        <Select value={filtroVeiculoId} onValueChange={handleFiltroVeiculo}>
-          <SelectTrigger className="w-56">
-            <SelectValue placeholder="Filtrar por veículo" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={TODOS}>Todos os veículos</SelectItem>
-            {veiculosDisponiveis.map((veiculo) => (
-              <SelectItem key={veiculo.id} value={veiculo.id}>
-                {veiculo.marca} {veiculo.modelo} — {veiculo.placa}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <SelectBusca
+          value={filtroVeiculoId}
+          onValueChange={handleFiltroVeiculo}
+          placeholder="Filtrar por veículo"
+          searchPlaceholder="Buscar veículo…"
+          className="w-56"
+          options={[
+            { value: TODOS, label: "Todos os veículos" },
+            ...veiculosDisponiveis.map((veiculo) => ({
+              value: veiculo.id,
+              label: `${veiculo.marca} ${veiculo.modelo} — ${veiculo.placa}`,
+            })),
+          ]}
+        />
       </div>
 
       {documentosFiltrados.length === 0 ? (

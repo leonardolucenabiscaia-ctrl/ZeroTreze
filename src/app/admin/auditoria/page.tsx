@@ -17,13 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SelectBusca } from "@/components/ui/select-busca";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -104,37 +98,34 @@ function AuditoriaConteudo() {
       <div className="flex flex-wrap items-end gap-3">
         <div className="flex flex-col gap-1.5">
           <Label>Responsável</Label>
-          <Select value={filtroUsuarioId} onValueChange={setFiltroUsuarioId}>
-            <SelectTrigger className="w-64">
-              <SelectValue placeholder="Todos" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={TODOS}>Todos</SelectItem>
-              {equipe.map((u) => (
-                <SelectItem key={u.id} value={u.id}>
-                  {u.nome} ({PERFIL_LABEL[u.perfil]})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SelectBusca
+            value={filtroUsuarioId}
+            onValueChange={setFiltroUsuarioId}
+            placeholder="Todos"
+            searchPlaceholder="Buscar responsável…"
+            className="w-64"
+            options={[
+              { value: TODOS, label: "Todos" },
+              ...equipe.map((u) => ({ value: u.id, label: `${u.nome} (${PERFIL_LABEL[u.perfil]})` })),
+            ]}
+          />
         </div>
 
         <div className="flex flex-col gap-1.5">
           <Label>Perfil</Label>
-          <Select
+          <SelectBusca
             value={filtroPerfil}
             onValueChange={(valor) => setFiltroPerfil(valor as PerfilUsuario | typeof TODOS)}
-          >
-            <SelectTrigger className="w-48">
-              <SelectValue placeholder="Todos" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={TODOS}>Todos</SelectItem>
-              <SelectItem value="administrador">Administrador</SelectItem>
-              <SelectItem value="gestor">Gestor</SelectItem>
-              <SelectItem value="operador">Operador</SelectItem>
-            </SelectContent>
-          </Select>
+            placeholder="Todos"
+            searchPlaceholder="Buscar perfil…"
+            className="w-48"
+            options={[
+              { value: TODOS, label: "Todos" },
+              { value: "administrador", label: "Administrador" },
+              { value: "gestor", label: "Gestor" },
+              { value: "operador", label: "Operador" },
+            ]}
+          />
         </div>
 
         <div className="flex flex-col gap-1.5">

@@ -21,13 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
 import { StatusPill } from "@/components/shared/status-pill";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SelectBusca } from "@/components/ui/select-busca";
 
 type Filtro = "todas" | StatusMulta;
 
@@ -56,18 +50,20 @@ export default function MultasPage() {
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold text-foreground">Multas de trânsito</h1>
-        <Select value={filtro} onValueChange={(v) => setFiltro(v as Filtro)}>
-          <SelectTrigger className="w-44">
-            <SelectValue placeholder="Situação" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todas">Todas</SelectItem>
-            <SelectItem value="pendente">Pendente</SelectItem>
-            <SelectItem value="paga">Paga</SelectItem>
-            <SelectItem value="vencida">Vencida</SelectItem>
-            <SelectItem value="recorrida">Recorrida</SelectItem>
-          </SelectContent>
-        </Select>
+        <SelectBusca
+          value={filtro}
+          onValueChange={(v) => setFiltro(v as Filtro)}
+          placeholder="Situação"
+          searchPlaceholder="Buscar situação…"
+          className="w-44"
+          options={[
+            { value: "todas", label: "Todas" },
+            { value: "pendente", label: "Pendente" },
+            { value: "paga", label: "Paga" },
+            { value: "vencida", label: "Vencida" },
+            { value: "recorrida", label: "Recorrida" },
+          ]}
+        />
       </div>
 
       {filtradas.length === 0 ? (
