@@ -2,6 +2,34 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/server";
 import { criarNotificacao } from "@/lib/server/notificacoes.service";
+import { baixarDocumentoAssinado } from "@/lib/server/clicksign.service";
+
+const BUCKET_CONTRATOS_ASSINADOS = "contratos-assinados";
+
+/** Baixa o PDF assinado (com as páginas de certificação da ClickSign) e sobe pro Storage,
+ * devolvendo a URL pública — melhor esforço: se falhar (ex.: ClickSign ainda processando), o
+ * status do contrato já foi atualizado de qualquer forma, só o documento fica pendente. */
+async function guardarDocumentoAssinado(
+  supabase: ReturnType<typeof createAdminClient>,
+  contratoId: string,
+  envelopeId: string,
+  documentId: string
+): Promise<string | null> {
+  try {
+    const pdfBuffer = await baixarDocumentoAssinado(envelopeId, documentId);
+    const caminho = `${contratoId}.pdf`;
+    const { error: uploadError } = await supabase.storage
+      .from(BUCKET_CONTRATOS_ASSINADOS)
+      .upload(caminho, pdfBuffer, { contentType: "application/pdf", upsert: true });
+    if (uploadError) throw new Error(uploadError.message);
+
+    const { data } = supabase.storage.from(BUCKET_CONTRATOS_ASSINADOS).getPublicUrl(caminho);
+    return `${data.publicUrl}?v=${Date.now()}`;
+  } catch (error) {
+    console.error("[clicksign:webhook] Falha ao guardar o documento assinado:", error);
+    return null;
+  }
+}
 
 /**
  * Recebe as notificações da ClickSign (configurado via API — ver `setup-clicksign-webhook.mjs`
@@ -15,18 +43,23 @@ import { criarNotificacao } from "@/lib/server/notificacoes.service";
  * (guarda o `documentId`, não o `envelopeId` — ver comentário em `contratos.service.ts`).
  * `payload.event.name` dá o nome do evento (ex.: "sign" por signatário, "document_closed" quando
  * todo mundo já assinou — só esse último conta como "concluído").
+ *
+ * Assinatura vem no header `Content-Hmac` (não `x-clicksign-signature` — confirmado na
+ * documentação oficial em 2026-08-25 depois de descobrir que os webhooks reais da ClickSign
+ * estavam sendo rejeitados com 401 por esse app, já que o header antigo nunca é enviado de
+ * verdade), no formato `sha256=<hex>`.
  */
 function assinaturaValida(corpoBruto: string, assinaturaRecebida: string | null): boolean {
   const segredo = process.env.CLICKSIGN_WEBHOOK_SECRET;
   if (!segredo) return true;
   if (!assinaturaRecebida) return false;
   const hmac = crypto.createHmac("sha256", segredo).update(corpoBruto).digest("hex");
-  return hmac === assinaturaRecebida;
+  return assinaturaRecebida === `sha256=${hmac}` || assinaturaRecebida === hmac;
 }
 
 export async function POST(request: NextRequest) {
   const corpoBruto = await request.text();
-  const assinatura = request.headers.get("x-clicksign-signature");
+  const assinatura = request.headers.get("content-hmac") ?? request.headers.get("x-clicksign-signature");
 
   if (!assinaturaValida(corpoBruto, assinatura)) {
     return NextResponse.json({ error: "Assinatura inválida." }, { status: 401 });
@@ -53,7 +86,7 @@ export async function POST(request: NextRequest) {
   const supabase = createAdminClient();
   const { data: contrato } = await supabase
     .from("contratos")
-    .select("id, numero, cliente_id, assinatura_status")
+    .select("id, numero, cliente_id, assinatura_status, assinatura_envelope_id")
     .eq("assinatura_document_key", documentId)
     .maybeSingle();
 
@@ -61,10 +94,24 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ recebido: true, ignorado: "documentId não corresponde a nenhum contrato" });
   }
 
-  await supabase
-    .from("contratos")
-    .update({ assinatura_status: eventName, assinatura_atualizado_em: new Date().toISOString() })
-    .eq("id", contrato.id);
+  const patch: Record<string, unknown> = {
+    assinatura_status: eventName,
+    assinatura_atualizado_em: new Date().toISOString(),
+  };
+
+  // "document_closed" = todo mundo já assinou — só a partir daí a ClickSign disponibiliza o PDF
+  // com as páginas de certificação da assinatura.
+  if (eventName === "document_closed" && contrato.assinatura_envelope_id) {
+    const urlAssinado = await guardarDocumentoAssinado(
+      supabase,
+      contrato.id,
+      contrato.assinatura_envelope_id,
+      documentId
+    );
+    if (urlAssinado) patch.arquivo_url = urlAssinado;
+  }
+
+  await supabase.from("contratos").update(patch).eq("id", contrato.id);
 
   if (eventName !== contrato.assinatura_status) {
     const { data: cliente } = await supabase

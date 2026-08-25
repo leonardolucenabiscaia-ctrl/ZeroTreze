@@ -231,6 +231,7 @@ async function enviarContratoParaAssinaturaSeConfigurado(
       .from("contratos")
       .update({
         assinatura_document_key: resultado.documentId,
+        assinatura_envelope_id: resultado.envelopeId,
         assinatura_status: resultado.status,
         assinatura_enviado_em: agora,
         assinatura_atualizado_em: agora,

@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { AlertTriangle, FileCheck2, Lock, Printer, Unlock } from "lucide-react";
+import { AlertTriangle, FileCheck2, FileDown, Lock, Printer, Unlock } from "lucide-react";
 import { toast } from "sonner";
 
 import { useAuth } from "@/lib/auth/auth-context";
@@ -183,6 +183,14 @@ export default function AdminContratoDetalhePage() {
           )}
         </div>
         <div className="flex gap-2">
+          {contrato.assinatura && assinaturaConcluida(contrato.assinatura.status) && !contrato.arquivoUrl.startsWith("/mock/") && (
+            <Button asChild size="sm" variant="outline">
+              <a href={contrato.arquivoUrl} target="_blank" rel="noreferrer">
+                <FileDown className="size-4" />
+                Documento assinado
+              </a>
+            </Button>
+          )}
           <Button asChild size="sm" variant="outline">
             <Link href={`/imprimir/contrato/${contrato.id}`}>
               <Printer className="size-4" />

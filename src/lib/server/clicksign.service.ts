@@ -12,6 +12,9 @@ export interface RespostaEnvioClickSign {
   /** ID do *documento* (não do envelope) — confirmado testando ao vivo que é esse o identificador
    * que vem no payload do webhook (`document.key`), não o envelopeId. */
   documentId: string;
+  /** Guardado à parte porque a ClickSign exige o envelopeId (não só o documentId) pra consultar
+   * o documento depois — usado em `baixarDocumentoAssinado`. */
+  envelopeId: string;
   status: string;
 }
 
@@ -147,5 +150,21 @@ export async function enviarDocumentoParaAssinatura(
   await criarRequisitoAssinatura(envelopeId, documentId, signerId);
   const status = await ativarEnvelope(envelopeId);
 
-  return { documentId, status };
+  return { documentId, envelopeId, status };
+}
+
+interface ClickSignDocumentoResource {
+  data: { id: string; type: string; links?: { files?: { signed?: string; original?: string } } };
+}
+
+/** Busca o PDF já assinado (com as páginas de certificação da ClickSign) depois que o envelope
+ * fecha (`document_closed`) — o link `files.signed` só existe a partir desse momento. */
+export async function baixarDocumentoAssinado(envelopeId: string, documentId: string): Promise<Buffer> {
+  const doc = await clicksignFetch<ClickSignDocumentoResource>(`/envelopes/${envelopeId}/documents/${documentId}`);
+  const urlAssinado = doc.data.links?.files?.signed;
+  if (!urlAssinado) throw new Error("ClickSign ainda não disponibilizou o PDF assinado para este documento.");
+
+  const res = await fetch(urlAssinado);
+  if (!res.ok) throw new Error(`Falha ao baixar o PDF assinado da ClickSign: HTTP ${res.status}`);
+  return Buffer.from(await res.arrayBuffer());
 }
