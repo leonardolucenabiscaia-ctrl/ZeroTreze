@@ -2,10 +2,16 @@
 
 import * as React from "react";
 import { useParams } from "next/navigation";
-import { FileText, FolderOpen, Pencil } from "lucide-react";
+import { FileText, FolderOpen, Lock, Pencil, Unlock } from "lucide-react";
 import { toast } from "sonner";
 
-import { buscarVeiculoPorId, atualizarQuilometragem, atualizarVeiculo } from "@/lib/services/veiculos.service";
+import {
+  buscarVeiculoPorId,
+  atualizarQuilometragem,
+  atualizarVeiculo,
+  bloquearVeiculo,
+  desbloquearVeiculo,
+} from "@/lib/services/veiculos.service";
 import { listarDocumentosPorVeiculo } from "@/lib/services/documentos.service";
 import { registrarAcao } from "@/lib/services/auditoria.service";
 import { useAuth } from "@/lib/auth/auth-context";
@@ -53,6 +59,8 @@ export default function AdminVeiculoDetalhePage() {
   const [cor, setCor] = React.useState("");
   const [categoria, setCategoria] = React.useState("");
   const [salvandoDados, setSalvandoDados] = React.useState(false);
+  const [confirmandoBloqueio, setConfirmandoBloqueio] = React.useState(false);
+  const [alternandoBloqueio, setAlternandoBloqueio] = React.useState(false);
 
   React.useEffect(() => {
     buscarVeiculoPorId(params.veiculoId).then((v) => setVeiculo(v ?? null));
@@ -123,6 +131,31 @@ export default function AdminVeiculoDetalhePage() {
     }
   }
 
+  async function handleConfirmarBloqueio() {
+    if (!veiculo) return;
+    setAlternandoBloqueio(true);
+    try {
+      const vaiBloquear = !veiculo.bloqueado;
+      const atualizado = vaiBloquear ? await bloquearVeiculo(veiculo.id) : await desbloquearVeiculo(veiculo.id);
+      setVeiculo(atualizado);
+      if (usuario) {
+        await registrarAcao({
+          usuarioId: usuario.id,
+          usuarioNome: usuario.nome,
+          acao: vaiBloquear ? "Marcou o veículo como indisponível" : "Marcou o veículo como disponível",
+          entidade: "Veículo",
+          entidadeId: `${atualizado.marca} ${atualizado.modelo} — ${atualizado.placa}`,
+        });
+      }
+      toast.success(vaiBloquear ? "Veículo marcado como indisponível." : "Veículo disponível novamente.");
+      setConfirmandoBloqueio(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível atualizar a disponibilidade do veículo.");
+    } finally {
+      setAlternandoBloqueio(false);
+    }
+  }
+
   if (!veiculo) return <Skeleton className="h-96 w-full" />;
 
   const ficha: [string, string][] = [
@@ -143,13 +176,22 @@ export default function AdminVeiculoDetalhePage() {
           <img src={veiculo.fotoUrl} alt={veiculo.modelo} className="h-full w-full object-contain p-4" />
         </div>
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-xl font-semibold text-foreground">
               {veiculo.marca} {veiculo.modelo} ({veiculo.ano})
             </h1>
+            {veiculo.bloqueado && <Badge variant="destructive">Indisponível</Badge>}
             <Button size="sm" variant="outline" onClick={abrirEdicaoDados}>
               <Pencil className="size-3.5" />
               Completar dados
+            </Button>
+            <Button
+              size="sm"
+              variant={veiculo.bloqueado ? "secondary" : "outline"}
+              onClick={() => setConfirmandoBloqueio(true)}
+            >
+              {veiculo.bloqueado ? <Unlock className="size-3.5" /> : <Lock className="size-3.5" />}
+              {veiculo.bloqueado ? "Marcar disponível" : "Marcar indisponível"}
             </Button>
           </div>
           <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-4">
@@ -245,6 +287,41 @@ export default function AdminVeiculoDetalhePage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={confirmandoBloqueio} onOpenChange={setConfirmandoBloqueio}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Marcar {veiculo.placa} como {veiculo.bloqueado ? "disponível" : "indisponível"}?
+            </DialogTitle>
+            <DialogDescription>
+              {veiculo.bloqueado
+                ? "O veículo volta a aparecer como disponível para novos contratos."
+                : "O veículo fica impedido de uso até ser marcado como disponível de novo. Se houver um contrato ativo vinculado, ele não é afetado — parcelas, prazo e status continuam normalmente."}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setConfirmandoBloqueio(false)}
+              disabled={alternandoBloqueio}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant={veiculo.bloqueado ? "default" : "destructive"}
+              onClick={handleConfirmarBloqueio}
+              disabled={alternandoBloqueio}
+            >
+              {alternandoBloqueio
+                ? "Salvando…"
+                : veiculo.bloqueado
+                  ? "Sim, marcar disponível"
+                  : "Sim, marcar indisponível"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
