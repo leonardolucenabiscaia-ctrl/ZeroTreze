@@ -1,11 +1,13 @@
 "use client";
 
 import * as React from "react";
-import { Car, Key, Wrench, PaintBucket, Lock, RefreshCw, Maximize2, Minimize2 } from "lucide-react";
+import { Car, Key, Wrench, PaintBucket, Lock, Headset, RefreshCw, Maximize2, Minimize2 } from "lucide-react";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 
 import { listarVeiculos } from "@/lib/services/veiculos.service";
 import { listarContratos } from "@/lib/services/contratos.service";
+import { listarChamados } from "@/lib/services/chamados.service";
+import { listarSolicitacoes } from "@/lib/services/assistencia.service";
 import { formatDateTime } from "@/lib/utils/formatters";
 import { cn } from "@/lib/utils/cn";
 import type { Contrato, Veiculo } from "@/lib/types";
@@ -37,15 +39,23 @@ function statusDoVeiculo(veiculo: Veiculo, veiculoIdsLocados: Set<string>): Stat
 export default function DashboardTvPage() {
   const [veiculos, setVeiculos] = React.useState<Veiculo[] | null>(null);
   const [contratos, setContratos] = React.useState<Contrato[]>([]);
+  const [chamadosAbertos, setChamadosAbertos] = React.useState(0);
+  const [assistenciasAbertas, setAssistenciasAbertas] = React.useState(0);
   const [atualizadoEm, setAtualizadoEm] = React.useState<string>("");
   const [modoTV, setModoTV] = React.useState(false);
 
   const carregar = React.useCallback(() => {
-    Promise.all([listarVeiculos(), listarContratos()]).then(([v, c]) => {
-      setVeiculos(v);
-      setContratos(c);
-      setAtualizadoEm(new Date().toISOString());
-    });
+    Promise.all([listarVeiculos(), listarContratos(), listarChamados(), listarSolicitacoes()]).then(
+      ([v, c, chamados, assistencias]) => {
+        setVeiculos(v);
+        setContratos(c);
+        setChamadosAbertos(chamados.filter((ch) => ch.status !== "resolvido" && ch.status !== "encerrado").length);
+        setAssistenciasAbertas(
+          assistencias.filter((a) => a.status !== "concluido" && a.status !== "cancelado").length
+        );
+        setAtualizadoEm(new Date().toISOString());
+      }
+    );
   }, []);
 
   React.useEffect(() => {
@@ -130,7 +140,7 @@ export default function DashboardTvPage() {
           </div>
         </div>
 
-        <div className="grid shrink-0 grid-cols-2 gap-3 lg:grid-cols-5">
+        <div className="grid shrink-0 grid-cols-2 gap-3 lg:grid-cols-6">
           {ORDEM.map((status) => {
             const config = STATUS_CONFIG[status];
             const Icon = config.icon;
@@ -147,6 +157,16 @@ export default function DashboardTvPage() {
               </Card>
             );
           })}
+          <Card className="gap-1.5 border bg-blue-500/10 border-blue-500/30 p-3">
+            <Headset className="size-5 text-blue-400" />
+            <span className="text-xs font-semibold uppercase tracking-wide text-blue-400">
+              Chamados/Assist. em aberto
+            </span>
+            <span className="text-2xl font-bold text-foreground">{chamadosAbertos + assistenciasAbertas}</span>
+            <span className="text-xs text-muted-foreground">
+              {chamadosAbertos} chamado{chamadosAbertos === 1 ? "" : "s"} · {assistenciasAbertas} assist.
+            </span>
+          </Card>
         </div>
 
         <div className={cn("flex min-h-0 flex-1 flex-col gap-3 lg:flex-row", !modoTV && "lg:min-h-[420px]")}>
