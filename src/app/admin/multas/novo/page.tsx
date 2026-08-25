@@ -21,13 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SelectBusca } from "@/components/ui/select-busca";
 
 const hoje = new Date().toISOString().slice(0, 10);
 
@@ -146,24 +140,19 @@ export default function NovaMultaPage() {
                 control={control}
                 name="clienteId"
                 render={({ field }) => (
-                  <Select
+                  <SelectBusca
                     value={field.value}
                     onValueChange={(valor) => {
                       field.onChange(valor);
                       setValue("contratoId", "");
                     }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o cliente" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {clientes.map((cliente) => (
-                        <SelectItem key={cliente.id} value={cliente.id}>
-                          {cliente.nome} — {formatDocument(cliente.documento)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    placeholder="Selecione o cliente"
+                    searchPlaceholder="Buscar cliente…"
+                    options={clientes.map((cliente) => ({
+                      value: cliente.id,
+                      label: `${cliente.nome} — ${formatDocument(cliente.documento)}`,
+                    }))}
+                  />
                 )}
               />
             </Campo>
@@ -173,20 +162,17 @@ export default function NovaMultaPage() {
                 control={control}
                 name="contratoId"
                 render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange} disabled={!clienteId}>
-                    <SelectTrigger>
-                      <SelectValue
-                        placeholder={clienteId ? "Selecione o carro" : "Selecione o cliente primeiro"}
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {contratosDoCliente.map((contrato) => (
-                        <SelectItem key={contrato.id} value={contrato.id}>
-                          {nomeCarro(contrato)} ({contrato.numero})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SelectBusca
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    disabled={!clienteId}
+                    placeholder={clienteId ? "Selecione o carro" : "Selecione o cliente primeiro"}
+                    searchPlaceholder="Buscar carro…"
+                    options={contratosDoCliente.map((contrato) => ({
+                      value: contrato.id,
+                      label: `${nomeCarro(contrato)} (${contrato.numero})`,
+                    }))}
+                  />
                 )}
               />
             </Campo>

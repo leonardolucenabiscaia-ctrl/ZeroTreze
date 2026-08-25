@@ -22,13 +22,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SelectBusca } from "@/components/ui/select-busca";
 
 const PERFIS: { value: PerfilUsuario; label: string }[] = [
   { value: "operador", label: "Operador" },
@@ -89,22 +83,14 @@ function AdminUsuariosConteudo() {
                 </TableCell>
                 <TableCell>{usuario.email}</TableCell>
                 <TableCell>
-                  <Select
+                  <SelectBusca
                     value={usuario.perfil}
                     onValueChange={(v) => handleAlterarPerfil(usuario.id, v as PerfilUsuario)}
                     disabled={!podeEditar}
-                  >
-                    <SelectTrigger className="w-40">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {PERFIS.map((p) => (
-                        <SelectItem key={p.value} value={p.value}>
-                          {p.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    searchPlaceholder="Buscar…"
+                    className="w-40"
+                    options={PERFIS.map((p) => ({ value: p.value, label: p.label }))}
+                  />
                 </TableCell>
               </TableRow>
             ))}

@@ -20,13 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SelectBusca } from "@/components/ui/select-busca";
 
 const contratoSchema = z.object({
   clienteId: z.string().min(1, "Selecione o cliente"),
@@ -116,18 +110,16 @@ export default function NovoContratoPage() {
                 control={control}
                 name="clienteId"
                 render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o cliente" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {clientes.map((cliente) => (
-                        <SelectItem key={cliente.id} value={cliente.id}>
-                          {cliente.nome} — {formatDocument(cliente.documento)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SelectBusca
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    placeholder="Selecione o cliente"
+                    searchPlaceholder="Buscar cliente…"
+                    options={clientes.map((cliente) => ({
+                      value: cliente.id,
+                      label: `${cliente.nome} — ${formatDocument(cliente.documento)}`,
+                    }))}
+                  />
                 )}
               />
             </Campo>
@@ -137,19 +129,18 @@ export default function NovoContratoPage() {
                 control={control}
                 name="veiculoId"
                 render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o veículo" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {veiculos.map((veiculo) => (
-                        <SelectItem key={veiculo.id} value={veiculo.id}>
-                          {veiculo.marca} {veiculo.modelo} — {veiculo.placa}
-                          {veiculosOcupadosIds.has(veiculo.id) ? " (em uso)" : ""}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SelectBusca
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    placeholder="Selecione o veículo"
+                    searchPlaceholder="Buscar veículo…"
+                    options={veiculos.map((veiculo) => ({
+                      value: veiculo.id,
+                      label: `${veiculo.marca} ${veiculo.modelo} — ${veiculo.placa}${
+                        veiculosOcupadosIds.has(veiculo.id) ? " (em uso)" : ""
+                      }`,
+                    }))}
+                  />
                 )}
               />
             </Campo>

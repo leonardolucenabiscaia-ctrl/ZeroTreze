@@ -23,13 +23,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileUploader } from "@/components/shared/file-uploader";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SelectBusca } from "@/components/ui/select-busca";
 
 const hoje = new Date().toISOString().slice(0, 10);
 
@@ -128,24 +122,19 @@ export default function NovoAcordoPage() {
                 control={control}
                 name="clienteId"
                 render={({ field }) => (
-                  <Select
+                  <SelectBusca
                     value={field.value}
                     onValueChange={(valor) => {
                       field.onChange(valor);
                       setValue("contratoId", "");
                     }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o cliente" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {clientes.map((cliente) => (
-                        <SelectItem key={cliente.id} value={cliente.id}>
-                          {cliente.nome} — {formatDocument(cliente.documento)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    placeholder="Selecione o cliente"
+                    searchPlaceholder="Buscar cliente…"
+                    options={clientes.map((cliente) => ({
+                      value: cliente.id,
+                      label: `${cliente.nome} — ${formatDocument(cliente.documento)}`,
+                    }))}
+                  />
                 )}
               />
             </Campo>
@@ -155,20 +144,17 @@ export default function NovoAcordoPage() {
                 control={control}
                 name="contratoId"
                 render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange} disabled={!clienteId}>
-                    <SelectTrigger>
-                      <SelectValue
-                        placeholder={clienteId ? "Selecione o contrato" : "Selecione o cliente primeiro"}
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {contratosDoCliente.map((contrato) => (
-                        <SelectItem key={contrato.id} value={contrato.id}>
-                          {contrato.numero}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SelectBusca
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    disabled={!clienteId}
+                    placeholder={clienteId ? "Selecione o contrato" : "Selecione o cliente primeiro"}
+                    searchPlaceholder="Buscar contrato…"
+                    options={contratosDoCliente.map((contrato) => ({
+                      value: contrato.id,
+                      label: contrato.numero,
+                    }))}
+                  />
                 )}
               />
             </Campo>

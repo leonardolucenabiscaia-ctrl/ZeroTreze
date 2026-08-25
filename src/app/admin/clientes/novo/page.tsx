@@ -19,13 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SelectBusca } from "@/components/ui/select-busca";
 import { FileUploader } from "@/components/shared/file-uploader";
 
 const UFS = [
@@ -310,18 +304,13 @@ export default function NovoClientePage() {
                 control={control}
                 name="uf"
                 render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="UF" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {UFS.map((uf) => (
-                        <SelectItem key={uf} value={uf}>
-                          {uf}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SelectBusca
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    placeholder="UF"
+                    searchPlaceholder="Buscar UF…"
+                    options={UFS.map((uf) => ({ value: uf, label: uf }))}
+                  />
                 )}
               />
             </Campo>

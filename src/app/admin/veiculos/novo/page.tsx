@@ -16,13 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SelectBusca } from "@/components/ui/select-busca";
 import { FileUploader } from "@/components/shared/file-uploader";
 import { ImageUploader } from "@/components/shared/image-uploader";
 
@@ -192,18 +186,13 @@ export default function NovoVeiculoPage() {
                 control={control}
                 name="categoria"
                 render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {CATEGORIAS.map((categoria) => (
-                        <SelectItem key={categoria} value={categoria}>
-                          {categoria}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SelectBusca
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    placeholder="Selecione"
+                    searchPlaceholder="Buscar categoria…"
+                    options={CATEGORIAS.map((categoria) => ({ value: categoria, label: categoria }))}
+                  />
                 )}
               />
             </Campo>
@@ -213,18 +202,13 @@ export default function NovoVeiculoPage() {
                 control={control}
                 name="combustivel"
                 render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {COMBUSTIVEIS.map((combustivel) => (
-                        <SelectItem key={combustivel} value={combustivel}>
-                          {combustivel}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SelectBusca
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    placeholder="Selecione"
+                    searchPlaceholder="Buscar combustível…"
+                    options={COMBUSTIVEIS.map((combustivel) => ({ value: combustivel, label: combustivel }))}
+                  />
                 )}
               />
             </Campo>

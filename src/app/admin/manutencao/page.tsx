@@ -30,7 +30,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SelectBusca } from "@/components/ui/select-busca";
 
 const TIPO_LABEL: Record<"mecanica" | "funilaria", string> = {
   mecanica: "Mecânica",
@@ -174,30 +174,29 @@ export default function ManutencaoPage() {
           <form onSubmit={handleAdicionar} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <Label>Veículo</Label>
-              <Select value={veiculoId} onValueChange={setVeiculoId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o veículo" />
-                </SelectTrigger>
-                <SelectContent>
-                  {veiculosDisponiveisParaAdicionar.map((v) => (
-                    <SelectItem key={v.id} value={v.id}>
-                      {v.marca} {v.modelo} — {v.placa}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SelectBusca
+                value={veiculoId}
+                onValueChange={setVeiculoId}
+                placeholder="Selecione o veículo"
+                searchPlaceholder="Buscar veículo…"
+                options={veiculosDisponiveisParaAdicionar.map((v) => ({
+                  value: v.id,
+                  label: `${v.marca} ${v.modelo} — ${v.placa}`,
+                }))}
+              />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label>Tipo</Label>
-              <Select value={tipo} onValueChange={(v) => setTipo(v as "mecanica" | "funilaria")}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o tipo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="mecanica">Mecânica</SelectItem>
-                  <SelectItem value="funilaria">Funilaria</SelectItem>
-                </SelectContent>
-              </Select>
+              <SelectBusca
+                value={tipo}
+                onValueChange={(v) => setTipo(v as "mecanica" | "funilaria")}
+                placeholder="Selecione o tipo"
+                searchPlaceholder="Buscar tipo…"
+                options={[
+                  { value: "mecanica", label: "Mecânica" },
+                  { value: "funilaria", label: "Funilaria" },
+                ]}
+              />
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setAbrirDialog(false)} disabled={salvando}>

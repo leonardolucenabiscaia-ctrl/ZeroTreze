@@ -13,13 +13,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SelectBusca } from "@/components/ui/select-busca";
 
 const CATEGORIAS: { value: CategoriaChamado; label: string }[] = [
   { value: "financeiro", label: "Financeiro" },
@@ -79,33 +73,21 @@ export default function NovoAtendimentoPage() {
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <Label>Categoria</Label>
-              <Select value={categoria} onValueChange={(v) => setCategoria(v as CategoriaChamado)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {CATEGORIAS.map((c) => (
-                    <SelectItem key={c.value} value={c.value}>
-                      {c.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SelectBusca
+                value={categoria}
+                onValueChange={(v) => setCategoria(v as CategoriaChamado)}
+                searchPlaceholder="Buscar categoria…"
+                options={CATEGORIAS.map((c) => ({ value: c.value, label: c.label }))}
+              />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label>Prioridade</Label>
-              <Select value={prioridade} onValueChange={(v) => setPrioridade(v as PrioridadeChamado)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PRIORIDADES.map((p) => (
-                    <SelectItem key={p.value} value={p.value}>
-                      {p.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SelectBusca
+                value={prioridade}
+                onValueChange={(v) => setPrioridade(v as PrioridadeChamado)}
+                searchPlaceholder="Buscar prioridade…"
+                options={PRIORIDADES.map((p) => ({ value: p.value, label: p.label }))}
+              />
             </div>
           </div>
 

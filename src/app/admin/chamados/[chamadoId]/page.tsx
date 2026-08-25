@@ -12,13 +12,7 @@ import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusPill } from "@/components/shared/status-pill";
 import { ChatWindow } from "@/components/shared/chat-window";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SelectBusca } from "@/components/ui/select-busca";
 
 const STATUS_OPCOES: { value: StatusChamado; label: string }[] = [
   { value: "aberto", label: "Aberto" },
@@ -65,18 +59,13 @@ export default function AdminChamadoDetalhePage() {
         </div>
         <div className="flex items-center gap-2">
           <StatusPill status={chamado.status} />
-          <Select value={chamado.status} onValueChange={(v) => handleStatus(v as StatusChamado)}>
-            <SelectTrigger className="w-44">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {STATUS_OPCOES.map((s) => (
-                <SelectItem key={s.value} value={s.value}>
-                  {s.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SelectBusca
+            value={chamado.status}
+            onValueChange={(v) => handleStatus(v as StatusChamado)}
+            searchPlaceholder="Buscar…"
+            className="w-44"
+            options={STATUS_OPCOES.map((s) => ({ value: s.value, label: s.label }))}
+          />
         </div>
       </Card>
 

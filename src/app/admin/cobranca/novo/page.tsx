@@ -21,13 +21,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SelectBusca } from "@/components/ui/select-busca";
 
 const CANAIS = [
   { value: "email", label: "E-mail" },
@@ -137,15 +131,15 @@ export default function NovaNotificacaoCobrancaPage() {
                 control={control}
                 name="destinatario"
                 render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="cliente_especifico">Um cliente específico</SelectItem>
-                      <SelectItem value="todos_em_atraso">Todos os clientes em atraso</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <SelectBusca
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    searchPlaceholder="Buscar…"
+                    options={[
+                      { value: "cliente_especifico", label: "Um cliente específico" },
+                      { value: "todos_em_atraso", label: "Todos os clientes em atraso" },
+                    ]}
+                  />
                 )}
               />
             </Campo>
@@ -156,18 +150,16 @@ export default function NovaNotificacaoCobrancaPage() {
                   control={control}
                   name="clienteId"
                   render={({ field }) => (
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o cliente" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {clientes.map((cliente) => (
-                          <SelectItem key={cliente.id} value={cliente.id}>
-                            {cliente.nome} — {formatDocument(cliente.documento)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <SelectBusca
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      placeholder="Selecione o cliente"
+                      searchPlaceholder="Buscar cliente…"
+                      options={clientes.map((cliente) => ({
+                        value: cliente.id,
+                        label: `${cliente.nome} — ${formatDocument(cliente.documento)}`,
+                      }))}
+                    />
                   )}
                 />
               </Campo>

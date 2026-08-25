@@ -17,13 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SelectBusca } from "@/components/ui/select-busca";
 
 const usuarioSchema = z.object({
   nome: z.string().trim().min(3, "Informe o nome completo").max(100),
@@ -114,15 +108,16 @@ function NovoUsuarioConteudo() {
                 control={control}
                 name="perfil"
                 render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="gestor">Gestor</SelectItem>
-                      <SelectItem value="operador">Operador</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <SelectBusca
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    placeholder="Selecione"
+                    searchPlaceholder="Buscar…"
+                    options={[
+                      { value: "gestor", label: "Gestor" },
+                      { value: "operador", label: "Operador" },
+                    ]}
+                  />
                 )}
               />
             </Campo>

@@ -13,7 +13,7 @@ export interface OpcaoSelectBusca {
 }
 
 interface SelectBuscaProps {
-  value: string;
+  value: string | undefined;
   onValueChange: (value: string) => void;
   options: OpcaoSelectBusca[];
   placeholder?: string;
