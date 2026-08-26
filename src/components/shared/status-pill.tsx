@@ -25,6 +25,7 @@ const CONFIG: Record<StatusGenerico, { label: string; variant: "success" | "warn
   em_aberto: { label: "Em aberto", variant: "neutral" },
   vencido: { label: "Vencido", variant: "destructive" },
   aguardando_confirmacao: { label: "Aguardando confirmação", variant: "warning" },
+  renegociado: { label: "Renegociado em acordo", variant: "gold" },
   pendente: { label: "Pendente", variant: "warning" },
   paga: { label: "Paga", variant: "success" },
   vencida: { label: "Vencida", variant: "destructive" },

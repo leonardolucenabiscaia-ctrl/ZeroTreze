@@ -24,6 +24,7 @@ export interface NovoAcordoInput {
   periodicidade: "semanal" | "mensal";
   descricao?: string;
   anexos?: File[];
+  parcelaIds?: string[];
 }
 
 export async function criarAcordo(dados: NovoAcordoInput): Promise<Acordo> {
@@ -39,6 +40,9 @@ export async function criarAcordo(dados: NovoAcordoInput): Promise<Acordo> {
   }
   formData.append("periodicidade", dados.periodicidade);
   if (dados.descricao) formData.append("descricao", dados.descricao);
+  if (dados.parcelaIds && dados.parcelaIds.length > 0) {
+    formData.append("parcelaIds", JSON.stringify(dados.parcelaIds));
+  }
   (dados.anexos ?? []).forEach((arquivo) => formData.append("anexos", arquivo));
 
   return apiFetch<Acordo>("/api/acordos", { method: "POST", body: formData });

@@ -138,6 +138,9 @@ export async function aplicarDescontoParcela(
   if (parcela.status === "aguardando_confirmacao") {
     throw new Error("Esta parcela está aguardando confirmação de pagamento.");
   }
+  if (parcela.status === "renegociado") {
+    throw new Error("Esta parcela foi renegociada em um acordo — o desconto não se aplica mais a ela.");
+  }
   if (desconto.percentual !== undefined && (desconto.percentual < 0 || desconto.percentual > 100)) {
     throw new Error("O percentual de desconto deve estar entre 0 e 100.");
   }
@@ -220,6 +223,9 @@ export async function enviarComprovantePagamento(
   if (parcela.status === "pago") throw new Error("Esta parcela já está paga.");
   if (parcela.status === "aguardando_confirmacao") {
     throw new Error("Esta parcela já está aguardando confirmação do pagamento.");
+  }
+  if (parcela.status === "renegociado") {
+    throw new Error("Esta parcela foi renegociada em um acordo — pague-a por lá, em Financeiro Acordos.");
   }
 
   const agora = new Date().toISOString();

@@ -27,6 +27,9 @@ export async function POST(request: NextRequest) {
         : undefined,
       periodicidade: (String(formData.get("periodicidade") ?? "mensal")) as "semanal" | "mensal",
       descricao: formData.get("descricao") ? String(formData.get("descricao")) : undefined,
+      parcelaIds: formData.get("parcelaIds")
+        ? (JSON.parse(String(formData.get("parcelaIds"))) as string[])
+        : undefined,
       anexos,
     };
     return criarAcordo(dados);

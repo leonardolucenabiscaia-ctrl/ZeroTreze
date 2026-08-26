@@ -65,6 +65,9 @@ export interface NovoAcordoInput {
   periodicidade: "semanal" | "mensal";
   descricao?: string;
   anexos: File[];
+  /** Parcelas do contrato (em_aberto ou vencidas) que estão sendo quitadas por este acordo —
+   * saem do Financeiro normal e passam para o status "renegociado". */
+  parcelaIds?: string[];
 }
 
 export async function criarAcordo(dados: NovoAcordoInput): Promise<Acordo> {
@@ -116,6 +119,16 @@ export async function criarAcordo(dados: NovoAcordoInput): Promise<Acordo> {
   }));
   const { error: cronogramaError } = await supabase.from("parcelas_acordo").insert(cronograma);
   if (cronogramaError) throw new Error(cronogramaError.message);
+
+  if (dados.parcelaIds && dados.parcelaIds.length > 0) {
+    const { error: renegociacaoError } = await supabase
+      .from("parcelas")
+      .update({ status: "renegociado", acordo_id: acordoRow.id })
+      .eq("contrato_id", dados.contratoId)
+      .in("status", ["em_aberto", "vencido"])
+      .in("id", dados.parcelaIds);
+    if (renegociacaoError) throw new Error(renegociacaoError.message);
+  }
 
   if (dados.anexos.length > 0) {
     await supabase.from("documentos").insert(

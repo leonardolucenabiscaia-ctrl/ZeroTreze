@@ -159,6 +159,7 @@ export function mapParcela(row: Record<string, unknown>): Parcela {
     status: row.status as Parcela["status"],
     formaPagamento: (row.forma_pagamento as Parcela["formaPagamento"] | null) ?? undefined,
     dataEnvioComprovante: (row.data_envio_comprovante as string | null) ?? undefined,
+    acordoId: (row.acordo_id as string | null) ?? undefined,
     desconto:
       row.desconto_multa || row.desconto_percentual || row.desconto_valor_fixo
         ? {

@@ -10,10 +10,11 @@ import { toast } from "sonner";
 import { criarAcordo } from "@/lib/services/acordos.service";
 import { listarContratos } from "@/lib/services/contratos.service";
 import { listarClientes } from "@/lib/services/clientes.service";
+import { listarParcelasPorContrato } from "@/lib/services/financeiro.service";
 import { registrarAcao } from "@/lib/services/auditoria.service";
 import { useAuth } from "@/lib/auth/auth-context";
-import { formatCurrency, formatDocument } from "@/lib/utils/formatters";
-import type { Cliente, Contrato } from "@/lib/types";
+import { formatCurrency, formatDate, formatDocument } from "@/lib/utils/formatters";
+import type { Cliente, Contrato, Parcela } from "@/lib/types";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileUploader } from "@/components/shared/file-uploader";
 import { SelectBusca } from "@/components/ui/select-busca";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const hoje = new Date().toISOString().slice(0, 10);
 
@@ -49,6 +51,9 @@ export default function NovoAcordoPage() {
   const [carregando, setCarregando] = React.useState(true);
   const [enviando, setEnviando] = React.useState(false);
   const [anexos, setAnexos] = React.useState<File[]>([]);
+  const [parcelasContrato, setParcelasContrato] = React.useState<Parcela[]>([]);
+  const [carregandoParcelas, setCarregandoParcelas] = React.useState(false);
+  const [parcelaIdsSelecionadas, setParcelaIdsSelecionadas] = React.useState<string[]>([]);
 
   React.useEffect(() => {
     Promise.all([listarClientes(), listarContratos()]).then(([clientesCarregados, contratosCarregados]) => {
@@ -71,6 +76,7 @@ export default function NovoAcordoPage() {
   });
 
   const clienteId = watch("clienteId");
+  const contratoId = watch("contratoId");
   const valorEntrada = watch("valorEntrada");
   const valorParcela = watch("valorParcela");
   const quantidadeParcelas = watch("quantidadeParcelas");
@@ -81,10 +87,34 @@ export default function NovoAcordoPage() {
   const valorTotal =
     (Number(valorEntrada) || 0) + (Number(valorParcela) || 0) * (Number(quantidadeParcelas) || 0);
 
+  React.useEffect(() => {
+    setParcelaIdsSelecionadas([]);
+    if (!contratoId) {
+      setParcelasContrato([]);
+      return;
+    }
+    setCarregandoParcelas(true);
+    listarParcelasPorContrato(contratoId)
+      .then((parcelas) =>
+        setParcelasContrato(parcelas.filter((p) => p.status === "em_aberto" || p.status === "vencido"))
+      )
+      .finally(() => setCarregandoParcelas(false));
+  }, [contratoId]);
+
+  const somaParcelasSelecionadas = parcelasContrato
+    .filter((p) => parcelaIdsSelecionadas.includes(p.id))
+    .reduce((soma, p) => soma + p.valorOriginal, 0);
+
+  function alternarParcela(id: string) {
+    setParcelaIdsSelecionadas((atual) =>
+      atual.includes(id) ? atual.filter((v) => v !== id) : [...atual, id]
+    );
+  }
+
   async function onSubmit(values: AcordoFormValues) {
     setEnviando(true);
     try {
-      const acordo = await criarAcordo({ ...values, anexos });
+      const acordo = await criarAcordo({ ...values, anexos, parcelaIds: parcelaIdsSelecionadas });
       if (usuario) {
         await registrarAcao({
           usuarioId: usuario.id,
@@ -161,6 +191,46 @@ export default function NovoAcordoPage() {
                 )}
               />
             </Campo>
+
+            {contratoId && (
+              <div className="flex flex-col gap-2">
+                <Label>Parcelas em aberto que entram neste acordo (opcional)</Label>
+                {carregandoParcelas ? (
+                  <Skeleton className="h-16 w-full" />
+                ) : parcelasContrato.length === 0 ? (
+                  <p className="rounded-lg border border-border bg-secondary/40 px-3 py-2 text-sm text-muted-foreground">
+                    Este contrato não tem parcelas em aberto ou vencidas.
+                  </p>
+                ) : (
+                  <div className="flex flex-col gap-1.5 rounded-lg border border-border p-2">
+                    {parcelasContrato.map((parcela) => (
+                      <label
+                        key={parcela.id}
+                        className="flex cursor-pointer items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-secondary/40"
+                      >
+                        <span className="flex items-center gap-2">
+                          <Checkbox
+                            checked={parcelaIdsSelecionadas.includes(parcela.id)}
+                            onCheckedChange={() => alternarParcela(parcela.id)}
+                          />
+                          Parcela {parcela.numero} — vencimento {formatDate(parcela.dataVencimento)}
+                        </span>
+                        <span className="font-medium text-foreground">
+                          {formatCurrency(parcela.valorOriginal)}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+                {parcelaIdsSelecionadas.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    {parcelaIdsSelecionadas.length} parcela(s) selecionada(s), somando{" "}
+                    <span className="font-medium text-foreground">{formatCurrency(somaParcelasSelecionadas)}</span>{" "}
+                    — elas sairão do Financeiro normal e passam a ser cobradas por este acordo.
+                  </p>
+                )}
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-4">
               <Campo label="Valor de entrada" erro={errors.valorEntrada?.message}>

@@ -1,4 +1,4 @@
-export type StatusParcela = "pago" | "em_aberto" | "vencido" | "aguardando_confirmacao";
+export type StatusParcela = "pago" | "em_aberto" | "vencido" | "aguardando_confirmacao" | "renegociado";
 
 /** Desconto concedido pelo administrador sobre uma parcela — as três formas podem ser combinadas. */
 export interface DescontoParcela {
@@ -27,6 +27,9 @@ export interface Parcela {
   /** Momento em que o cliente enviou o comprovante, aguardando confirmação do administrador. */
   dataEnvioComprovante?: string;
   desconto?: DescontoParcela;
+  /** Preenchido quando esta parcela foi renegociada e absorvida por um acordo — ela sai do
+   * Financeiro normal e passa a ser paga pelo cronograma do acordo. */
+  acordoId?: string;
 }
 
 export interface ValorAtualizadoParcela {
