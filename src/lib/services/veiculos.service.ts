@@ -13,6 +13,10 @@ export async function listarVeiculosBloqueados(): Promise<Veiculo[]> {
   return apiFetch<Veiculo[]>("/api/veiculos?bloqueados=true");
 }
 
+export async function excluirVeiculo(id: string): Promise<void> {
+  await apiFetch<null>(`/api/veiculos/${id}`, { method: "DELETE" });
+}
+
 /** Bloqueia o veículo — o contrato vinculado continua rodando normalmente, só o carro fica
  * impedido de uso. */
 export async function bloquearVeiculo(veiculoId: string): Promise<Veiculo> {

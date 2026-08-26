@@ -35,6 +35,28 @@ export async function buscarVeiculoPorId(id: string): Promise<Veiculo | undefine
   return veiculo;
 }
 
+/** Só apaga veículos sem nenhum contrato vinculado (nem histórico) — a FK de `contratos` é
+ * `on delete restrict` de propósito, pra não perder o histórico financeiro/de locação de um
+ * veículo real. Checa antes pra devolver uma mensagem clara em vez do erro cru do Postgres. */
+export async function excluirVeiculo(id: string): Promise<void> {
+  const supabase = createAdminClient();
+
+  const { count } = await supabase
+    .from("contratos")
+    .select("id", { count: "exact", head: true })
+    .eq("veiculo_id", id);
+  if (count && count > 0) {
+    throw new Error(
+      `Não é possível excluir: esse veículo tem ${count} contrato${count === 1 ? "" : "s"} vinculado${
+        count === 1 ? "" : "s"
+      } (mesmo encerrado). Veículos com histórico de locação não podem ser apagados.`
+    );
+  }
+
+  const { error } = await supabase.from("veiculos").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
 export async function listarVeiculosBloqueados(): Promise<Veiculo[]> {
   const supabase = createAdminClient();
   const { data, error } = await supabase.from("veiculos").select("*").eq("bloqueado", true);

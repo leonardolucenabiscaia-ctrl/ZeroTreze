@@ -1,8 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { useParams } from "next/navigation";
-import { FileText, FolderOpen, Lock, Pencil, Unlock } from "lucide-react";
+import { useParams, useRouter } from "next/navigation";
+import { FileText, FolderOpen, Lock, Pencil, Trash2, Unlock } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -11,6 +11,7 @@ import {
   atualizarVeiculo,
   marcarVeiculoIndisponivel,
   marcarVeiculoDisponivel,
+  excluirVeiculo,
 } from "@/lib/services/veiculos.service";
 import { listarDocumentosPorVeiculo } from "@/lib/services/documentos.service";
 import { registrarAcao } from "@/lib/services/auditoria.service";
@@ -49,6 +50,7 @@ const CATEGORIA_LABEL: Record<string, string> = {
 
 export default function AdminVeiculoDetalhePage() {
   const params = useParams<{ veiculoId: string }>();
+  const router = useRouter();
   const { usuario } = useAuth();
   const [veiculo, setVeiculo] = React.useState<Veiculo | null>(null);
   const [documentos, setDocumentos] = React.useState<Documento[]>([]);
@@ -61,6 +63,9 @@ export default function AdminVeiculoDetalhePage() {
   const [salvandoDados, setSalvandoDados] = React.useState(false);
   const [confirmandoIndisponibilidade, setConfirmandoIndisponibilidade] = React.useState(false);
   const [alternandoIndisponibilidade, setAlternandoIndisponibilidade] = React.useState(false);
+  const [confirmandoExclusao, setConfirmandoExclusao] = React.useState(false);
+  const [placaDigitada, setPlacaDigitada] = React.useState("");
+  const [excluindo, setExcluindo] = React.useState(false);
 
   React.useEffect(() => {
     buscarVeiculoPorId(params.veiculoId).then((v) => setVeiculo(v ?? null));
@@ -158,6 +163,28 @@ export default function AdminVeiculoDetalhePage() {
     }
   }
 
+  async function handleConfirmarExclusao() {
+    if (!veiculo) return;
+    setExcluindo(true);
+    try {
+      await excluirVeiculo(veiculo.id);
+      if (usuario) {
+        await registrarAcao({
+          usuarioId: usuario.id,
+          usuarioNome: usuario.nome,
+          acao: "Excluiu o veículo",
+          entidade: "Veículo",
+          entidadeId: `${veiculo.marca} ${veiculo.modelo} — ${veiculo.placa}`,
+        });
+      }
+      toast.success("Veículo excluído com sucesso.");
+      router.push("/admin/veiculos");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível excluir o veículo.");
+      setExcluindo(false);
+    }
+  }
+
   if (!veiculo) return <Skeleton className="h-96 w-full" />;
 
   const ficha: [string, string][] = [
@@ -196,6 +223,12 @@ export default function AdminVeiculoDetalhePage() {
               {veiculo.indisponivel ? <Unlock className="size-3.5" /> : <Lock className="size-3.5" />}
               {veiculo.indisponivel ? "Marcar disponível" : "Marcar indisponível"}
             </Button>
+            {usuario?.perfil === "administrador" && (
+              <Button size="sm" variant="destructive" onClick={() => setConfirmandoExclusao(true)}>
+                <Trash2 className="size-3.5" />
+                Excluir veículo
+              </Button>
+            )}
           </div>
           <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-4">
             <div>
@@ -323,6 +356,45 @@ export default function AdminVeiculoDetalhePage() {
                 : veiculo.indisponivel
                   ? "Sim, marcar disponível"
                   : "Sim, marcar indisponível"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={confirmandoExclusao} onOpenChange={(open) => { setConfirmandoExclusao(open); if (!open) setPlacaDigitada(""); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirme digitando a placa do veículo</DialogTitle>
+            <DialogDescription>
+              Essa ação é definitiva e não pode ser desfeita. Só é possível excluir veículos sem
+              nenhum contrato vinculado (nem histórico) — se houver, a exclusão será recusada. Para
+              confirmar, digite <strong className="text-foreground">{veiculo.placa}</strong> abaixo.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="confirmacaoPlaca">Placa</Label>
+            <Input
+              id="confirmacaoPlaca"
+              value={placaDigitada}
+              onChange={(e) => setPlacaDigitada(e.target.value)}
+              placeholder={veiculo.placa}
+              autoComplete="off"
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setConfirmandoExclusao(false)}
+              disabled={excluindo}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmarExclusao}
+              disabled={excluindo || placaDigitada.trim().toUpperCase() !== veiculo.placa.toUpperCase()}
+            >
+              {excluindo ? "Excluindo…" : "Excluir definitivamente"}
             </Button>
           </DialogFooter>
         </DialogContent>
