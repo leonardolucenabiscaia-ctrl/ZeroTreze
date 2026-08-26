@@ -110,6 +110,7 @@ export interface DescontoParcelaInput {
   descontarMulta: boolean;
   percentual?: number;
   valorFixo?: number;
+  motivo?: string;
 }
 
 async function usuarioIdDoContrato(supabase: SupabaseAdmin, contratoId: string): Promise<string | undefined> {
@@ -145,6 +146,10 @@ export async function aplicarDescontoParcela(
   }
 
   const semDesconto = !desconto.descontarMulta && !desconto.percentual && !desconto.valorFixo;
+  if (!semDesconto && !desconto.motivo?.trim()) {
+    throw new Error("Explique o motivo do desconto — o cliente também vai ver essa explicação.");
+  }
+
   const patch = semDesconto
     ? {
         desconto_multa: false,
@@ -152,6 +157,7 @@ export async function aplicarDescontoParcela(
         desconto_valor_fixo: null,
         desconto_aplicado_por_nome: null,
         desconto_aplicado_em: null,
+        desconto_motivo: null,
       }
     : {
         desconto_multa: desconto.descontarMulta,
@@ -159,6 +165,7 @@ export async function aplicarDescontoParcela(
         desconto_valor_fixo: desconto.valorFixo || null,
         desconto_aplicado_por_nome: usuarioNome,
         desconto_aplicado_em: new Date().toISOString(),
+        desconto_motivo: desconto.motivo!.trim(),
       };
 
   const { data: atualizada, error } = await supabase
@@ -177,7 +184,7 @@ export async function aplicarDescontoParcela(
         usuarioId,
         tipo: "desconto_parcela_aplicado",
         titulo: "Desconto aplicado em uma parcela",
-        mensagem: `A parcela ${atualizada.numero} (${atualizada.competencia}) recebeu um desconto. Confira o novo valor atualizado.`,
+        mensagem: `A parcela ${atualizada.numero} (${atualizada.competencia}) recebeu um desconto. Motivo: ${desconto.motivo!.trim()}`,
         lida: false,
         criadoEm: new Date().toISOString(),
         link: "/financeiro",

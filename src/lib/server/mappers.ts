@@ -158,21 +158,15 @@ export function mapParcela(row: Record<string, unknown>): Parcela {
     status: row.status as Parcela["status"],
     formaPagamento: (row.forma_pagamento as Parcela["formaPagamento"] | null) ?? undefined,
     dataEnvioComprovante: (row.data_envio_comprovante as string | null) ?? undefined,
-    desconto: row.desconto_multa
-      ? {
-          descontarMulta: row.desconto_multa as boolean,
-          percentual: (row.desconto_percentual as number | null) ?? undefined,
-          valorFixo: (row.desconto_valor_fixo as number | null) ?? undefined,
-          aplicadoPorNome: row.desconto_aplicado_por_nome as string,
-          aplicadoEm: row.desconto_aplicado_em as string,
-        }
-      : row.desconto_percentual || row.desconto_valor_fixo
+    desconto:
+      row.desconto_multa || row.desconto_percentual || row.desconto_valor_fixo
         ? {
-            descontarMulta: false,
+            descontarMulta: (row.desconto_multa as boolean | null) ?? false,
             percentual: (row.desconto_percentual as number | null) ?? undefined,
             valorFixo: (row.desconto_valor_fixo as number | null) ?? undefined,
             aplicadoPorNome: row.desconto_aplicado_por_nome as string,
             aplicadoEm: row.desconto_aplicado_em as string,
+            motivo: (row.desconto_motivo as string | null) ?? undefined,
           }
         : undefined,
   };

@@ -10,6 +10,8 @@ export interface DescontoParcela {
   valorFixo?: number;
   aplicadoPorNome: string;
   aplicadoEm: string;
+  /** Explica o motivo do desconto — visível tanto para a equipe quanto para o cliente. */
+  motivo?: string;
 }
 
 export interface Parcela {

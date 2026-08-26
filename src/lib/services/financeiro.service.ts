@@ -22,6 +22,7 @@ export interface DescontoParcelaInput {
   descontarMulta: boolean;
   percentual?: number;
   valorFixo?: number;
+  motivo?: string;
 }
 
 /**

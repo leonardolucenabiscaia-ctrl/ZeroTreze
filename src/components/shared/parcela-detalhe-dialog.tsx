@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Percent, Tag, Ticket } from "lucide-react";
+import { MessageSquareText, Percent, Tag, Ticket } from "lucide-react";
 
 import {
   Dialog,
@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { StatusPill } from "./status-pill";
 import { formatCurrency, formatDateTime, formatDate } from "@/lib/utils/formatters";
@@ -23,11 +24,21 @@ export interface DescontoParcelaInput {
   descontarMulta: boolean;
   percentual?: number;
   valorFixo?: number;
+  motivo?: string;
 }
 
 /** Só faz sentido aplicar desconto sobre parcelas ainda não quitadas. */
 function podeReceberDesconto(parcela: Parcela): boolean {
   return parcela.status === "em_aberto" || parcela.status === "vencido";
+}
+
+/** Resumo curto do que foi descontado, pra exibir junto do motivo. */
+function descreverDesconto(desconto: DescontoParcela): string {
+  const partes: string[] = [];
+  if (desconto.descontarMulta) partes.push("100% da multa");
+  if (desconto.percentual) partes.push(`${desconto.percentual}% do valor`);
+  if (desconto.valorFixo) partes.push(formatCurrency(desconto.valorFixo));
+  return partes.join(" + ") || "Desconto aplicado";
 }
 
 export function ParcelaDetalheDialog({
@@ -48,6 +59,7 @@ export function ParcelaDetalheDialog({
   const [descontarMulta, setDescontarMulta] = React.useState(false);
   const [percentual, setPercentual] = React.useState("");
   const [valorFixo, setValorFixo] = React.useState("");
+  const [motivo, setMotivo] = React.useState("");
   const [salvando, setSalvando] = React.useState(false);
 
   React.useEffect(() => {
@@ -56,6 +68,7 @@ export function ParcelaDetalheDialog({
     setDescontarMulta(parcela.desconto?.descontarMulta ?? false);
     setPercentual(parcela.desconto?.percentual ? String(parcela.desconto.percentual) : "");
     setValorFixo(parcela.desconto?.valorFixo ? String(parcela.desconto.valorFixo) : "");
+    setMotivo(parcela.desconto?.motivo ?? "");
   }, [parcela]);
 
   if (!parcela) return null;
@@ -88,10 +101,12 @@ export function ParcelaDetalheDialog({
   };
   const previa = calcularValorAtualizado({ ...parcela, desconto: draftDesconto }, parametros);
 
+  const haveraDesconto = descontarMulta || !!percentualNumero || !!valorFixoNumero;
   const houveAlteracao =
     descontarMulta !== (parcela.desconto?.descontarMulta ?? false) ||
     percentualNumero !== (parcela.desconto?.percentual ?? 0) ||
-    valorFixoNumero !== (parcela.desconto?.valorFixo ?? 0);
+    valorFixoNumero !== (parcela.desconto?.valorFixo ?? 0) ||
+    motivo.trim() !== (parcela.desconto?.motivo ?? "");
 
   async function handleSalvar() {
     if (!parcela || !onAplicarDesconto) return;
@@ -101,6 +116,7 @@ export function ParcelaDetalheDialog({
         descontarMulta,
         percentual: percentualNumero || undefined,
         valorFixo: valorFixoNumero || undefined,
+        motivo: motivo.trim() || undefined,
       });
     } finally {
       setSalvando(false);
@@ -125,18 +141,33 @@ export function ParcelaDetalheDialog({
           ))}
         </dl>
 
+        {/* Visível pra qualquer um que abrir esse diálogo — inclusive o cliente que recebeu o
+         * desconto, não só quem tem permissão de aplicar um novo. */}
+        {parcela.desconto && (
+          <div className="flex flex-col gap-1 rounded-lg border border-gold/30 bg-gold-muted px-3 py-2">
+            <p className="flex items-center gap-1.5 text-sm font-medium text-gold">
+              <Ticket className="size-4" />
+              Desconto aplicado — {descreverDesconto(parcela.desconto)}
+            </p>
+            {parcela.desconto.motivo && (
+              <p className="flex items-start gap-1.5 text-sm text-foreground">
+                <MessageSquareText className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+                {parcela.desconto.motivo}
+              </p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Por {parcela.desconto.aplicadoPorNome} em {formatDateTime(parcela.desconto.aplicadoEm)}
+            </p>
+          </div>
+        )}
+
         {podeAplicarDesconto && podeReceberDesconto(parcela) && (
           <>
             <Separator />
             <div className="flex flex-col gap-3">
-              <p className="text-sm font-medium text-foreground">Desconto</p>
-
-              {parcela.desconto && (
-                <p className="text-xs text-muted-foreground">
-                  Desconto atual aplicado por {parcela.desconto.aplicadoPorNome} em{" "}
-                  {formatDateTime(parcela.desconto.aplicadoEm)}.
-                </p>
-              )}
+              <p className="text-sm font-medium text-foreground">
+                {parcela.desconto ? "Editar desconto" : "Aplicar desconto"}
+              </p>
 
               <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
                 <Label htmlFor="desconto-multa" className="flex items-center gap-2 text-sm font-normal">
@@ -180,12 +211,29 @@ export function ParcelaDetalheDialog({
                 </div>
               </div>
 
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="desconto-motivo" className="flex items-center gap-1.5 text-xs">
+                  <MessageSquareText className="size-3.5 text-gold" />
+                  Motivo do desconto {haveraDesconto && <span className="text-destructive">*</span>}
+                </Label>
+                <Textarea
+                  id="desconto-motivo"
+                  placeholder="Explique o motivo — o cliente também vai ver essa explicação."
+                  value={motivo}
+                  onChange={(e) => setMotivo(e.target.value)}
+                  rows={2}
+                />
+              </div>
+
               <div className="rounded-lg border border-border bg-secondary/40 px-3 py-2 text-sm">
                 <span className="text-muted-foreground">Novo valor atualizado: </span>
                 <span className="font-medium text-gold">{formatCurrency(previa.valorFinal)}</span>
               </div>
 
-              <Button onClick={handleSalvar} disabled={!houveAlteracao || salvando}>
+              <Button
+                onClick={handleSalvar}
+                disabled={!houveAlteracao || salvando || (haveraDesconto && !motivo.trim())}
+              >
                 {salvando ? "Salvando…" : "Salvar desconto"}
               </Button>
             </div>
