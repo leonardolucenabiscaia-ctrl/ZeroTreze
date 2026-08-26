@@ -1,10 +1,44 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { addDays, differenceInCalendarDays, startOfDay, subDays } from "date-fns";
+import { addDays, startOfDay, subDays } from "date-fns";
 import crypto from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/server";
 import { criarNotificacao, enviarWhatsAppNotificacao } from "@/lib/server/notificacoes.service";
-import { formatCurrency, formatDate } from "@/lib/utils/formatters";
+import { formatCurrency } from "@/lib/utils/formatters";
 import type { TipoNotificacao } from "@/lib/types";
+
+const FUSO_NEGOCIO = "America/Sao_Paulo";
+
+/** Extrai o dia de calendário (ano/mês/dia) de um instante, no fuso horário do negócio — os
+ * clientes (e o navegador deles) enxergam a data das parcelas nesse fuso, mas o servidor da
+ * Vercel roda em UTC por padrão. Sem isso, "hoje" e o vencimento da parcela podem cair em dias
+ * diferentes dependendo de qual fuso o processo usa, desalinhando em 1 dia as mensagens de
+ * "vence hoje"/"venceu ontem" em relação ao que o cliente vê na tela. */
+function diaCalendarioNoNegocio(data: Date): { ano: number; mes: number; dia: number } {
+  const partes = new Intl.DateTimeFormat("en-CA", {
+    timeZone: FUSO_NEGOCIO,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(data);
+  return {
+    ano: Number(partes.find((p) => p.type === "year")!.value),
+    mes: Number(partes.find((p) => p.type === "month")!.value),
+    dia: Number(partes.find((p) => p.type === "day")!.value),
+  };
+}
+
+function diferencaEmDiasNoNegocio(referencia: Date, comparada: Date): number {
+  const r = diaCalendarioNoNegocio(referencia);
+  const c = diaCalendarioNoNegocio(comparada);
+  const msReferencia = Date.UTC(r.ano, r.mes - 1, r.dia);
+  const msComparada = Date.UTC(c.ano, c.mes - 1, c.dia);
+  return Math.round((msReferencia - msComparada) / 86_400_000);
+}
+
+function formatarDataNoNegocio(data: Date): string {
+  const { ano, mes, dia } = diaCalendarioNoNegocio(data);
+  return `${String(dia).padStart(2, "0")}/${String(mes).padStart(2, "0")}/${ano}`;
+}
 
 // Vercel Cron: roda 1x por dia (ver vercel.json) — não precisa Vercel Cron pra funcionar em dev,
 // mas em produção só a Vercel consegue chamar essa rota de verdade (confere o CRON_SECRET
@@ -78,7 +112,8 @@ export async function GET(request: NextRequest) {
   let comErro = 0;
 
   for (const parcela of parcelas ?? []) {
-    const diffDias = differenceInCalendarDays(new Date(parcela.data_vencimento as string), hoje);
+    const dataVencimento = new Date(parcela.data_vencimento as string);
+    const diffDias = diferencaEmDiasNoNegocio(dataVencimento, hoje);
     const regra = REGRAS.find((r) => r.offsetDias === diffDias);
     if (!regra) continue;
 
@@ -104,7 +139,7 @@ export async function GET(request: NextRequest) {
       }
 
       const valorFormatado = formatCurrency(parcela.valor_original as number);
-      const dataFormatada = formatDate(parcela.data_vencimento as string);
+      const dataFormatada = formatarDataNoNegocio(dataVencimento);
 
       await criarNotificacao({
         id: crypto.randomUUID(),
