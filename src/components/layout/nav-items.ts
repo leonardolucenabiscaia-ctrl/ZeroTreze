@@ -35,6 +35,7 @@ export interface NavItem {
 export const CLIENT_NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Início", icon: LayoutDashboard },
   { href: "/financeiro", label: "Financeiro", icon: Wallet },
+  { href: "/financeiro-acordos", label: "Financeiro Acordos", icon: Handshake },
   { href: "/extrato", label: "Extrato", icon: Receipt },
   { href: "/contratos", label: "Contratos", icon: FileText },
   { href: "/veiculo", label: "Veículo", icon: Car },
@@ -83,6 +84,12 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
   { href: "/admin/manutencao", label: "Manutenção", icon: Wrench, recurso: "veiculos" },
   { href: "/admin/dashboard-tv", label: "Dashboard de TV", icon: Tv, recurso: "veiculos" },
   { href: "/admin/financeiro", label: "Financeiro", icon: Wallet, recurso: "financeiro" },
+  {
+    href: "/admin/financeiro-acordos",
+    label: "Financeiro Acordos",
+    icon: Handshake,
+    recurso: "financeiro",
+  },
   { href: "/admin/acordos", label: "Acordos", icon: Handshake, recurso: "acordos" },
   { href: "/admin/notificacoes", label: "Notificações", icon: Bell, recurso: "notificacoes" },
   { href: "/admin/chamados", label: "Chamados", icon: Headset, recurso: "chamados" },

@@ -12,6 +12,7 @@ import type {
   Notificacao,
   NotificacaoCobranca,
   Parcela,
+  ParcelaAcordo,
   ParametrosFinanceiros,
   RegraCobranca,
   ScoreLocatario,
@@ -199,6 +200,7 @@ export function mapDocumento(row: Record<string, unknown>): Documento {
     contratoId: (row.contrato_id as string | null) ?? undefined,
     veiculoId: (row.veiculo_id as string | null) ?? undefined,
     parcelaId: (row.parcela_id as string | null) ?? undefined,
+    parcelaAcordoId: (row.parcela_acordo_id as string | null) ?? undefined,
     acordoId: (row.acordo_id as string | null) ?? undefined,
     categoria: row.categoria as Documento["categoria"],
     nome: row.nome as string,
@@ -226,6 +228,20 @@ export function mapMulta(row: Record<string, unknown>): Multa {
   };
 }
 
+export function mapParcelaAcordo(row: Record<string, unknown>): ParcelaAcordo {
+  return {
+    id: row.id as string,
+    acordoId: row.acordo_id as string,
+    numero: row.numero as number,
+    valor: row.valor as number,
+    vencimento: row.vencimento as string,
+    status: row.status as ParcelaAcordo["status"],
+    formaPagamento: (row.forma_pagamento as ParcelaAcordo["formaPagamento"] | null) ?? undefined,
+    dataEnvioComprovante: (row.data_envio_comprovante as string | null) ?? undefined,
+    dataPagamento: (row.data_pagamento as string | null) ?? undefined,
+  };
+}
+
 export function mapAcordo(
   row: Record<string, unknown>,
   cronograma: Record<string, unknown>[] = []
@@ -237,15 +253,12 @@ export function mapAcordo(
     contratoId: row.contrato_id as string,
     valorTotal: row.valor_total as number,
     valorEntrada: row.valor_entrada as number,
+    valorDividaOriginal: (row.valor_divida_original as number | null) ?? undefined,
+    periodicidade: row.periodicidade as Acordo["periodicidade"],
     situacao: row.situacao as Acordo["situacao"],
     cronograma: cronograma
       .sort((a, b) => (a.numero as number) - (b.numero as number))
-      .map((p) => ({
-        numero: p.numero as number,
-        valor: p.valor as number,
-        vencimento: p.vencimento as string,
-        pago: p.pago as boolean,
-      })),
+      .map(mapParcelaAcordo),
     descricao: (row.descricao as string | null) ?? undefined,
     criadoEm: row.criado_em as string,
   };

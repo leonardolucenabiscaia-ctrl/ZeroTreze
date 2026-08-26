@@ -404,6 +404,8 @@ async function main() {
           contrato_id: acordo.contratoId,
           valor_total: acordo.valorTotal,
           valor_entrada: acordo.valorEntrada,
+          valor_divida_original: acordo.valorDividaOriginal ?? null,
+          periodicidade: acordo.periodicidade,
           situacao: acordo.situacao,
           criado_em: acordo.criadoEm,
         });
@@ -415,7 +417,7 @@ async function main() {
             numero: p.numero,
             valor: p.valor,
             vencimento: p.vencimento,
-            pago: p.pago,
+            status: p.status,
           }))
         );
         totalAcordosCriados++;

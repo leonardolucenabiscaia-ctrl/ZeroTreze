@@ -20,6 +20,8 @@ export interface NovoAcordoInput {
   valorParcela: number;
   quantidadeParcelas: number;
   dataPrimeiraParcela: string;
+  valorDividaOriginal?: number;
+  periodicidade: "semanal" | "mensal";
   descricao?: string;
   anexos?: File[];
 }
@@ -32,6 +34,10 @@ export async function criarAcordo(dados: NovoAcordoInput): Promise<Acordo> {
   formData.append("valorParcela", String(dados.valorParcela));
   formData.append("quantidadeParcelas", String(dados.quantidadeParcelas));
   formData.append("dataPrimeiraParcela", dados.dataPrimeiraParcela);
+  if (dados.valorDividaOriginal !== undefined) {
+    formData.append("valorDividaOriginal", String(dados.valorDividaOriginal));
+  }
+  formData.append("periodicidade", dados.periodicidade);
   if (dados.descricao) formData.append("descricao", dados.descricao);
   (dados.anexos ?? []).forEach((arquivo) => formData.append("anexos", arquivo));
 

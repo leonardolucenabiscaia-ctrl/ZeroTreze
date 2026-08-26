@@ -7,22 +7,30 @@ export function gerarAcordo(clienteId: string, contratoId: string, valorParcela:
   const valorEntrada = valorParcela * 1.5;
   const valorTotal = valorEntrada + valorParcela * totalParcelas;
   const inicio = faker.date.recent({ days: 60 });
+  const acordoId = faker.string.uuid();
 
-  const cronograma: ParcelaAcordo[] = Array.from({ length: totalParcelas }, (_, i) => ({
-    numero: i + 1,
-    valor: valorParcela,
-    vencimento: addMonths(inicio, i + 1).toISOString(),
-    pago: addMonths(inicio, i + 1) < new Date(),
-  }));
+  const cronograma: ParcelaAcordo[] = Array.from({ length: totalParcelas }, (_, i) => {
+    const vencimento = addMonths(inicio, i + 1);
+    const pago = vencimento < new Date();
+    return {
+      id: faker.string.uuid(),
+      acordoId,
+      numero: i + 1,
+      valor: valorParcela,
+      vencimento: vencimento.toISOString(),
+      status: pago ? "pago" : "em_aberto",
+    };
+  });
 
   return {
-    id: faker.string.uuid(),
+    id: acordoId,
     numero: `AC-${faker.string.numeric(6)}`,
     clienteId,
     contratoId,
     valorTotal,
     valorEntrada,
-    situacao: cronograma.every((p) => p.pago) ? "quitado" : "ativo",
+    periodicidade: "mensal",
+    situacao: cronograma.every((p) => p.status === "pago") ? "quitado" : "ativo",
     cronograma,
     criadoEm: inicio.toISOString(),
   };

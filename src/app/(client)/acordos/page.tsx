@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Handshake, Printer } from "lucide-react";
+import { Handshake, Printer, Wallet } from "lucide-react";
 
 import { useAuth } from "@/lib/auth/auth-context";
 import { listarAcordosPorCliente } from "@/lib/services/acordos.service";
@@ -41,7 +41,7 @@ export default function AcordosPage() {
       <h1 className="text-xl font-semibold text-foreground">Acordos</h1>
 
       {acordos.map((acordo) => {
-        const pagas = acordo.cronograma.filter((p) => p.pago);
+        const pagas = acordo.cronograma.filter((p) => p.status === "pago");
         const valorPago = acordo.valorEntrada + pagas.reduce((soma, p) => soma + p.valor, 0);
         const progresso = Math.round((valorPago / acordo.valorTotal) * 100);
 
@@ -93,17 +93,23 @@ export default function AcordosPage() {
                     </span>
                     <span className="flex items-center gap-2">
                       {formatCurrency(parcela.valor)}
-                      <StatusPill status={parcela.pago ? "pago" : "em_aberto"} />
+                      <StatusPill status={parcela.status} />
                     </span>
                   </div>
                 ))}
               </div>
 
-              <div>
+              <div className="flex gap-2">
                 <Button size="sm" variant="secondary" asChild>
                   <Link href={`/imprimir/acordo/${acordo.id}`}>
                     <Printer className="size-4" />
                     Imprimir acordo
+                  </Link>
+                </Button>
+                <Button size="sm" asChild>
+                  <Link href="/financeiro-acordos">
+                    <Wallet className="size-4" />
+                    Pagar parcelas
                   </Link>
                 </Button>
               </div>

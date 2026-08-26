@@ -34,6 +34,8 @@ const acordoSchema = z.object({
   valorParcela: z.number().positive("Informe um valor de parcela válido"),
   quantidadeParcelas: z.number().int().min(1, "Informe ao menos 1 parcela").max(24, "Máximo de 24 parcelas"),
   dataPrimeiraParcela: z.string().min(1, "Informe a data da primeira parcela"),
+  valorDividaOriginal: z.number().min(0, "Informe um valor válido").optional(),
+  periodicidade: z.enum(["semanal", "mensal"], { message: "Selecione a periodicidade" }),
   descricao: z.string().max(1000, "A descrição pode ter no máximo 1000 caracteres").optional(),
 });
 
@@ -65,13 +67,14 @@ export default function NovoAcordoPage() {
     formState: { errors },
   } = useForm<AcordoFormValues>({
     resolver: zodResolver(acordoSchema),
-    defaultValues: { dataPrimeiraParcela: hoje, quantidadeParcelas: 3 },
+    defaultValues: { dataPrimeiraParcela: hoje, quantidadeParcelas: 3, periodicidade: "mensal" },
   });
 
   const clienteId = watch("clienteId");
   const valorEntrada = watch("valorEntrada");
   const valorParcela = watch("valorParcela");
   const quantidadeParcelas = watch("quantidadeParcelas");
+  const valorDividaOriginal = watch("valorDividaOriginal");
 
   const contratosDoCliente = contratos.filter((c) => c.clienteId === clienteId);
 
@@ -197,6 +200,34 @@ export default function NovoAcordoPage() {
               </Campo>
             </div>
 
+            <Campo label="Periodicidade das parcelas" erro={errors.periodicidade?.message}>
+              <Controller
+                control={control}
+                name="periodicidade"
+                render={({ field }) => (
+                  <SelectBusca
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    searchPlaceholder="Buscar…"
+                    options={[
+                      { value: "semanal", label: "Semanal" },
+                      { value: "mensal", label: "Mensal" },
+                    ]}
+                  />
+                )}
+              />
+            </Campo>
+
+            <Campo label="Valor cheio da dívida original (opcional)" erro={errors.valorDividaOriginal?.message}>
+              <Input
+                {...register("valorDividaOriginal", { valueAsNumber: true })}
+                type="number"
+                step="0.01"
+                min={0}
+                placeholder="Valor total antes da renegociação, ex.: 4500,00"
+              />
+            </Campo>
+
             <Tabs defaultValue="descricao">
               <TabsList>
                 <TabsTrigger value="descricao">Descrição</TabsTrigger>
@@ -225,9 +256,17 @@ export default function NovoAcordoPage() {
               </TabsContent>
             </Tabs>
 
-            <div className="rounded-lg border border-border bg-secondary/40 px-3 py-2 text-sm">
-              <span className="text-muted-foreground">Valor total do acordo: </span>
-              <span className="font-medium text-gold">{formatCurrency(valorTotal)}</span>
+            <div className="flex flex-col gap-1 rounded-lg border border-border bg-secondary/40 px-3 py-2 text-sm">
+              {!!valorDividaOriginal && (
+                <div>
+                  <span className="text-muted-foreground">Valor cheio da dívida original: </span>
+                  <span className="font-medium text-foreground">{formatCurrency(valorDividaOriginal)}</span>
+                </div>
+              )}
+              <div>
+                <span className="text-muted-foreground">Valor total do acordo: </span>
+                <span className="font-medium text-gold">{formatCurrency(valorTotal)}</span>
+              </div>
             </div>
 
             <div className="flex justify-end gap-2 pt-2">

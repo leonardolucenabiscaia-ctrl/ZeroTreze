@@ -22,6 +22,10 @@ export async function POST(request: NextRequest) {
       valorParcela: Number(formData.get("valorParcela") ?? 0),
       quantidadeParcelas: Number(formData.get("quantidadeParcelas") ?? 0),
       dataPrimeiraParcela: String(formData.get("dataPrimeiraParcela") ?? ""),
+      valorDividaOriginal: formData.get("valorDividaOriginal")
+        ? Number(formData.get("valorDividaOriginal"))
+        : undefined,
+      periodicidade: (String(formData.get("periodicidade") ?? "mensal")) as "semanal" | "mensal",
       descricao: formData.get("descricao") ? String(formData.get("descricao")) : undefined,
       anexos,
     };

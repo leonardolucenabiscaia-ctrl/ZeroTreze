@@ -1,10 +1,23 @@
 import "server-only";
-import { addMonths } from "date-fns";
+import { addMonths, addWeeks } from "date-fns";
 import { createAdminClient } from "@/lib/supabase/server";
 import { formatCurrency } from "@/lib/utils/formatters";
 import { criarNotificacao, enviarWhatsAppNotificacao } from "./notificacoes.service";
 import { mapAcordo } from "./mappers";
 import type { Acordo } from "@/lib/types";
+
+/** Nenhuma parcela de acordo pode continuar "em_aberto" depois que o vencimento já passou — como
+ * não há job de servidor rodando o tempo todo, corrige isso aqui, sempre que acordos são
+ * consultados (mesmo padrão usado pelas parcelas de contrato). Diferente das parcelas de
+ * contrato, aqui não precisa "liberar a próxima" — o cronograma inteiro já é gerado de uma vez na
+ * criação do acordo. */
+async function sincronizarParcelasAcordoVencidas(supabase: ReturnType<typeof createAdminClient>) {
+  await supabase
+    .from("parcelas_acordo")
+    .update({ status: "vencido" })
+    .eq("status", "em_aberto")
+    .lt("vencimento", new Date().toISOString());
+}
 
 async function anexarCronograma(
   supabase: ReturnType<typeof createAdminClient>,
@@ -18,6 +31,7 @@ async function anexarCronograma(
 
 export async function listarAcordos(): Promise<Acordo[]> {
   const supabase = createAdminClient();
+  await sincronizarParcelasAcordoVencidas(supabase);
   const { data, error } = await supabase.from("acordos").select("*").order("criado_em", { ascending: false });
   if (error) throw new Error(error.message);
   return anexarCronograma(supabase, data ?? []);
@@ -25,6 +39,7 @@ export async function listarAcordos(): Promise<Acordo[]> {
 
 export async function listarAcordosPorCliente(clienteId: string): Promise<Acordo[]> {
   const supabase = createAdminClient();
+  await sincronizarParcelasAcordoVencidas(supabase);
   const { data, error } = await supabase.from("acordos").select("*").eq("cliente_id", clienteId);
   if (error) throw new Error(error.message);
   return anexarCronograma(supabase, data ?? []);
@@ -32,6 +47,7 @@ export async function listarAcordosPorCliente(clienteId: string): Promise<Acordo
 
 export async function buscarAcordoPorId(id: string): Promise<Acordo | undefined> {
   const supabase = createAdminClient();
+  await sincronizarParcelasAcordoVencidas(supabase);
   const { data } = await supabase.from("acordos").select("*").eq("id", id).maybeSingle();
   if (!data) return undefined;
   const [acordo] = await anexarCronograma(supabase, [data]);
@@ -45,6 +61,8 @@ export interface NovoAcordoInput {
   valorParcela: number;
   quantidadeParcelas: number;
   dataPrimeiraParcela: string;
+  valorDividaOriginal?: number;
+  periodicidade: "semanal" | "mensal";
   descricao?: string;
   anexos: File[];
 }
@@ -78,6 +96,8 @@ export async function criarAcordo(dados: NovoAcordoInput): Promise<Acordo> {
       contrato_id: dados.contratoId,
       valor_total: valorTotal,
       valor_entrada: dados.valorEntrada,
+      valor_divida_original: dados.valorDividaOriginal ?? null,
+      periodicidade: dados.periodicidade,
       situacao: "ativo",
       descricao: dados.descricao?.trim() || null,
       criado_em: agora,
@@ -86,12 +106,13 @@ export async function criarAcordo(dados: NovoAcordoInput): Promise<Acordo> {
     .single();
   if (error || !acordoRow) throw new Error(error?.message ?? "Não foi possível criar o acordo.");
 
+  const avancarData = dados.periodicidade === "semanal" ? addWeeks : addMonths;
   const cronograma = Array.from({ length: dados.quantidadeParcelas }, (_, i) => ({
     acordo_id: acordoRow.id,
     numero: i + 1,
     valor: dados.valorParcela,
-    vencimento: addMonths(new Date(dados.dataPrimeiraParcela), i).toISOString(),
-    pago: false,
+    vencimento: avancarData(new Date(dados.dataPrimeiraParcela), i).toISOString(),
+    status: "em_aberto",
   }));
   const { error: cronogramaError } = await supabase.from("parcelas_acordo").insert(cronograma);
   if (cronogramaError) throw new Error(cronogramaError.message);
