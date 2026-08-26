@@ -33,6 +33,11 @@ export async function enviarWhatsAppNotificacao(
   nomeTemplateEnvVar: string,
   parametros: string[]
 ): Promise<void> {
+  // Pausa temporária só das notificações por WhatsApp (parcela, multa, acordo, chat) — o código
+  // de primeiro acesso continua funcionando normalmente, ele não passa por aqui. Pra reativar,
+  // basta remover a variável WHATSAPP_NOTIFICACOES_PAUSADAS (do .env.local e da Vercel).
+  if (process.env.WHATSAPP_NOTIFICACOES_PAUSADAS === "true") return;
+
   const nomeTemplate = process.env[nomeTemplateEnvVar];
   if (!nomeTemplate) {
     console.error(`[notificacoes] ${nomeTemplateEnvVar} não configurado — WhatsApp não enviado.`);
