@@ -58,6 +58,15 @@ export async function atualizarPerfilAcesso(id: string, perfil: PerfilUsuario): 
   return atualizarUsuario(id, { perfil });
 }
 
+/** Apaga a conta definitivamente (Supabase Auth, em cascata via FK apaga a linha em `usuarios` e
+ * tudo que depende dela — notificações, auditoria etc.). Ação irreversível — a confirmação fica
+ * a cargo da UI. */
+export async function excluirUsuario(id: string): Promise<void> {
+  const supabase = createAdminClient();
+  const { error } = await supabase.auth.admin.deleteUser(id);
+  if (error) throw new Error(error.message);
+}
+
 export interface NovoUsuarioInternoInput {
   nome: string;
   email: string;

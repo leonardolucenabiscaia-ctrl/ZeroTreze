@@ -21,6 +21,10 @@ export async function atualizarPerfilAcesso(id: string, perfil: PerfilUsuario): 
   return atualizarUsuario(id, { perfil });
 }
 
+export async function excluirUsuario(id: string): Promise<void> {
+  await apiFetch<null>(`/api/usuarios/${id}`, { method: "DELETE" });
+}
+
 export interface NovoUsuarioInternoInput {
   nome: string;
   email: string;
