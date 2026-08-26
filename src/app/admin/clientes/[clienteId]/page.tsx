@@ -17,7 +17,7 @@ import { listarParcelasPorContrato, obterParametrosFinanceiros } from "@/lib/ser
 import { listarMultasPorContrato } from "@/lib/services/multas.service";
 import { listarVeiculos } from "@/lib/services/veiculos.service";
 import { buscarScorePorCliente } from "@/lib/services/score.service";
-import { buscarUsuarioPorId } from "@/lib/services/usuarios.service";
+import { atualizarUsuario, buscarUsuarioPorId } from "@/lib/services/usuarios.service";
 import { registrarAcao } from "@/lib/services/auditoria.service";
 import { useAuth } from "@/lib/auth/auth-context";
 import { calcularValorAtualizado } from "@/lib/calculations/juros-multa-correcao";
@@ -59,6 +59,44 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+interface DadosEdicaveis {
+  email: string;
+  rg: string;
+  nacionalidade: string;
+  profissao: string;
+  cnhNumero: string;
+  cnhValidade: string;
+  cep: string;
+  endereco: string;
+  numero: string;
+  complemento: string;
+  bairro: string;
+  cidade: string;
+  uf: string;
+}
+
+const DADOS_EDICAO_VAZIOS: DadosEdicaveis = {
+  email: "",
+  rg: "",
+  nacionalidade: "",
+  profissao: "",
+  cnhNumero: "",
+  cnhValidade: "",
+  cep: "",
+  endereco: "",
+  numero: "",
+  complemento: "",
+  bairro: "",
+  cidade: "",
+  uf: "",
+};
+
+/** E-mail placeholder gerado quando o cliente foi cadastrado sem e-mail (ver `criarCliente`) —
+ * nunca é um endereço de verdade, então conta como "ainda falta preencher". */
+function emailPendente(email: string | undefined): boolean {
+  return !email || email.endsWith("@zerotrezetransportes.pendente");
+}
+
 export default function ClienteDetalhePage() {
   const params = useParams<{ clienteId: string }>();
   const router = useRouter();
@@ -76,8 +114,7 @@ export default function ClienteDetalhePage() {
   const [nomeDigitado, setNomeDigitado] = React.useState("");
   const [excluindo, setExcluindo] = React.useState(false);
   const [editandoDados, setEditandoDados] = React.useState(false);
-  const [nacionalidade, setNacionalidade] = React.useState("");
-  const [profissao, setProfissao] = React.useState("");
+  const [dadosEdicao, setDadosEdicao] = React.useState<DadosEdicaveis>(DADOS_EDICAO_VAZIOS);
   const [salvandoDados, setSalvandoDados] = React.useState(false);
   const [reenviandoConvite, setReenviandoConvite] = React.useState(false);
 
@@ -105,9 +142,31 @@ export default function ClienteDetalhePage() {
 
   function abrirEdicaoDados() {
     if (!cliente) return;
-    setNacionalidade(cliente.nacionalidade);
-    setProfissao(cliente.profissao);
+    setDadosEdicao({
+      email: emailPendente(usuario?.email) ? "" : (usuario?.email ?? ""),
+      rg: cliente.rg,
+      nacionalidade: cliente.nacionalidade,
+      profissao: cliente.profissao,
+      cnhNumero: cliente.cnh.numero,
+      cnhValidade: cliente.cnh.validade ?? "",
+      cep: cliente.endereco.cep,
+      endereco: cliente.endereco.logradouro,
+      numero: cliente.endereco.numero,
+      complemento: cliente.endereco.complemento ?? "",
+      bairro: cliente.endereco.bairro,
+      cidade: cliente.endereco.cidade,
+      uf: cliente.endereco.estado,
+    });
     setEditandoDados(true);
+  }
+
+  function campoEdicao(campo: keyof DadosEdicaveis) {
+    return {
+      id: `cliente-${campo}`,
+      value: dadosEdicao[campo],
+      onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+        setDadosEdicao((atual) => ({ ...atual, [campo]: e.target.value })),
+    };
   }
 
   async function handleSalvarDados(event: React.FormEvent) {
@@ -115,8 +174,29 @@ export default function ClienteDetalhePage() {
     if (!cliente) return;
     setSalvandoDados(true);
     try {
-      const atualizado = await atualizarCliente(cliente.id, { nacionalidade, profissao });
+      const atualizado = await atualizarCliente(cliente.id, {
+        rg: dadosEdicao.rg,
+        nacionalidade: dadosEdicao.nacionalidade,
+        profissao: dadosEdicao.profissao,
+        cnh: { numero: dadosEdicao.cnhNumero, validade: dadosEdicao.cnhValidade },
+        endereco: {
+          logradouro: dadosEdicao.endereco,
+          numero: dadosEdicao.numero,
+          complemento: dadosEdicao.complemento || undefined,
+          bairro: dadosEdicao.bairro,
+          cidade: dadosEdicao.cidade,
+          estado: dadosEdicao.uf,
+          cep: dadosEdicao.cep,
+        },
+      });
       setCliente(atualizado);
+
+      const emailPreenchido = dadosEdicao.email.trim();
+      if (emailPreenchido && emailPreenchido.toLowerCase() !== (usuario?.email ?? "").toLowerCase()) {
+        const usuarioAtualizado = await atualizarUsuario(cliente.usuarioId, { email: emailPreenchido });
+        setUsuario(usuarioAtualizado);
+      }
+
       if (usuarioLogado) {
         await registrarAcao({
           usuarioId: usuarioLogado.id,
@@ -199,6 +279,20 @@ export default function ClienteDetalhePage() {
 
   if (carregando || !cliente) return <Skeleton className="h-96 w-full" />;
 
+  const camposFaltando: string[] = [];
+  if (emailPendente(usuario?.email)) camposFaltando.push("e-mail");
+  if (!cliente.rg.trim()) camposFaltando.push("RG");
+  if (!cliente.nacionalidade.trim()) camposFaltando.push("nacionalidade");
+  if (!cliente.profissao.trim()) camposFaltando.push("profissão");
+  if (!cliente.cnh.numero.trim()) camposFaltando.push("número da CNH");
+  if (!cliente.cnh.validade) camposFaltando.push("validade da CNH");
+  if (!cliente.endereco.cep.trim()) camposFaltando.push("CEP");
+  if (!cliente.endereco.logradouro.trim()) camposFaltando.push("endereço");
+  if (!cliente.endereco.numero.trim()) camposFaltando.push("número do endereço");
+  if (!cliente.endereco.bairro.trim()) camposFaltando.push("bairro");
+  if (!cliente.endereco.cidade.trim()) camposFaltando.push("cidade");
+  if (!cliente.endereco.estado.trim()) camposFaltando.push("UF");
+
   const totalPago = parcelas
     .filter((p) => p.status === "pago")
     .reduce((soma, p) => soma + p.valorOriginal, 0);
@@ -243,31 +337,74 @@ export default function ClienteDetalhePage() {
         </div>
       </div>
 
+      {camposFaltando.length > 0 && (
+        <div className="flex items-center gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning">
+          <AlertTriangle className="size-4 shrink-0" />
+          <span>
+            Cadastro incompleto — falta{camposFaltando.length > 1 ? "m" : ""}: {camposFaltando.join(", ")}.
+          </span>
+        </div>
+      )}
+
       <Dialog open={editandoDados} onOpenChange={setEditandoDados}>
-        <DialogContent>
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Completar dados de {cliente.nome}</DialogTitle>
             <DialogDescription>Preencha o que estiver faltando no cadastro.</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSalvarDados} className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="cliente-email">E-mail</Label>
+              <Input type="email" {...campoEdicao("email")} placeholder="email@exemplo.com" />
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">
+                <Label htmlFor="cliente-rg">RG</Label>
+                <Input {...campoEdicao("rg")} />
+              </div>
+              <div className="flex flex-col gap-1.5">
                 <Label htmlFor="cliente-nacionalidade">Nacionalidade</Label>
-                <Input
-                  id="cliente-nacionalidade"
-                  value={nacionalidade}
-                  onChange={(e) => setNacionalidade(e.target.value)}
-                  required
-                />
+                <Input {...campoEdicao("nacionalidade")} />
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="cliente-profissao">Profissão</Label>
-                <Input
-                  id="cliente-profissao"
-                  value={profissao}
-                  onChange={(e) => setProfissao(e.target.value)}
-                  required
-                />
+                <Input {...campoEdicao("profissao")} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="cliente-cnhNumero">Número da CNH</Label>
+                <Input {...campoEdicao("cnhNumero")} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="cliente-cnhValidade">Validade da CNH</Label>
+                <Input type="date" {...campoEdicao("cnhValidade")} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="cliente-cep">CEP</Label>
+                <Input {...campoEdicao("cep")} />
+              </div>
+              <div className="col-span-2 flex flex-col gap-1.5">
+                <Label htmlFor="cliente-endereco">Endereço</Label>
+                <Input {...campoEdicao("endereco")} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="cliente-numero">Número</Label>
+                <Input {...campoEdicao("numero")} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="cliente-complemento">Complemento</Label>
+                <Input {...campoEdicao("complemento")} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="cliente-bairro">Bairro</Label>
+                <Input {...campoEdicao("bairro")} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="cliente-cidade">Cidade</Label>
+                <Input {...campoEdicao("cidade")} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="cliente-uf">UF</Label>
+                <Input {...campoEdicao("uf")} maxLength={2} />
               </div>
             </div>
             <DialogFooter>
@@ -305,7 +442,7 @@ export default function ClienteDetalhePage() {
         </CardHeader>
         <CardContent className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
           <Info label="Telefone" value={usuario?.telefone ?? ""} />
-          <Info label="E-mail" value={usuario?.email ?? ""} />
+          <Info label="E-mail" value={emailPendente(usuario?.email) ? "" : (usuario?.email ?? "")} />
           <Info label="Endereço" value={`${cliente.endereco.logradouro}, ${cliente.endereco.numero}`} />
           <Info label="Cidade/UF" value={`${cliente.endereco.cidade}/${cliente.endereco.estado}`} />
           <Info label="Cliente desde" value={formatDate(cliente.clienteDesde)} />

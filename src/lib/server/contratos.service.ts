@@ -211,7 +211,9 @@ async function enviarContratoParaAssinaturaSeConfigurado(
       .select("email")
       .eq("id", clienteRow.usuario_id)
       .single();
-    if (!usuarioRow?.email) throw new Error("Cliente sem e-mail cadastrado.");
+    if (!usuarioRow?.email || usuarioRow.email.endsWith("@zerotrezetransportes.pendente")) {
+      throw new Error("Cliente sem e-mail cadastrado — complete o cadastro antes de enviar pra assinatura.");
+    }
 
     const contrato = mapContrato(contratoRow, []);
     const cliente = mapCliente(clienteRow);

@@ -45,30 +45,58 @@ const LIMITES = {
   cidade: 60,
 } as const;
 
+// Esses campos podem ficar em branco no cadastro (pra completar depois, em "Completar dados") —
+// até no máximo 2 deles ao mesmo tempo (ver CAMPOS_OPCIONAIS_MAX_EM_BRANCO). Data de nascimento
+// fica de fora de propósito: ela vai literalmente escrita no texto do contrato/acordo impresso, e
+// deixá-la em branco imprimiria uma data errada (1/1/1970) em vez de simplesmente vazia.
+const CAMPOS_OPCIONAIS = [
+  "email",
+  "rg",
+  "nacionalidade",
+  "profissao",
+  "cnhNumero",
+  "cnhValidade",
+  "cep",
+  "endereco",
+  "numero",
+  "bairro",
+  "cidade",
+  "uf",
+] as const;
+const CAMPOS_OPCIONAIS_MAX_EM_BRANCO = 2;
+
 const clienteSchema = z.object({
   nomeCompleto: z.string().trim().min(3, "Informe o nome completo").max(LIMITES.nomeCompleto),
-  email: z.string().trim().email("E-mail inválido").max(LIMITES.email),
+  email: z
+    .string()
+    .trim()
+    .max(LIMITES.email)
+    .refine((v) => v === "" || z.string().email().safeParse(v).success, "E-mail inválido"),
   cpf: z.string().max(LIMITES.cpf).refine(validarCPF, "CPF inválido"),
-  rg: z.string().trim().min(5, "RG inválido").max(LIMITES.rg),
-  nacionalidade: z.string().trim().min(2, "Informe a nacionalidade").max(LIMITES.nacionalidade),
-  profissao: z.string().trim().min(2, "Informe a profissão").max(LIMITES.profissao),
+  rg: z.string().trim().max(LIMITES.rg).refine((v) => v === "" || v.length >= 5, "RG inválido"),
+  nacionalidade: z.string().trim().max(LIMITES.nacionalidade),
+  profissao: z.string().trim().max(LIMITES.profissao),
   telefone: z.string().trim().min(14, "Telefone inválido").max(LIMITES.telefone),
   dataNascimento: z
     .string()
     .min(1, "Informe a data de nascimento")
     .refine(isMaiorDeIdade, "O cliente deve ser maior de 18 anos"),
-  cnhNumero: z.string().trim().min(5, "Número da CNH inválido").max(LIMITES.cnhNumero),
-  cnhValidade: z.string().min(1, "Informe a validade da CNH").refine(isCnhValida, "A CNH está vencida"),
+  cnhNumero: z
+    .string()
+    .trim()
+    .max(LIMITES.cnhNumero)
+    .refine((v) => v === "" || v.length >= 5, "Número da CNH inválido"),
+  cnhValidade: z.string().refine((v) => v === "" || isCnhValida(v), "A CNH está vencida"),
   cep: z
     .string()
     .max(LIMITES.cep)
-    .refine((v) => v.replace(/\D/g, "").length === 8, "CEP inválido"),
-  endereco: z.string().trim().min(3, "Informe o endereço").max(LIMITES.endereco),
-  numero: z.string().trim().min(1, "Informe o número").max(LIMITES.numero),
+    .refine((v) => v === "" || v.replace(/\D/g, "").length === 8, "CEP inválido"),
+  endereco: z.string().trim().max(LIMITES.endereco),
+  numero: z.string().trim().max(LIMITES.numero),
   complemento: z.string().max(LIMITES.complemento).optional(),
-  bairro: z.string().trim().min(2, "Informe o bairro").max(LIMITES.bairro),
-  cidade: z.string().trim().min(2, "Informe a cidade").max(LIMITES.cidade),
-  uf: z.string().length(2, "Selecione o estado"),
+  bairro: z.string().trim().max(LIMITES.bairro),
+  cidade: z.string().trim().max(LIMITES.cidade),
+  uf: z.string().refine((v) => v === "" || v.length === 2, "Selecione o estado"),
 });
 
 type ClienteFormValues = z.infer<typeof clienteSchema>;
@@ -97,6 +125,9 @@ export default function NovoClientePage() {
   const dataNascimento = watch("dataNascimento");
   const cnhValidade = watch("cnhValidade");
   const cpf = watch("cpf");
+  const valoresOpcionais = watch(CAMPOS_OPCIONAIS);
+  const camposEmBranco = CAMPOS_OPCIONAIS.filter((_, i) => !valoresOpcionais[i]?.trim()).length;
+  const excedeuLimiteEmBranco = camposEmBranco > CAMPOS_OPCIONAIS_MAX_EM_BRANCO;
 
   const cpfField = register("cpf");
   const telefoneField = register("telefone");
@@ -153,7 +184,10 @@ export default function NovoClientePage() {
         <h1 className="text-xl font-semibold text-foreground">Adicionar novo cliente</h1>
         <p className="text-sm text-muted-foreground">
           O CPF é validado pelo dígito verificador, a idade e a validade da CNH são conferidas
-          automaticamente, e o endereço é preenchido a partir do CEP.
+          automaticamente, e o endereço é preenchido a partir do CEP. Nome, telefone, CPF e data
+          de nascimento são sempre obrigatórios; até {CAMPOS_OPCIONAIS_MAX_EM_BRANCO} dos outros
+          campos (e-mail incluso) podem ficar em branco agora e ser completados depois, na página
+          do cliente.
         </p>
       </div>
 
@@ -327,11 +361,16 @@ export default function NovoClientePage() {
           </CardContent>
         </Card>
 
-        <div className="flex justify-end gap-2">
+        <div className="flex items-center justify-end gap-3">
+          {camposEmBranco > 0 && (
+            <p className={`text-xs ${excedeuLimiteEmBranco ? "text-destructive" : "text-muted-foreground"}`}>
+              {camposEmBranco} campo(s) em branco (máximo {CAMPOS_OPCIONAIS_MAX_EM_BRANCO})
+            </p>
+          )}
           <Button type="button" variant="outline" onClick={() => router.push("/admin/clientes")}>
             Cancelar
           </Button>
-          <Button type="submit" disabled={enviando}>
+          <Button type="submit" disabled={enviando || excedeuLimiteEmBranco}>
             {enviando ? "Cadastrando…" : "Cadastrar cliente"}
           </Button>
         </div>

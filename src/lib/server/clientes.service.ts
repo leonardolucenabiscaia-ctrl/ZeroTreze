@@ -61,10 +61,10 @@ export async function atualizarCliente(id: string, dados: Partial<Cliente>): Pro
   if (dados.rg !== undefined) patch.rg = dados.rg;
   if (dados.nacionalidade !== undefined) patch.nacionalidade = dados.nacionalidade;
   if (dados.profissao !== undefined) patch.profissao = dados.profissao;
-  if (dados.dataNascimento !== undefined) patch.data_nascimento = dados.dataNascimento;
+  if (dados.dataNascimento !== undefined) patch.data_nascimento = dados.dataNascimento || null;
   if (dados.cnh !== undefined) {
     patch.cnh_numero = dados.cnh.numero;
-    patch.cnh_validade = dados.cnh.validade;
+    patch.cnh_validade = dados.cnh.validade || null;
   }
   if (dados.endereco !== undefined) {
     patch.endereco_logradouro = dados.endereco.logradouro;
@@ -108,9 +108,21 @@ export interface NovoClienteInput {
   anexos: File[];
 }
 
+/** Domínio reservado só pra e-mail placeholder de cliente cadastrado sem e-mail (ver
+ * `criarCliente`) — nunca é usado pra enviar nada de verdade, então não precisa existir de fato.
+ * Detectável depois (ex.: pra avisar que falta completar o e-mail antes de mandar algo pra
+ * assinatura eletrônica). */
+const DOMINIO_EMAIL_PENDENTE = "zerotrezetransportes.pendente";
+
 /** Convida o cliente por e-mail (perfil "cliente", sem senha definida pelo admin — ver
  * `convidarUsuario`) + linha em `clientes` + score inicial (500 pontos) + um documento por anexo
- * enviado (metadados apenas — sem armazenamento de arquivo real configurado ainda). */
+ * enviado (metadados apenas — sem armazenamento de arquivo real configurado ainda).
+ *
+ * Até 2 campos não-essenciais (e-mail incluso) podem vir em branco — o limite em si é aplicado
+ * na tela ("Novo cliente"), aqui só aceita o que chegar. Sem e-mail, o Supabase Auth ainda exige
+ * algum e-mail único pra criar a conta, então é gerado um placeholder (`DOMINIO_EMAIL_PENDENTE`)
+ * — o acesso do cliente continua funcionando normalmente pelo código via WhatsApp (que usa
+ * telefone, não e-mail); só assinatura eletrônica de contrato depende de um e-mail de verdade. */
 export async function criarCliente(dados: NovoClienteInput): Promise<Cliente> {
   const supabase = createAdminClient();
 
@@ -122,15 +134,18 @@ export async function criarCliente(dados: NovoClienteInput): Promise<Cliente> {
     .maybeSingle();
   if (cpfExistente) throw new Error("Já existe um cliente cadastrado com esse CPF.");
 
+  const emailInformado = dados.email.trim();
+  const emailFinal = emailInformado || `sememail.${cpfNormalizado}@${DOMINIO_EMAIL_PENDENTE}`;
+
   const { data: emailExistente } = await supabase
     .from("usuarios")
     .select("id")
-    .eq("email", dados.email.toLowerCase())
+    .eq("email", emailFinal.toLowerCase())
     .maybeSingle();
   if (emailExistente) throw new Error("Já existe uma conta cadastrada com esse e-mail.");
 
   const usuarioId = await convidarUsuario(supabase, {
-    email: dados.email,
+    email: emailFinal,
     nome: dados.nomeCompleto,
     telefone: dados.telefone,
     cpfCnpj: cpfNormalizado,
@@ -150,7 +165,7 @@ export async function criarCliente(dados: NovoClienteInput): Promise<Cliente> {
       profissao: dados.profissao,
       data_nascimento: dados.dataNascimento,
       cnh_numero: dados.cnhNumero,
-      cnh_validade: dados.cnhValidade,
+      cnh_validade: dados.cnhValidade || null,
       endereco_logradouro: dados.endereco,
       endereco_numero: dados.numero,
       endereco_complemento: dados.complemento ?? null,

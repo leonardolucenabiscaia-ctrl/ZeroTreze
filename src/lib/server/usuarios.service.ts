@@ -39,6 +39,26 @@ export async function atualizarUsuario(id: string, dados: Partial<Usuario>): Pro
     patch.preferencias_notificacao = dados.preferenciasNotificacao;
   }
 
+  if (dados.email !== undefined) {
+    const emailNormalizado = dados.email.trim().toLowerCase();
+    const { data: existente } = await supabase
+      .from("usuarios")
+      .select("id")
+      .eq("email", emailNormalizado)
+      .neq("id", id)
+      .maybeSingle();
+    if (existente) throw new Error("Já existe uma conta cadastrada com esse e-mail.");
+
+    // O trigger que sincroniza `usuarios.email` só dispara em mudança de app/user metadata (ver
+    // migração 0004) — trocar só o e-mail não passa por ele, então precisa atualizar as duas
+    // tabelas aqui mesmo (mesmo padrão já usado abaixo pra `perfil`).
+    const { error: authError } = await supabase.auth.admin.updateUserById(id, {
+      email: emailNormalizado,
+    });
+    if (authError) throw new Error(authError.message);
+    patch.email = emailNormalizado;
+  }
+
   if (dados.perfil !== undefined) {
     // perfil é a fonte de autorização (lido em app_metadata pelo proxy) — precisa sincronizar
     // no Auth, não só na tabela, senão o controle de acesso fica desatualizado.
