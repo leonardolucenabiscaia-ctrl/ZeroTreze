@@ -87,7 +87,10 @@ async function sincronizarParcelasVencidasDoContrato(supabase: SupabaseAdmin, co
   }
 }
 
-async function sincronizarTodosOsContratos(supabase: SupabaseAdmin) {
+/** Roda a sincronização de todos os contratos ativos — chamada pelo cron
+ * `/api/cron/sincronizar-parcelas`, não mais a cada leitura de tela (ver
+ * `listarParcelasPorContrato` e `listarParcelasAguardandoConfirmacao`). */
+export async function sincronizarTodosOsContratos(supabase: SupabaseAdmin) {
   const { data: contratos } = await supabase.from("contratos").select("id").neq("status", "encerrado");
   for (const c of contratos ?? []) {
     await sincronizarParcelasVencidasDoContrato(supabase, c.id as string);
@@ -96,7 +99,6 @@ async function sincronizarTodosOsContratos(supabase: SupabaseAdmin) {
 
 export async function listarParcelasPorContrato(contratoId: string): Promise<Parcela[]> {
   const supabase = createAdminClient();
-  await sincronizarParcelasVencidasDoContrato(supabase, contratoId);
   const { data, error } = await supabase
     .from("parcelas")
     .select("*")
@@ -104,6 +106,32 @@ export async function listarParcelasPorContrato(contratoId: string): Promise<Par
     .order("numero");
   if (error) throw new Error(error.message);
   return (data ?? []).map(mapParcela);
+}
+
+const TAMANHO_PAGINA = 1000;
+
+/** Todas as parcelas de todos os contratos — usada pelo dashboard admin de Financeiro, que antes
+ * buscava contrato por contrato (N+1) chamando `listarParcelasPorContrato` em loop. Pagina em
+ * blocos de 1000 (limite padrão do PostgREST por requisição): o total de parcelas do banco já
+ * passa disso, então uma única query sem `.range()` truncaria o resultado silenciosamente. */
+export async function listarTodasAsParcelas(): Promise<Parcela[]> {
+  const supabase = createAdminClient();
+  const todas: Parcela[] = [];
+  let pagina = 0;
+
+  while (true) {
+    const inicio = pagina * TAMANHO_PAGINA;
+    const { data, error } = await supabase
+      .from("parcelas")
+      .select("*")
+      .range(inicio, inicio + TAMANHO_PAGINA - 1);
+    if (error) throw new Error(error.message);
+    todas.push(...(data ?? []).map(mapParcela));
+    if (!data || data.length < TAMANHO_PAGINA) break;
+    pagina++;
+  }
+
+  return todas;
 }
 
 export interface DescontoParcelaInput {
@@ -257,7 +285,6 @@ export async function enviarComprovantePagamento(
 /** Fila de conferência do financeiro — parcelas aguardando confirmação de pagamento. */
 export async function listarParcelasAguardandoConfirmacao(): Promise<Parcela[]> {
   const supabase = createAdminClient();
-  await sincronizarTodosOsContratos(supabase);
   const { data, error } = await supabase
     .from("parcelas")
     .select("*")

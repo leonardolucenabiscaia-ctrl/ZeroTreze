@@ -9,7 +9,7 @@ import { listarContratos } from "@/lib/services/contratos.service";
 import { listarClientes } from "@/lib/services/clientes.service";
 import { listarVeiculos } from "@/lib/services/veiculos.service";
 import {
-  listarParcelasPorContrato,
+  listarTodasAsParcelas,
   obterParametrosFinanceiros,
   confirmarPagamento,
   recusarPagamento,
@@ -71,11 +71,12 @@ export default function AdminFinanceiroPage() {
   }, []);
 
   async function carregar() {
-    const [contratos, clientesCarregados, veiculosCarregados, params] = await Promise.all([
+    const [contratos, clientesCarregados, veiculosCarregados, params, parcelas] = await Promise.all([
       listarContratos(),
       listarClientes(),
       listarVeiculos(),
       obterParametrosFinanceiros(),
+      listarTodasAsParcelas(),
     ]);
     setParametros(params);
     setClientes(clientesCarregados);
@@ -83,20 +84,21 @@ export default function AdminFinanceiroPage() {
 
     const mapaClientes = new Map<string, Cliente>(clientesCarregados.map((c) => [c.id, c]));
     const mapaVeiculos = new Map<string, Veiculo>(veiculosCarregados.map((v) => [v.id, v]));
+    const mapaContratos = new Map<string, Contrato>((contratos as Contrato[]).map((c) => [c.id, c]));
+
     const todasLinhas: LinhaParcela[] = [];
-    for (const contrato of contratos as Contrato[]) {
-      const parcelas = await listarParcelasPorContrato(contrato.id);
+    for (const parcela of parcelas) {
+      const contrato = mapaContratos.get(parcela.contratoId);
+      if (!contrato) continue;
       const veiculo = mapaVeiculos.get(contrato.veiculoId);
-      for (const parcela of parcelas) {
-        todasLinhas.push({
-          parcela,
-          clienteId: contrato.clienteId,
-          clienteNome: mapaClientes.get(contrato.clienteId)?.nome ?? "—",
-          veiculoId: contrato.veiculoId,
-          veiculoNome: veiculo ? `${veiculo.marca} ${veiculo.modelo} — ${veiculo.placa}` : "—",
-          contratoNumero: contrato.numero,
-        });
-      }
+      todasLinhas.push({
+        parcela,
+        clienteId: contrato.clienteId,
+        clienteNome: mapaClientes.get(contrato.clienteId)?.nome ?? "—",
+        veiculoId: contrato.veiculoId,
+        veiculoNome: veiculo ? `${veiculo.marca} ${veiculo.modelo} — ${veiculo.placa}` : "—",
+        contratoNumero: contrato.numero,
+      });
     }
     setLinhas(todasLinhas);
   }

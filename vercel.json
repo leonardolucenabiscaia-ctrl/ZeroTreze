@@ -1,6 +1,10 @@
 {
   "crons": [
     {
+      "path": "/api/cron/sincronizar-parcelas",
+      "schedule": "0 14 * * *"
+    },
+    {
       "path": "/api/cron/lembretes-parcelas",
       "schedule": "0 15 * * *"
     }
