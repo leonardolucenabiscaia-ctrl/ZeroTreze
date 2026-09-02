@@ -9,7 +9,10 @@ import { listarContratos } from "@/lib/services/contratos.service";
 import { listarClientes } from "@/lib/services/clientes.service";
 import { listarVeiculos } from "@/lib/services/veiculos.service";
 import {
-  listarParcelasPorContrato,
+  listarParcelasAtivas,
+  listarParcelasPagas,
+  listarTodasAsParcelas,
+  somaValorPago,
   obterParametrosFinanceiros,
   confirmarPagamento,
   recusarPagamento,
@@ -37,11 +40,11 @@ import { Button } from "@/components/ui/button";
 
 type Filtro = "todos" | StatusParcela;
 const FILTROS: { value: Filtro; label: string }[] = [
-  { value: "todos", label: "Todos" },
+  { value: "vencido", label: "Vencido" },
+  { value: "em_aberto", label: "Em aberto" },
   { value: "aguardando_confirmacao", label: "Aguardando confirmação" },
   { value: "pago", label: "Pago" },
-  { value: "em_aberto", label: "Em aberto" },
-  { value: "vencido", label: "Vencido" },
+  { value: "todos", label: "Todos" },
 ];
 
 const TODOS = "todos";
@@ -55,51 +58,87 @@ interface LinhaParcela {
   contratoNumero: string;
 }
 
+/** Uma parcela "em_aberto" cujo vencimento já passou é, na prática, vencida — mesmo que o status
+ * gravado no banco ainda não tenha sido atualizado (isso só acontece quando alguém lê a aba
+ * Financeiro daquele contrato específico). Decidir isso aqui, na leitura, evita depender de
+ * qualquer sincronização rodar antes: o dashboard fica correto e rápido ao mesmo tempo. */
+function comStatusEfetivo(parcela: Parcela): Parcela {
+  if (parcela.status === "em_aberto" && new Date(parcela.dataVencimento).getTime() < Date.now()) {
+    return { ...parcela, status: "vencido" };
+  }
+  return parcela;
+}
+
+function montarLinhas(
+  parcelas: Parcela[],
+  mapaContratos: Map<string, Contrato>,
+  mapaClientes: Map<string, Cliente>,
+  mapaVeiculos: Map<string, Veiculo>
+): LinhaParcela[] {
+  const resultado: LinhaParcela[] = [];
+  for (const parcela of parcelas) {
+    const contrato = mapaContratos.get(parcela.contratoId);
+    if (!contrato) continue;
+    const veiculo = mapaVeiculos.get(contrato.veiculoId);
+    resultado.push({
+      parcela,
+      clienteId: contrato.clienteId,
+      clienteNome: mapaClientes.get(contrato.clienteId)?.nome ?? "—",
+      veiculoId: contrato.veiculoId,
+      veiculoNome: veiculo ? `${veiculo.marca} ${veiculo.modelo} — ${veiculo.placa}` : "—",
+      contratoNumero: contrato.numero,
+    });
+  }
+  return resultado;
+}
+
 export default function AdminFinanceiroPage() {
   const { usuario } = useAuth();
-  const [linhas, setLinhas] = React.useState<LinhaParcela[] | null>(null);
+
+  const [contratos, setContratos] = React.useState<Contrato[]>([]);
   const [clientes, setClientes] = React.useState<Cliente[]>([]);
   const [veiculos, setVeiculos] = React.useState<Veiculo[]>([]);
   const [parametros, setParametros] = React.useState<ParametrosFinanceiros | null>(null);
-  const [filtro, setFiltro] = React.useState<Filtro>("todos");
+  const [totalPago, setTotalPago] = React.useState<number | null>(null);
+
+  // "Ativas" (em_aberto, vencido, aguardando_confirmacao) carrega no mount — é o que alimenta as
+  // abas Vencido/Em aberto/Aguardando confirmação e os cards de total, sem precisar buscar as
+  // parcelas já pagas (a maioria histórica). Pago e Todos só buscam quando o admin clica neles.
+  const [parcelasAtivas, setParcelasAtivas] = React.useState<Parcela[] | null>(null);
+  const [parcelasPagas, setParcelasPagas] = React.useState<Parcela[] | null>(null);
+  const [parcelasTodas, setParcelasTodas] = React.useState<Parcela[] | null>(null);
+
+  const [filtro, setFiltro] = React.useState<Filtro>("vencido");
   const [filtroClienteId, setFiltroClienteId] = React.useState(TODOS);
   const [filtroVeiculoId, setFiltroVeiculoId] = React.useState(TODOS);
   const [revisando, setRevisando] = React.useState<LinhaParcela | null>(null);
 
+  async function recarregarAtivas() {
+    const [ativas, soma] = await Promise.all([listarParcelasAtivas(), somaValorPago()]);
+    setParcelasAtivas(ativas);
+    setTotalPago(soma);
+    // invalida o cache de Pago/Todos — se o admin visitar essas abas de novo, busca fresco.
+    setParcelasPagas(null);
+    setParcelasTodas(null);
+  }
+
   React.useEffect(() => {
-    carregar();
+    listarContratos().then(setContratos);
+    listarClientes().then(setClientes);
+    listarVeiculos().then(setVeiculos);
+    obterParametrosFinanceiros().then(setParametros);
+    listarParcelasAtivas().then(setParcelasAtivas);
+    somaValorPago().then(setTotalPago);
   }, []);
 
-  async function carregar() {
-    const [contratos, clientesCarregados, veiculosCarregados, params] = await Promise.all([
-      listarContratos(),
-      listarClientes(),
-      listarVeiculos(),
-      obterParametrosFinanceiros(),
-    ]);
-    setParametros(params);
-    setClientes(clientesCarregados);
-    setVeiculos(veiculosCarregados);
-
-    const mapaClientes = new Map<string, Cliente>(clientesCarregados.map((c) => [c.id, c]));
-    const mapaVeiculos = new Map<string, Veiculo>(veiculosCarregados.map((v) => [v.id, v]));
-    const todasLinhas: LinhaParcela[] = [];
-    for (const contrato of contratos as Contrato[]) {
-      const parcelas = await listarParcelasPorContrato(contrato.id);
-      const veiculo = mapaVeiculos.get(contrato.veiculoId);
-      for (const parcela of parcelas) {
-        todasLinhas.push({
-          parcela,
-          clienteId: contrato.clienteId,
-          clienteNome: mapaClientes.get(contrato.clienteId)?.nome ?? "—",
-          veiculoId: contrato.veiculoId,
-          veiculoNome: veiculo ? `${veiculo.marca} ${veiculo.modelo} — ${veiculo.placa}` : "—",
-          contratoNumero: contrato.numero,
-        });
-      }
+  React.useEffect(() => {
+    if (filtro === "pago" && parcelasPagas === null) {
+      listarParcelasPagas().then(setParcelasPagas);
     }
-    setLinhas(todasLinhas);
-  }
+    if (filtro === "todos" && parcelasTodas === null) {
+      listarTodasAsParcelas().then(setParcelasTodas);
+    }
+  }, [filtro, parcelasPagas, parcelasTodas]);
 
   async function handleConfirmar(parcelaId: string) {
     try {
@@ -115,7 +154,7 @@ export default function AdminFinanceiroPage() {
       }
       toast.success("Pagamento confirmado. O cliente já pode ver a parcela como paga.");
       setRevisando(null);
-      await carregar();
+      await recarregarAtivas();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível confirmar o pagamento.");
     }
@@ -135,50 +174,59 @@ export default function AdminFinanceiroPage() {
       }
       toast.success("Pagamento recusado. A parcela voltou para cobrança.");
       setRevisando(null);
-      await carregar();
+      await recarregarAtivas();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível recusar o pagamento.");
     }
   }
 
-  if (!linhas || !parametros) return <Skeleton className="h-96 w-full" />;
+  if (!parametros || !parcelasAtivas || totalPago === null) return <Skeleton className="h-96 w-full" />;
 
-  const filtradas = linhas.filter((l) => {
+  const mapaClientes = new Map<string, Cliente>(clientes.map((c) => [c.id, c]));
+  const mapaVeiculos = new Map<string, Veiculo>(veiculos.map((v) => [v.id, v]));
+  const mapaContratos = new Map<string, Contrato>(contratos.map((c) => [c.id, c]));
+
+  const linhasAtivas = montarLinhas(parcelasAtivas.map(comStatusEfetivo), mapaContratos, mapaClientes, mapaVeiculos);
+  const linhasPagas = parcelasPagas ? montarLinhas(parcelasPagas, mapaContratos, mapaClientes, mapaVeiculos) : null;
+  const linhasTodas = parcelasTodas ? montarLinhas(parcelasTodas, mapaContratos, mapaClientes, mapaVeiculos) : null;
+
+  const linhasAtuais: LinhaParcela[] | null =
+    filtro === "pago" ? linhasPagas : filtro === "todos" ? linhasTodas : linhasAtivas;
+
+  const filtradas = (linhasAtuais ?? []).filter((l) => {
     if (filtro !== "todos" && l.parcela.status !== filtro) return false;
     if (filtroClienteId !== TODOS && l.clienteId !== filtroClienteId) return false;
     if (filtroVeiculoId !== TODOS && l.veiculoId !== filtroVeiculoId) return false;
     return true;
   });
-  const totalPago = linhas
-    .filter((l) => l.parcela.status === "pago")
-    .reduce((soma, l) => soma + l.parcela.valorOriginal, 0);
-  const totalEmAberto = linhas
+
+  const totalEmAberto = linhasAtivas
     .filter((l) => l.parcela.status === "em_aberto" || l.parcela.status === "vencido")
     .reduce((soma, l) => soma + calcularValorAtualizado(l.parcela, parametros).valorFinal, 0);
-  const totalMultas = linhas
+  const totalMultas = linhasAtivas
     .filter((l) => l.parcela.status === "em_aberto" || l.parcela.status === "vencido")
     .reduce((soma, l) => soma + calcularValorAtualizado(l.parcela, parametros).multa, 0);
-  const aguardandoConfirmacao = linhas.filter((l) => l.parcela.status === "aguardando_confirmacao");
+  const aguardandoConfirmacao = linhasAtivas.filter((l) => l.parcela.status === "aguardando_confirmacao");
 
   // Ao escolher um cliente, só faz sentido oferecer no filtro de carro os veículos que ele já
   // teve em algum contrato — e vice-versa — senão a combinação dos dois filtros sempre dá lista
-  // vazia.
+  // vazia. Baseado na aba atual (o que já está carregado), não em tudo.
   const veiculosDisponiveis =
     filtroClienteId === TODOS
       ? veiculos
-      : veiculos.filter((v) => linhas.some((l) => l.clienteId === filtroClienteId && l.veiculoId === v.id));
+      : veiculos.filter((v) => (linhasAtuais ?? []).some((l) => l.clienteId === filtroClienteId && l.veiculoId === v.id));
 
   const clientesDisponiveis =
     filtroVeiculoId === TODOS
       ? clientes
-      : clientes.filter((c) => linhas.some((l) => l.veiculoId === filtroVeiculoId && l.clienteId === c.id));
+      : clientes.filter((c) => (linhasAtuais ?? []).some((l) => l.veiculoId === filtroVeiculoId && l.clienteId === c.id));
 
   function handleFiltroCliente(novoClienteId: string) {
     setFiltroClienteId(novoClienteId);
     if (
       novoClienteId !== TODOS &&
       filtroVeiculoId !== TODOS &&
-      !linhas!.some((l) => l.clienteId === novoClienteId && l.veiculoId === filtroVeiculoId)
+      !(linhasAtuais ?? []).some((l) => l.clienteId === novoClienteId && l.veiculoId === filtroVeiculoId)
     ) {
       setFiltroVeiculoId(TODOS);
     }
@@ -189,7 +237,7 @@ export default function AdminFinanceiroPage() {
     if (
       novoVeiculoId !== TODOS &&
       filtroClienteId !== TODOS &&
-      !linhas!.some((l) => l.veiculoId === novoVeiculoId && l.clienteId === filtroClienteId)
+      !(linhasAtuais ?? []).some((l) => l.veiculoId === novoVeiculoId && l.clienteId === filtroClienteId)
     ) {
       setFiltroClienteId(TODOS);
     }
@@ -253,7 +301,9 @@ export default function AdminFinanceiroPage() {
         />
       </div>
 
-      {filtradas.length === 0 ? (
+      {linhasAtuais === null ? (
+        <Skeleton className="h-96 w-full" />
+      ) : filtradas.length === 0 ? (
         <EmptyState icon={Wallet} title="Nenhuma parcela encontrada" />
       ) : (
         <Table>

@@ -106,6 +106,76 @@ export async function listarParcelasPorContrato(contratoId: string): Promise<Par
   return (data ?? []).map(mapParcela);
 }
 
+const TAMANHO_PAGINA = 1000;
+
+/** O PostgREST corta cada requisição em 1000 linhas por padrão — qualquer consulta que possa
+ * devolver mais que isso (parcelas, com o histórico dos contratos, já passa fácil disso) precisa
+ * paginar com `.range()` ou trunca em silêncio. Esse helper faz isso genericamente: recebe uma
+ * função que monta a query dado um intervalo, e repete até a última página vir incompleta. */
+async function paginarTodasAsLinhas<T>(
+  montarQuery: (inicio: number, fim: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>
+): Promise<T[]> {
+  const todas: T[] = [];
+  let pagina = 0;
+
+  while (true) {
+    const inicio = pagina * TAMANHO_PAGINA;
+    const { data, error } = await montarQuery(inicio, inicio + TAMANHO_PAGINA - 1);
+    if (error) throw new Error(error.message);
+    todas.push(...(data ?? []));
+    if (!data || data.length < TAMANHO_PAGINA) break;
+    pagina++;
+  }
+
+  return todas;
+}
+
+/** Parcelas "vivas" (em_aberto, vencido ou aguardando_confirmacao) de todos os contratos — é o
+ * que o dashboard admin de Financeiro carrega por padrão ao abrir. Não roda nenhuma
+ * sincronização: "vencido" aqui é decidido no momento da leitura (ver
+ * `admin/financeiro/page.tsx`), então o resultado já sai correto mesmo sem o status no banco ter
+ * sido atualizado ainda. Deixa de fora as parcelas "pago" (a maioria histórica, e não muda mais)
+ * — quem precisa delas busca sob demanda com `listarParcelasPagas`. */
+export async function listarParcelasAtivas(): Promise<Parcela[]> {
+  const supabase = createAdminClient();
+  const linhas = await paginarTodasAsLinhas((inicio, fim) =>
+    supabase
+      .from("parcelas")
+      .select("*")
+      .in("status", ["em_aberto", "vencido", "aguardando_confirmacao"])
+      .range(inicio, fim)
+  );
+  return linhas.map(mapParcela);
+}
+
+/** Soma do valor original de todas as parcelas já pagas — só a coluna necessária, pra alimentar
+ * o card "Total recebido" sem precisar buscar (e montar) a linha inteira de cada parcela paga. */
+export async function somaValorPago(): Promise<number> {
+  const supabase = createAdminClient();
+  const linhas = await paginarTodasAsLinhas<{ valor_original: number }>((inicio, fim) =>
+    supabase.from("parcelas").select("valor_original").eq("status", "pago").range(inicio, fim)
+  );
+  return linhas.reduce((soma, p) => soma + p.valor_original, 0);
+}
+
+/** Parcelas já pagas, linha completa — usada só quando o admin clica na aba "Pago" (sob demanda,
+ * não no carregamento inicial da tela). */
+export async function listarParcelasPagas(): Promise<Parcela[]> {
+  const supabase = createAdminClient();
+  const linhas = await paginarTodasAsLinhas((inicio, fim) =>
+    supabase.from("parcelas").select("*").eq("status", "pago").range(inicio, fim)
+  );
+  return linhas.map(mapParcela);
+}
+
+/** Todas as parcelas de todos os contratos — usada só quando o admin clica na aba "Todos" (sob
+ * demanda). */
+export async function listarTodasAsParcelas(): Promise<Parcela[]> {
+  const supabase = createAdminClient();
+  const linhas = await paginarTodasAsLinhas((inicio, fim) => supabase.from("parcelas").select("*").range(inicio, fim));
+  return linhas.map(mapParcela);
+}
+
 export interface DescontoParcelaInput {
   descontarMulta: boolean;
   percentual?: number;

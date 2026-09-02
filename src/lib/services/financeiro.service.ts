@@ -18,6 +18,26 @@ export async function listarParcelasPorContrato(contratoId: string): Promise<Par
   return apiFetch<Parcela[]>(`/api/financeiro/parcelas?contratoId=${contratoId}`);
 }
 
+/** Parcelas em_aberto, vencido ou aguardando_confirmacao de todos os contratos — carregamento
+ * padrão do dashboard admin de Financeiro. */
+export async function listarParcelasAtivas(): Promise<Parcela[]> {
+  return apiFetch<Parcela[]>("/api/financeiro/parcelas?ativas=true");
+}
+
+export async function somaValorPago(): Promise<number> {
+  return apiFetch<number>("/api/financeiro/parcelas?somaPaga=true");
+}
+
+/** Sob demanda — só quando o admin clica na aba "Pago". */
+export async function listarParcelasPagas(): Promise<Parcela[]> {
+  return apiFetch<Parcela[]>("/api/financeiro/parcelas?pagas=true");
+}
+
+/** Sob demanda — só quando o admin clica na aba "Todos". */
+export async function listarTodasAsParcelas(): Promise<Parcela[]> {
+  return apiFetch<Parcela[]>("/api/financeiro/parcelas?todas=true");
+}
+
 export interface DescontoParcelaInput {
   descontarMulta: boolean;
   percentual?: number;
