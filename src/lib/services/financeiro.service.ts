@@ -18,10 +18,6 @@ export async function listarParcelasPorContrato(contratoId: string): Promise<Par
   return apiFetch<Parcela[]>(`/api/financeiro/parcelas?contratoId=${contratoId}`);
 }
 
-export async function listarTodasAsParcelas(): Promise<Parcela[]> {
-  return apiFetch<Parcela[]>("/api/financeiro/parcelas?todas=true");
-}
-
 export interface DescontoParcelaInput {
   descontarMulta: boolean;
   percentual?: number;
