@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Wallet, Clock } from "lucide-react";
+import { Eye, Wallet, Clock } from "lucide-react";
 import { toast } from "sonner";
 
 import { useAuth } from "@/lib/auth/auth-context";
@@ -16,6 +16,8 @@ import {
   obterParametrosFinanceiros,
   confirmarPagamento,
   recusarPagamento,
+  aplicarDescontoParcela,
+  darBaixaManual,
 } from "@/lib/services/financeiro.service";
 import { registrarAcao } from "@/lib/services/auditoria.service";
 import { calcularValorAtualizado } from "@/lib/calculations/juros-multa-correcao";
@@ -34,6 +36,11 @@ import { SelectBusca } from "@/components/ui/select-busca";
 import { StatCard } from "@/components/shared/stat-card";
 import { StatusPill } from "@/components/shared/status-pill";
 import { RevisarPagamentoDialog } from "@/components/shared/revisar-pagamento-dialog";
+import {
+  ParcelaDetalheDialog,
+  type BaixaManualInput,
+  type DescontoParcelaInput,
+} from "@/components/shared/parcela-detalhe-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
@@ -112,6 +119,7 @@ export default function AdminFinanceiroPage() {
   const [filtroClienteId, setFiltroClienteId] = React.useState(TODOS);
   const [filtroVeiculoId, setFiltroVeiculoId] = React.useState(TODOS);
   const [revisando, setRevisando] = React.useState<LinhaParcela | null>(null);
+  const [parcelaDetalhe, setParcelaDetalhe] = React.useState<LinhaParcela | null>(null);
 
   async function recarregarAtivas() {
     const [ativas, soma] = await Promise.all([listarParcelasAtivas(), somaValorPago()]);
@@ -177,6 +185,46 @@ export default function AdminFinanceiroPage() {
       await recarregarAtivas();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível recusar o pagamento.");
+    }
+  }
+
+  async function handleAplicarDesconto(parcelaId: string, desconto: DescontoParcelaInput) {
+    try {
+      const atualizada = await aplicarDescontoParcela(parcelaId, desconto, usuario?.nome ?? "Administrador");
+      if (parcelaDetalhe) setParcelaDetalhe({ ...parcelaDetalhe, parcela: atualizada });
+      if (usuario && parcelaDetalhe) {
+        await registrarAcao({
+          usuarioId: usuario.id,
+          usuarioNome: usuario.nome,
+          acao: "Aplicou desconto em uma parcela",
+          entidade: "Parcela",
+          entidadeId: `${parcelaDetalhe.contratoNumero} · parcela ${atualizada.numero}`,
+        });
+      }
+      toast.success(atualizada.desconto ? "Desconto aplicado com sucesso." : "Desconto removido.");
+      await recarregarAtivas();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível aplicar o desconto.");
+    }
+  }
+
+  async function handleDarBaixa(parcelaId: string, dados: BaixaManualInput) {
+    try {
+      const atualizada = await darBaixaManual(parcelaId, dados, usuario?.nome ?? "Administrador");
+      if (parcelaDetalhe) setParcelaDetalhe({ ...parcelaDetalhe, parcela: atualizada });
+      if (usuario && parcelaDetalhe) {
+        await registrarAcao({
+          usuarioId: usuario.id,
+          usuarioNome: usuario.nome,
+          acao: "Deu baixa manual num pagamento",
+          entidade: "Parcela",
+          entidadeId: `${parcelaDetalhe.contratoNumero} · parcela ${atualizada.numero}`,
+        });
+      }
+      toast.success("Baixa registrada — a parcela já está marcada como paga.");
+      await recarregarAtivas();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível dar baixa no pagamento.");
     }
   }
 
@@ -335,12 +383,22 @@ export default function AdminFinanceiroPage() {
                     <StatusPill status={parcela.status} />
                   </TableCell>
                   <TableCell className="text-right">
-                    {parcela.status === "aguardando_confirmacao" && (
-                      <Button size="sm" onClick={() => setRevisando(linha)}>
-                        <Clock className="size-4" />
-                        Revisar
+                    <div className="flex justify-end gap-1.5">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setParcelaDetalhe(linha)}
+                        aria-label="Visualizar parcela"
+                      >
+                        <Eye className="size-4" />
                       </Button>
-                    )}
+                      {parcela.status === "aguardando_confirmacao" && (
+                        <Button size="sm" onClick={() => setRevisando(linha)}>
+                          <Clock className="size-4" />
+                          Revisar
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               );
@@ -358,6 +416,17 @@ export default function AdminFinanceiroPage() {
         onOpenChange={(open) => !open && setRevisando(null)}
         onConfirmar={handleConfirmar}
         onRecusar={handleRecusar}
+      />
+
+      <ParcelaDetalheDialog
+        parcela={parcelaDetalhe?.parcela ?? null}
+        parametros={parametros}
+        open={parcelaDetalhe !== null}
+        onOpenChange={(open) => !open && setParcelaDetalhe(null)}
+        podeAplicarDesconto
+        onAplicarDesconto={handleAplicarDesconto}
+        podeDarBaixa
+        onDarBaixa={handleDarBaixa}
       />
     </div>
   );
