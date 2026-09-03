@@ -102,3 +102,24 @@ export async function confirmarPagamento(parcelaId: string): Promise<Parcela> {
 export async function recusarPagamento(parcelaId: string): Promise<Parcela> {
   return apiFetch<Parcela>(`/api/financeiro/parcelas/${parcelaId}/recusar`, { method: "POST" });
 }
+
+export interface BaixaManualInput {
+  valor: number;
+  formaPagamento: "pix" | "boleto" | "dinheiro" | "outro";
+  motivo: string;
+}
+
+/**
+ * Administrador registra que recebeu um pagamento fora do fluxo digital (dinheiro, ou outro meio
+ * sem comprovante) e dá baixa direto na parcela — pula o "aguardando_confirmacao".
+ */
+export async function darBaixaManual(
+  parcelaId: string,
+  dados: BaixaManualInput,
+  usuarioNome: string
+): Promise<Parcela> {
+  return apiFetch<Parcela>(`/api/financeiro/parcelas/${parcelaId}/baixa-manual`, {
+    method: "POST",
+    body: JSON.stringify({ dados, usuarioNome }),
+  });
+}

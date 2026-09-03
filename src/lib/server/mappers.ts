@@ -171,6 +171,14 @@ export function mapParcela(row: Record<string, unknown>): Parcela {
             motivo: (row.desconto_motivo as string | null) ?? undefined,
           }
         : undefined,
+    baixaManual: row.baixa_manual_em
+      ? {
+          valor: row.baixa_manual_valor as number,
+          aplicadoPorNome: row.baixa_manual_por_nome as string,
+          aplicadoEm: row.baixa_manual_em as string,
+          motivo: row.baixa_manual_motivo as string,
+        }
+      : undefined,
   };
 }
 

@@ -12,6 +12,7 @@ import { buscarClientePorId } from "@/lib/services/clientes.service";
 import { bloquearVeiculo, buscarVeiculoPorId, desbloquearVeiculo } from "@/lib/services/veiculos.service";
 import {
   aplicarDescontoParcela,
+  darBaixaManual,
   listarParcelasPorContrato,
   obterParametrosFinanceiros,
 } from "@/lib/services/financeiro.service";
@@ -21,7 +22,11 @@ import type { Cliente, Contrato, ParametrosFinanceiros, Parcela, Veiculo } from 
 
 import { VehicleCard } from "@/components/shared/vehicle-card";
 import { ParcelasTable } from "@/components/shared/parcelas-table";
-import { ParcelaDetalheDialog, type DescontoParcelaInput } from "@/components/shared/parcela-detalhe-dialog";
+import {
+  ParcelaDetalheDialog,
+  type BaixaManualInput,
+  type DescontoParcelaInput,
+} from "@/components/shared/parcela-detalhe-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -146,6 +151,26 @@ export default function AdminContratoDetalhePage() {
     }
   }
 
+  async function handleDarBaixa(parcelaId: string, dados: BaixaManualInput) {
+    try {
+      const atualizada = await darBaixaManual(parcelaId, dados, usuario?.nome ?? "Administrador");
+      setParcelas((atuais) => atuais.map((p) => (p.id === atualizada.id ? atualizada : p)));
+      setParcelaDetalhe(atualizada);
+      if (usuario && contrato) {
+        await registrarAcao({
+          usuarioId: usuario.id,
+          usuarioNome: usuario.nome,
+          acao: "Deu baixa manual num pagamento",
+          entidade: "Parcela",
+          entidadeId: `${contrato.numero} — parcela ${atualizada.numero}`,
+        });
+      }
+      toast.success("Baixa registrada — a parcela já está marcada como paga.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível dar baixa no pagamento.");
+    }
+  }
+
   if (!contrato || !veiculo || !parametros) return <Skeleton className="h-96 w-full" />;
 
   return (
@@ -233,6 +258,8 @@ export default function AdminContratoDetalhePage() {
         onOpenChange={(open) => !open && setParcelaDetalhe(null)}
         podeAplicarDesconto
         onAplicarDesconto={handleAplicarDesconto}
+        podeDarBaixa
+        onDarBaixa={handleDarBaixa}
       />
 
       <Dialog open={confirmandoEncerramento} onOpenChange={setConfirmandoEncerramento}>

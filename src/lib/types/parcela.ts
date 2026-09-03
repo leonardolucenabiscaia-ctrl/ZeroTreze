@@ -14,6 +14,16 @@ export interface DescontoParcela {
   motivo?: string;
 }
 
+/** Registro de que um administrador deu baixa manual num pagamento (dinheiro ou outro meio fora
+ * do fluxo digital de comprovante) — sem isso, a parcela só vira "pago" pelo fluxo normal
+ * (cliente envia comprovante, administrador confirma). */
+export interface BaixaManualParcela {
+  valor: number;
+  aplicadoPorNome: string;
+  aplicadoEm: string;
+  motivo: string;
+}
+
 export interface Parcela {
   id: string;
   contratoId: string;
@@ -23,13 +33,14 @@ export interface Parcela {
   dataVencimento: string;
   dataPagamento?: string;
   status: StatusParcela;
-  formaPagamento?: "pix" | "boleto";
+  formaPagamento?: "pix" | "boleto" | "dinheiro" | "outro";
   /** Momento em que o cliente enviou o comprovante, aguardando confirmação do administrador. */
   dataEnvioComprovante?: string;
   desconto?: DescontoParcela;
   /** Preenchido quando esta parcela foi renegociada e absorvida por um acordo — ela sai do
    * Financeiro normal e passa a ser paga pelo cronograma do acordo. */
   acordoId?: string;
+  baixaManual?: BaixaManualParcela;
 }
 
 export interface ValorAtualizadoParcela {

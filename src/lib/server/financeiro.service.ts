@@ -403,6 +403,84 @@ export async function confirmarPagamento(parcelaId: string): Promise<Parcela> {
   return mapParcela(atualizada);
 }
 
+export interface BaixaManualInput {
+  valor: number;
+  formaPagamento: "pix" | "boleto" | "dinheiro" | "outro";
+  motivo: string;
+}
+
+/** Administrador registra que recebeu um pagamento fora do fluxo digital (dinheiro, ou outro
+ * meio sem comprovante) e dá baixa direto na parcela — sem passar por "aguardando_confirmacao". */
+export async function darBaixaManual(
+  parcelaId: string,
+  dados: BaixaManualInput,
+  usuarioNome: string
+): Promise<Parcela> {
+  const supabase = createAdminClient();
+  const { data: parcela } = await supabase.from("parcelas").select("*").eq("id", parcelaId).maybeSingle();
+  if (!parcela) throw new Error("Parcela não encontrada");
+  if (parcela.status === "pago") throw new Error("Esta parcela já está paga.");
+  if (parcela.status === "aguardando_confirmacao") {
+    throw new Error("Esta parcela já tem um comprovante aguardando confirmação — revise por lá.");
+  }
+  if (parcela.status === "renegociado") {
+    throw new Error("Esta parcela foi renegociada em um acordo — dê baixa por lá, em Financeiro Acordos.");
+  }
+  if (!(dados.valor > 0)) throw new Error("O valor recebido deve ser maior que zero.");
+  if (!dados.motivo.trim()) throw new Error("Explique como esse pagamento foi recebido.");
+
+  const agora = new Date().toISOString();
+  const { data: atualizada, error } = await supabase
+    .from("parcelas")
+    .update({
+      status: "pago",
+      data_pagamento: agora,
+      forma_pagamento: dados.formaPagamento,
+      baixa_manual_valor: dados.valor,
+      baixa_manual_por_nome: usuarioNome,
+      baixa_manual_em: agora,
+      baixa_manual_motivo: dados.motivo.trim(),
+    })
+    .eq("id", parcelaId)
+    .select()
+    .single();
+  if (error || !atualizada) throw new Error(error?.message ?? "Não foi possível dar baixa no pagamento.");
+
+  const { data: ultimoMovimento } = await supabase
+    .from("movimentos_extrato")
+    .select("saldo")
+    .eq("contrato_id", parcela.contrato_id as string)
+    .order("data", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const saldoAtual = (ultimoMovimento?.saldo as number | undefined) ?? 0;
+
+  await supabase.from("movimentos_extrato").insert({
+    contrato_id: parcela.contrato_id,
+    descricao: `Baixa manual (${dados.formaPagamento}) — parcela ${atualizada.numero} — ${dados.motivo.trim()}`,
+    data: agora,
+    tipo: "entrada",
+    valor: dados.valor,
+    saldo: saldoAtual + dados.valor,
+  });
+
+  const usuarioId = await usuarioIdDoContrato(supabase, parcela.contrato_id as string);
+  if (usuarioId) {
+    await criarNotificacao({
+      id: crypto.randomUUID(),
+      usuarioId,
+      tipo: "pagamento_confirmado",
+      titulo: "Pagamento confirmado",
+      mensagem: `O pagamento da parcela ${atualizada.numero} (${atualizada.competencia}) foi confirmado.`,
+      lida: false,
+      criadoEm: agora,
+      link: "/financeiro",
+    });
+  }
+
+  return mapParcela(atualizada);
+}
+
 /** Administrador não encontrou o pagamento na conta — devolve a parcela para cobrança. */
 export async function recusarPagamento(parcelaId: string): Promise<Parcela> {
   const supabase = createAdminClient();
