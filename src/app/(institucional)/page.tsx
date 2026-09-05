@@ -146,6 +146,25 @@ export default function InicioPage() {
         </div>
       </section>
 
+      {/* Clientes */}
+      <section id="clientes" className="scroll-mt-16 border-t border-border">
+        <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6">
+          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-gold">Clientes</p>
+          <h2 className="mt-2 text-3xl font-bold text-foreground sm:text-4xl">
+            Empresas que confiam na Zero Treze
+          </h2>
+
+          <div className="mt-10 overflow-hidden rounded-xl bg-white p-4 sm:p-8">
+            {/* eslint-disable-next-line @next/next/no-img-element -- imagem única com a grade de logos dos clientes */}
+            <img
+              src="/clientes/logos-clientes.jpg"
+              alt="Logos de empresas clientes da Zero Treze: CMA CGM, Mercosul Line, Unimed, Hapag-Lloyd, ONE, Senac, Senai, Santos FC, AABB, CCIS, COFCO, COSCO Shipping, GT Foods, Manuport, Instituto Quero, RVF Advogados, Sabesp, CPFL Energia, Sicredi, USC Santa Casa, HJR Eventos, Sintrajud"
+              className="w-full h-auto object-contain"
+            />
+          </div>
+        </div>
+      </section>
+
       {/* Credenciamentos */}
       <section id="credenciamentos" className="scroll-mt-16 border-t border-border">
         <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6">
