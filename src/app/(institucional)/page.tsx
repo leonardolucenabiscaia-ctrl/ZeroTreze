@@ -157,8 +157,8 @@ export default function InicioPage() {
           <div className="mt-10 overflow-hidden rounded-xl bg-white p-4 sm:p-8">
             {/* eslint-disable-next-line @next/next/no-img-element -- imagem única com a grade de logos dos clientes */}
             <img
-              src="/clientes/logos-clientes.jpg"
-              alt="Logos de empresas clientes da Zero Treze: CMA CGM, Mercosul Line, Unimed, Hapag-Lloyd, ONE, Senac, Senai, Santos FC, AABB, CCIS, COFCO, COSCO Shipping, GT Foods, Manuport, Instituto Quero, RVF Advogados, Sabesp, CPFL Energia, Sicredi, USC Santa Casa, HJR Eventos, Sintrajud"
+              src="/clientes/logos-clientes.webp"
+              alt="Logos de empresas clientes da Zero Treze: CMA CGM, Mercosul Line, Unimed, Hapag-Lloyd, ONE, Senac, Senai, Santos FC, AABB, CCIS, COFCO, COSCO Shipping, GT Foods, Manuport, Instituto Quero, RVF Advogados, Sabesp, CPFL Energia, Sicredi, USC Santa Casa, HJR Eventos, Sintrajud, Porto Santos Logística"
               className="w-full h-auto object-contain"
             />
           </div>
