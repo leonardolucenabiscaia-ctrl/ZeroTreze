@@ -139,14 +139,18 @@ export default function AdminFinanceiroPage() {
     somaValorPago().then(setTotalPago);
   }, []);
 
+  const filtroClienteOuVeiculoAtivo = filtroClienteId !== TODOS || filtroVeiculoId !== TODOS;
+
   React.useEffect(() => {
-    if (filtro === "pago" && parcelasPagas === null) {
+    // Com cliente/carro filtrado, o card "Total recebido" precisa das parcelas pagas de verdade
+    // (não só a soma global) pra mostrar quanto aquele cliente específico já pagou.
+    if ((filtro === "pago" || filtro === "todos" || filtroClienteOuVeiculoAtivo) && parcelasPagas === null) {
       listarParcelasPagas().then(setParcelasPagas);
     }
     if (filtro === "todos" && parcelasTodas === null) {
       listarTodasAsParcelas().then(setParcelasTodas);
     }
-  }, [filtro, parcelasPagas, parcelasTodas]);
+  }, [filtro, filtroClienteOuVeiculoAtivo, parcelasPagas, parcelasTodas]);
 
   async function handleConfirmar(parcelaId: string) {
     try {
@@ -248,13 +252,32 @@ export default function AdminFinanceiroPage() {
     return true;
   });
 
-  const totalEmAberto = linhasAtivas
+  // Os cards de total respeitam o filtro de cliente/carro selecionado — cada card já representa
+  // um status específico (pago / em_aberto+vencido / aguardando_confirmacao), então basta cruzar
+  // com o mesmo filtro usado na tabela.
+  function bateComFiltroClienteVeiculo(l: LinhaParcela): boolean {
+    if (filtroClienteId !== TODOS && l.clienteId !== filtroClienteId) return false;
+    if (filtroVeiculoId !== TODOS && l.veiculoId !== filtroVeiculoId) return false;
+    return true;
+  }
+
+  const linhasAtivasFiltradas = linhasAtivas.filter(bateComFiltroClienteVeiculo);
+
+  const totalEmAberto = linhasAtivasFiltradas
     .filter((l) => l.parcela.status === "em_aberto" || l.parcela.status === "vencido")
     .reduce((soma, l) => soma + calcularValorAtualizado(l.parcela, parametros).valorFinal, 0);
-  const totalMultas = linhasAtivas
+  const totalMultas = linhasAtivasFiltradas
     .filter((l) => l.parcela.status === "em_aberto" || l.parcela.status === "vencido")
     .reduce((soma, l) => soma + calcularValorAtualizado(l.parcela, parametros).multa, 0);
-  const aguardandoConfirmacao = linhasAtivas.filter((l) => l.parcela.status === "aguardando_confirmacao");
+  const aguardandoConfirmacao = linhasAtivasFiltradas.filter((l) => l.parcela.status === "aguardando_confirmacao");
+
+  // Sem filtro, usa a soma global (rápida, já carregada no mount). Com filtro, precisa das
+  // parcelas pagas de verdade pra somar só as daquele cliente/carro — enquanto isso carrega
+  // (linhasPagas ainda null), mostra "…" em vez de um número errado.
+  const totalPagoFiltrado = linhasPagas
+    ? linhasPagas.filter(bateComFiltroClienteVeiculo).reduce((soma, l) => soma + l.parcela.valorOriginal, 0)
+    : null;
+  const totalPagoExibido = filtroClienteOuVeiculoAtivo ? totalPagoFiltrado : totalPago;
 
   // Ao escolher um cliente, só faz sentido oferecer no filtro de carro os veículos que ele já
   // teve em algum contrato — e vice-versa — senão a combinação dos dois filtros sempre dá lista
@@ -296,14 +319,33 @@ export default function AdminFinanceiroPage() {
       <h1 className="text-xl font-semibold text-foreground">Financeiro</h1>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label="Total recebido" value={formatCurrency(totalPago)} icon={Wallet} tone="success" />
-        <StatCard label="Total em aberto" value={formatCurrency(totalEmAberto)} icon={Wallet} tone="warning" />
-        <StatCard label="Multas em aberto" value={formatCurrency(totalMultas)} icon={Wallet} tone="destructive" />
+        <StatCard
+          label="Total recebido"
+          value={totalPagoExibido === null ? "…" : formatCurrency(totalPagoExibido)}
+          icon={Wallet}
+          tone="success"
+          hint={filtroClienteOuVeiculoAtivo ? "Filtrado" : undefined}
+        />
+        <StatCard
+          label="Total em aberto"
+          value={formatCurrency(totalEmAberto)}
+          icon={Wallet}
+          tone="warning"
+          hint={filtroClienteOuVeiculoAtivo ? "Filtrado" : undefined}
+        />
+        <StatCard
+          label="Multas em aberto"
+          value={formatCurrency(totalMultas)}
+          icon={Wallet}
+          tone="destructive"
+          hint={filtroClienteOuVeiculoAtivo ? "Filtrado" : undefined}
+        />
         <StatCard
           label="Aguardando confirmação"
           value={String(aguardandoConfirmacao.length)}
           icon={Clock}
           tone="warning"
+          hint={filtroClienteOuVeiculoAtivo ? "Filtrado" : undefined}
         />
       </div>
 
