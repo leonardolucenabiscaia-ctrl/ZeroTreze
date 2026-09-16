@@ -1,5 +1,4 @@
 export * from "./pix";
-export * from "./boleto";
 export * from "./whatsapp";
 export * from "./sms";
 export * from "./email";

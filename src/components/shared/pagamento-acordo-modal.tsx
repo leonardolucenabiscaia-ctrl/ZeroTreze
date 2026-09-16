@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { QRCodeSVG } from "qrcode.react";
-import { Copy, Download, Loader2 } from "lucide-react";
+import { Copy } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -13,14 +13,16 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { FileUploader } from "@/components/shared/file-uploader";
-import { pixProvider } from "@/lib/integrations/pix";
-import { boletoProvider } from "@/lib/integrations/boleto";
+import { gerarPixEstatico } from "@/lib/integrations/pix";
 import { enviarComprovantePagamentoAcordo } from "@/lib/services/financeiro-acordos.service";
+import { EMPRESA } from "@/lib/constants/empresa";
 import { formatCurrency, formatDate } from "@/lib/utils/formatters";
 import type { ParcelaAcordo } from "@/lib/types";
+
+// Chave Pix estática da empresa — sempre a mesma, sem valor definido, sem depender de nenhum PSP.
+const PIX_ESTATICO = gerarPixEstatico();
 
 /** Mesmo fluxo do `PagamentoModal` das parcelas de contrato, mas sem juros/multa/correção — a
  * parcela do acordo já é um valor fixo negociado, não acumula mais nada. */
@@ -35,23 +37,8 @@ export function PagamentoAcordoModal({
   onOpenChange: (open: boolean) => void;
   onPago: (parcela: ParcelaAcordo) => void;
 }) {
-  const [copiaECola, setCopiaECola] = React.useState("");
-  const [linhaDigitavel, setLinhaDigitavel] = React.useState("");
-  const [urlBoleto, setUrlBoleto] = React.useState("");
-  const [confirmando, setConfirmando] = React.useState<"pix" | "boleto" | null>(null);
+  const [confirmando, setConfirmando] = React.useState(false);
   const [anexos, setAnexos] = React.useState<File[]>([]);
-
-  React.useEffect(() => {
-    if (!open || !parcela) return;
-    pixProvider.gerarCobranca(parcela.valor, parcela.id).then((c) => setCopiaECola(c.copiaECola));
-    boletoProvider
-      .gerarBoleto(parcela.valor, parcela.vencimento, parcela.id)
-      .then((b) => {
-        setLinhaDigitavel(b.linhaDigitavel);
-        setUrlBoleto(b.urlPdf);
-      });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, parcela?.id]);
 
   React.useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -60,22 +47,22 @@ export function PagamentoAcordoModal({
 
   if (!parcela) return null;
 
-  async function enviarComprovante(forma: "pix" | "boleto") {
-    setConfirmando(forma);
+  async function enviarComprovante() {
+    setConfirmando(true);
     try {
-      const atualizada = await enviarComprovantePagamentoAcordo(parcela!.id, forma, anexos);
+      const atualizada = await enviarComprovantePagamentoAcordo(parcela!.id, "pix", anexos);
       toast.success("Comprovante enviado! Aguarde a confirmação do pagamento pelo administrador.");
       onPago(atualizada);
       onOpenChange(false);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível enviar o comprovante.");
     } finally {
-      setConfirmando(null);
+      setConfirmando(false);
     }
   }
 
   function copiarChave() {
-    navigator.clipboard.writeText(copiaECola);
+    navigator.clipboard.writeText(PIX_ESTATICO);
     toast.success("Código PIX copiado.");
   }
 
@@ -90,54 +77,23 @@ export function PagamentoAcordoModal({
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs defaultValue="pix">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="pix">PIX</TabsTrigger>
-            <TabsTrigger value="boleto">Boleto</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="pix" className="flex flex-col items-center gap-4">
-            {copiaECola ? (
-              <div className="rounded-xl bg-white p-3">
-                <QRCodeSVG value={copiaECola} size={180} />
-              </div>
-            ) : (
-              <div className="flex h-[204px] w-[204px] items-center justify-center">
-                <Loader2 className="size-6 animate-spin text-muted-foreground" />
-              </div>
-            )}
-            <Button variant="outline" size="sm" onClick={copiarChave} disabled={!copiaECola}>
-              <Copy className="size-4" />
-              Copiar chave PIX
-            </Button>
-            <Button
-              className="w-full"
-              onClick={() => enviarComprovante("pix")}
-              disabled={confirmando !== null}
-            >
-              {confirmando === "pix" ? "Enviando…" : "Já paguei via PIX"}
-            </Button>
-          </TabsContent>
-
-          <TabsContent value="boleto" className="flex flex-col gap-4">
-            <div className="rounded-lg border border-border bg-secondary/40 p-3 text-center text-sm font-mono text-foreground">
-              {linhaDigitavel || "Gerando linha digitável…"}
-            </div>
-            <Button variant="outline" size="sm" asChild disabled={!urlBoleto}>
-              <a href={urlBoleto || "#"} download>
-                <Download className="size-4" />
-                Baixar boleto em PDF
-              </a>
-            </Button>
-            <Button
-              className="w-full"
-              onClick={() => enviarComprovante("boleto")}
-              disabled={confirmando !== null}
-            >
-              {confirmando === "boleto" ? "Enviando…" : "Já paguei o boleto"}
-            </Button>
-          </TabsContent>
-        </Tabs>
+        <div className="flex flex-col items-center gap-4">
+          <div className="rounded-xl bg-white p-3">
+            <QRCodeSVG value={PIX_ESTATICO} size={180} />
+          </div>
+          <p className="text-center text-xs text-muted-foreground">
+            Pix para Zero Treze Transportes Ltda — CNPJ {EMPRESA.cnpj}. Ao escanear ou colar a chave, digite
+            você mesmo o valor de{" "}
+            <span className="font-medium text-gold">{formatCurrency(parcela.valor)}</span> no seu banco.
+          </p>
+          <Button variant="outline" size="sm" onClick={copiarChave}>
+            <Copy className="size-4" />
+            Copiar chave PIX
+          </Button>
+          <Button className="w-full" onClick={enviarComprovante} disabled={confirmando}>
+            {confirmando ? "Enviando…" : "Já paguei via PIX"}
+          </Button>
+        </div>
 
         <FileUploader
           arquivos={anexos}
