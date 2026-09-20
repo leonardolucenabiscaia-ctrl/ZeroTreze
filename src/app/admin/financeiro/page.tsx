@@ -14,15 +14,26 @@ import {
   listarTodasAsParcelas,
   somaValorPago,
   obterParametrosFinanceiros,
-  confirmarPagamento,
-  recusarPagamento,
   aplicarDescontoParcela,
   darBaixaManual,
 } from "@/lib/services/financeiro.service";
+import {
+  confirmarPagamentoParcial,
+  listarPagamentosParciaisPendentes,
+  recusarPagamentoParcial,
+} from "@/lib/services/pagamentos-parciais.service";
 import { registrarAcao } from "@/lib/services/auditoria.service";
 import { calcularValorAtualizado } from "@/lib/calculations/juros-multa-correcao";
 import { formatCurrency, formatDate } from "@/lib/utils/formatters";
-import type { Cliente, Contrato, ParametrosFinanceiros, Parcela, StatusParcela, Veiculo } from "@/lib/types";
+import type {
+  Cliente,
+  Contrato,
+  PagamentoParcial,
+  ParametrosFinanceiros,
+  Parcela,
+  StatusParcela,
+  Veiculo,
+} from "@/lib/types";
 
 import {
   Table,
@@ -65,6 +76,17 @@ interface LinhaParcela {
   contratoNumero: string;
 }
 
+interface LinhaPagamentoPendente {
+  pagamento: PagamentoParcial;
+  clienteId: string;
+  clienteNome: string;
+  veiculoId: string;
+  veiculoNome: string;
+  contratoNumero: string;
+  parcelaNumero: number;
+  parcelaCompetencia: string;
+}
+
 /** Uma parcela "em_aberto" cujo vencimento já passou é, na prática, vencida — mesmo que o status
  * gravado no banco ainda não tenha sido atualizado (isso só acontece quando alguém lê a aba
  * Financeiro daquele contrato específico). Decidir isso aqui, na leitura, evita depender de
@@ -99,6 +121,34 @@ function montarLinhas(
   return resultado;
 }
 
+function montarLinhasPagamentos(
+  pagamentos: PagamentoParcial[],
+  mapaParcelas: Map<string, Parcela>,
+  mapaContratos: Map<string, Contrato>,
+  mapaClientes: Map<string, Cliente>,
+  mapaVeiculos: Map<string, Veiculo>
+): LinhaPagamentoPendente[] {
+  const resultado: LinhaPagamentoPendente[] = [];
+  for (const pagamento of pagamentos) {
+    const parcela = mapaParcelas.get(pagamento.parcelaId);
+    if (!parcela) continue;
+    const contrato = mapaContratos.get(parcela.contratoId);
+    if (!contrato) continue;
+    const veiculo = mapaVeiculos.get(contrato.veiculoId);
+    resultado.push({
+      pagamento,
+      clienteId: contrato.clienteId,
+      clienteNome: mapaClientes.get(contrato.clienteId)?.nome ?? "—",
+      veiculoId: contrato.veiculoId,
+      veiculoNome: veiculo ? `${veiculo.marca} ${veiculo.modelo} — ${veiculo.placa}` : "—",
+      contratoNumero: contrato.numero,
+      parcelaNumero: parcela.numero,
+      parcelaCompetencia: parcela.competencia,
+    });
+  }
+  return resultado;
+}
+
 export default function AdminFinanceiroPage() {
   const { usuario } = useAuth();
 
@@ -108,23 +158,31 @@ export default function AdminFinanceiroPage() {
   const [parametros, setParametros] = React.useState<ParametrosFinanceiros | null>(null);
   const [totalPago, setTotalPago] = React.useState<number | null>(null);
 
-  // "Ativas" (em_aberto, vencido, aguardando_confirmacao) carrega no mount — é o que alimenta as
-  // abas Vencido/Em aberto/Aguardando confirmação e os cards de total, sem precisar buscar as
-  // parcelas já pagas (a maioria histórica). Pago e Todos só buscam quando o admin clica neles.
+  // "Ativas" (em_aberto, vencido) carrega no mount — é o que alimenta as abas Vencido/Em aberto e
+  // os cards de total, sem precisar buscar as parcelas já pagas (a maioria histórica). Pago e
+  // Todos só buscam quando o admin clica neles. "Pendentes" é a fila de pagamentos parciais
+  // aguardando confirmação — também carrega no mount, é o que alimenta a aba "Aguardando
+  // confirmação".
   const [parcelasAtivas, setParcelasAtivas] = React.useState<Parcela[] | null>(null);
   const [parcelasPagas, setParcelasPagas] = React.useState<Parcela[] | null>(null);
   const [parcelasTodas, setParcelasTodas] = React.useState<Parcela[] | null>(null);
+  const [pagamentosPendentes, setPagamentosPendentes] = React.useState<PagamentoParcial[] | null>(null);
 
   const [filtro, setFiltro] = React.useState<Filtro>("vencido");
   const [filtroClienteId, setFiltroClienteId] = React.useState(TODOS);
   const [filtroVeiculoId, setFiltroVeiculoId] = React.useState(TODOS);
-  const [revisando, setRevisando] = React.useState<LinhaParcela | null>(null);
+  const [revisando, setRevisando] = React.useState<LinhaPagamentoPendente | null>(null);
   const [parcelaDetalhe, setParcelaDetalhe] = React.useState<LinhaParcela | null>(null);
 
   async function recarregarAtivas() {
-    const [ativas, soma] = await Promise.all([listarParcelasAtivas(), somaValorPago()]);
+    const [ativas, soma, pendentes] = await Promise.all([
+      listarParcelasAtivas(),
+      somaValorPago(),
+      listarPagamentosParciaisPendentes(),
+    ]);
     setParcelasAtivas(ativas);
     setTotalPago(soma);
+    setPagamentosPendentes(pendentes);
     // invalida o cache de Pago/Todos — se o admin visitar essas abas de novo, busca fresco.
     setParcelasPagas(null);
     setParcelasTodas(null);
@@ -137,6 +195,7 @@ export default function AdminFinanceiroPage() {
     obterParametrosFinanceiros().then(setParametros);
     listarParcelasAtivas().then(setParcelasAtivas);
     somaValorPago().then(setTotalPago);
+    listarPagamentosParciaisPendentes().then(setPagamentosPendentes);
   }, []);
 
   const filtroClienteOuVeiculoAtivo = filtroClienteId !== TODOS || filtroVeiculoId !== TODOS;
@@ -152,19 +211,19 @@ export default function AdminFinanceiroPage() {
     }
   }, [filtro, filtroClienteOuVeiculoAtivo, parcelasPagas, parcelasTodas]);
 
-  async function handleConfirmar(parcelaId: string) {
+  async function handleConfirmar(pagamentoId: string) {
     try {
-      await confirmarPagamento(parcelaId);
+      await confirmarPagamentoParcial(pagamentoId);
       if (usuario && revisando) {
         await registrarAcao({
           usuarioId: usuario.id,
           usuarioNome: usuario.nome,
-          acao: "Confirmou o pagamento",
+          acao: "Confirmou um pagamento parcial",
           entidade: "Parcela",
-          entidadeId: `${revisando.contratoNumero} · parcela ${revisando.parcela.numero}`,
+          entidadeId: `${revisando.contratoNumero} · parcela ${revisando.parcelaNumero}`,
         });
       }
-      toast.success("Pagamento confirmado. O cliente já pode ver a parcela como paga.");
+      toast.success("Pagamento confirmado. O saldo da parcela já foi atualizado.");
       setRevisando(null);
       await recarregarAtivas();
     } catch (error) {
@@ -172,19 +231,19 @@ export default function AdminFinanceiroPage() {
     }
   }
 
-  async function handleRecusar(parcelaId: string) {
+  async function handleRecusar(pagamentoId: string) {
     try {
-      await recusarPagamento(parcelaId);
+      await recusarPagamentoParcial(pagamentoId);
       if (usuario && revisando) {
         await registrarAcao({
           usuarioId: usuario.id,
           usuarioNome: usuario.nome,
-          acao: "Recusou o pagamento",
+          acao: "Recusou um pagamento parcial",
           entidade: "Parcela",
-          entidadeId: `${revisando.contratoNumero} · parcela ${revisando.parcela.numero}`,
+          entidadeId: `${revisando.contratoNumero} · parcela ${revisando.parcelaNumero}`,
         });
       }
-      toast.success("Pagamento recusado. A parcela voltou para cobrança.");
+      toast.success("Pagamento recusado.");
       setRevisando(null);
       await recarregarAtivas();
     } catch (error) {
@@ -232,15 +291,19 @@ export default function AdminFinanceiroPage() {
     }
   }
 
-  if (!parametros || !parcelasAtivas || totalPago === null) return <Skeleton className="h-96 w-full" />;
+  if (!parametros || !parcelasAtivas || totalPago === null || !pagamentosPendentes) {
+    return <Skeleton className="h-96 w-full" />;
+  }
 
   const mapaClientes = new Map<string, Cliente>(clientes.map((c) => [c.id, c]));
   const mapaVeiculos = new Map<string, Veiculo>(veiculos.map((v) => [v.id, v]));
   const mapaContratos = new Map<string, Contrato>(contratos.map((c) => [c.id, c]));
+  const mapaParcelas = new Map<string, Parcela>(parcelasAtivas.map((p) => [p.id, p]));
 
   const linhasAtivas = montarLinhas(parcelasAtivas.map(comStatusEfetivo), mapaContratos, mapaClientes, mapaVeiculos);
   const linhasPagas = parcelasPagas ? montarLinhas(parcelasPagas, mapaContratos, mapaClientes, mapaVeiculos) : null;
   const linhasTodas = parcelasTodas ? montarLinhas(parcelasTodas, mapaContratos, mapaClientes, mapaVeiculos) : null;
+  const linhasPendentes = montarLinhasPagamentos(pagamentosPendentes, mapaParcelas, mapaContratos, mapaClientes, mapaVeiculos);
 
   const linhasAtuais: LinhaParcela[] | null =
     filtro === "pago" ? linhasPagas : filtro === "todos" ? linhasTodas : linhasAtivas;
@@ -255,13 +318,14 @@ export default function AdminFinanceiroPage() {
   // Os cards de total respeitam o filtro de cliente/carro selecionado — cada card já representa
   // um status específico (pago / em_aberto+vencido / aguardando_confirmacao), então basta cruzar
   // com o mesmo filtro usado na tabela.
-  function bateComFiltroClienteVeiculo(l: LinhaParcela): boolean {
+  function bateComFiltroClienteVeiculo(l: { clienteId: string; veiculoId: string }): boolean {
     if (filtroClienteId !== TODOS && l.clienteId !== filtroClienteId) return false;
     if (filtroVeiculoId !== TODOS && l.veiculoId !== filtroVeiculoId) return false;
     return true;
   }
 
   const linhasAtivasFiltradas = linhasAtivas.filter(bateComFiltroClienteVeiculo);
+  const linhasPendentesFiltradas = linhasPendentes.filter(bateComFiltroClienteVeiculo);
 
   const totalEmAberto = linhasAtivasFiltradas
     .filter((l) => l.parcela.status === "em_aberto" || l.parcela.status === "vencido")
@@ -269,7 +333,6 @@ export default function AdminFinanceiroPage() {
   const totalMultas = linhasAtivasFiltradas
     .filter((l) => l.parcela.status === "em_aberto" || l.parcela.status === "vencido")
     .reduce((soma, l) => soma + calcularValorAtualizado(l.parcela, parametros).multa, 0);
-  const aguardandoConfirmacao = linhasAtivasFiltradas.filter((l) => l.parcela.status === "aguardando_confirmacao");
 
   // Sem filtro, usa a soma global (rápida, já carregada no mount). Com filtro, precisa das
   // parcelas pagas de verdade pra somar só as daquele cliente/carro — enquanto isso carrega
@@ -281,23 +344,24 @@ export default function AdminFinanceiroPage() {
 
   // Ao escolher um cliente, só faz sentido oferecer no filtro de carro os veículos que ele já
   // teve em algum contrato — e vice-versa — senão a combinação dos dois filtros sempre dá lista
-  // vazia. Baseado na aba atual (o que já está carregado), não em tudo.
+  // vazia. Baseado nas parcelas ativas (o conjunto mais amplo já carregado), não numa aba
+  // específica.
   const veiculosDisponiveis =
     filtroClienteId === TODOS
       ? veiculos
-      : veiculos.filter((v) => (linhasAtuais ?? []).some((l) => l.clienteId === filtroClienteId && l.veiculoId === v.id));
+      : veiculos.filter((v) => linhasAtivas.some((l) => l.clienteId === filtroClienteId && l.veiculoId === v.id));
 
   const clientesDisponiveis =
     filtroVeiculoId === TODOS
       ? clientes
-      : clientes.filter((c) => (linhasAtuais ?? []).some((l) => l.veiculoId === filtroVeiculoId && l.clienteId === c.id));
+      : clientes.filter((c) => linhasAtivas.some((l) => l.veiculoId === filtroVeiculoId && l.clienteId === c.id));
 
   function handleFiltroCliente(novoClienteId: string) {
     setFiltroClienteId(novoClienteId);
     if (
       novoClienteId !== TODOS &&
       filtroVeiculoId !== TODOS &&
-      !(linhasAtuais ?? []).some((l) => l.clienteId === novoClienteId && l.veiculoId === filtroVeiculoId)
+      !linhasAtivas.some((l) => l.clienteId === novoClienteId && l.veiculoId === filtroVeiculoId)
     ) {
       setFiltroVeiculoId(TODOS);
     }
@@ -308,11 +372,13 @@ export default function AdminFinanceiroPage() {
     if (
       novoVeiculoId !== TODOS &&
       filtroClienteId !== TODOS &&
-      !(linhasAtuais ?? []).some((l) => l.veiculoId === novoVeiculoId && l.clienteId === filtroClienteId)
+      !linhasAtivas.some((l) => l.veiculoId === novoVeiculoId && l.clienteId === filtroClienteId)
     ) {
       setFiltroClienteId(TODOS);
     }
   }
+
+  const mostrandoAguardando = filtro === "aguardando_confirmacao";
 
   return (
     <div className="flex flex-col gap-4">
@@ -342,7 +408,7 @@ export default function AdminFinanceiroPage() {
         />
         <StatCard
           label="Aguardando confirmação"
-          value={String(aguardandoConfirmacao.length)}
+          value={String(linhasPendentesFiltradas.length)}
           icon={Clock}
           tone="warning"
           hint={filtroClienteOuVeiculoAtivo ? "Filtrado" : undefined}
@@ -391,7 +457,43 @@ export default function AdminFinanceiroPage() {
         />
       </div>
 
-      {linhasAtuais === null ? (
+      {mostrandoAguardando ? (
+        linhasPendentesFiltradas.length === 0 ? (
+          <EmptyState icon={Clock} title="Nenhum pagamento aguardando confirmação" />
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Cliente</TableHead>
+                <TableHead>Carro</TableHead>
+                <TableHead>Contrato</TableHead>
+                <TableHead>Parcela</TableHead>
+                <TableHead>Valor enviado</TableHead>
+                <TableHead>Enviado em</TableHead>
+                <TableHead className="text-right">Ações</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {linhasPendentesFiltradas.slice(0, 100).map((linha) => (
+                <TableRow key={linha.pagamento.id}>
+                  <TableCell>{linha.clienteNome}</TableCell>
+                  <TableCell>{linha.veiculoNome}</TableCell>
+                  <TableCell>{linha.contratoNumero}</TableCell>
+                  <TableCell>{linha.parcelaNumero}</TableCell>
+                  <TableCell>{formatCurrency(linha.pagamento.valor)}</TableCell>
+                  <TableCell>{formatDate(linha.pagamento.enviadoEm)}</TableCell>
+                  <TableCell className="text-right">
+                    <Button size="sm" onClick={() => setRevisando(linha)}>
+                      <Clock className="size-4" />
+                      Revisar
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )
+      ) : linhasAtuais === null ? (
         <Skeleton className="h-96 w-full" />
       ) : filtradas.length === 0 ? (
         <EmptyState icon={Wallet} title="Nenhuma parcela encontrada" />
@@ -425,22 +527,14 @@ export default function AdminFinanceiroPage() {
                     <StatusPill status={parcela.status} />
                   </TableCell>
                   <TableCell className="text-right">
-                    <div className="flex justify-end gap-1.5">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setParcelaDetalhe(linha)}
-                        aria-label="Visualizar parcela"
-                      >
-                        <Eye className="size-4" />
-                      </Button>
-                      {parcela.status === "aguardando_confirmacao" && (
-                        <Button size="sm" onClick={() => setRevisando(linha)}>
-                          <Clock className="size-4" />
-                          Revisar
-                        </Button>
-                      )}
-                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setParcelaDetalhe(linha)}
+                      aria-label="Visualizar parcela"
+                    >
+                      <Eye className="size-4" />
+                    </Button>
                   </TableCell>
                 </TableRow>
               );
@@ -450,10 +544,11 @@ export default function AdminFinanceiroPage() {
       )}
 
       <RevisarPagamentoDialog
-        parcela={revisando?.parcela ?? null}
+        pagamento={revisando?.pagamento ?? null}
         clienteNome={revisando?.clienteNome ?? ""}
         contratoNumero={revisando?.contratoNumero ?? ""}
-        parametros={parametros}
+        parcelaNumero={revisando?.parcelaNumero ?? 0}
+        parcelaCompetencia={revisando?.parcelaCompetencia ?? ""}
         open={revisando !== null}
         onOpenChange={(open) => !open && setRevisando(null)}
         onConfirmar={handleConfirmar}

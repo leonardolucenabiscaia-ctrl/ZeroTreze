@@ -65,42 +65,8 @@ export async function listarExtratoPorContrato(contratoId: string): Promise<Movi
   return apiFetch<MovimentoExtrato[]>(`/api/financeiro/extrato?contratoId=${contratoId}`);
 }
 
-/**
- * O cliente envia o comprovante de pagamento (anexos opcionais), mas a parcela NÃO é
- * marcada como paga imediatamente — fica "aguardando_confirmacao" até o administrador
- * conferir o recebimento na conta bancária e confirmar manualmente.
- */
-export async function enviarComprovantePagamento(
-  parcelaId: string,
-  formaPagamento: "pix" | "boleto",
-  anexos: File[]
-): Promise<Parcela> {
-  const formData = new FormData();
-  formData.append("formaPagamento", formaPagamento);
-  anexos.forEach((arquivo) => formData.append("anexos", arquivo));
-  return apiFetch<Parcela>(`/api/financeiro/parcelas/${parcelaId}/comprovante`, {
-    method: "POST",
-    body: formData,
-  });
-}
-
-/** Lista as parcelas aguardando confirmação de pagamento (fila de conferência do financeiro). */
-export async function listarParcelasAguardandoConfirmacao(): Promise<Parcela[]> {
-  return apiFetch<Parcela[]>("/api/financeiro/parcelas?aguardandoConfirmacao=true");
-}
-
 export async function listarComprovantesPorParcela(parcelaId: string): Promise<Documento[]> {
   return apiFetch<Documento[]>(`/api/financeiro/comprovantes?parcelaId=${parcelaId}`);
-}
-
-/** Administrador confirma que o pagamento caiu na conta — só então a parcela vira "pago". */
-export async function confirmarPagamento(parcelaId: string): Promise<Parcela> {
-  return apiFetch<Parcela>(`/api/financeiro/parcelas/${parcelaId}/confirmar`, { method: "POST" });
-}
-
-/** Administrador não encontrou o pagamento na conta — devolve a parcela para cobrança. */
-export async function recusarPagamento(parcelaId: string): Promise<Parcela> {
-  return apiFetch<Parcela>(`/api/financeiro/parcelas/${parcelaId}/recusar`, { method: "POST" });
 }
 
 export interface BaixaManualInput {

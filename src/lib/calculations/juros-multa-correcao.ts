@@ -5,7 +5,7 @@ import { EMPRESA } from "@/lib/constants/empresa";
 export function calcularValorAtualizado(
   parcela: Pick<
     Parcela,
-    "valorOriginal" | "dataVencimento" | "status" | "dataEnvioComprovante" | "desconto"
+    "valorOriginal" | "valorPago" | "dataVencimento" | "status" | "dataEnvioComprovante" | "desconto"
   >,
   parametros: ParametrosFinanceiros,
   referencia: Date = new Date()
@@ -22,23 +22,28 @@ export function calcularValorAtualizado(
       ? 0
       : Math.max(0, daysBetween(parcela.dataVencimento, referenciaEfetiva));
 
+  // O locatário pode pagar a parcela aos poucos ao longo da semana — multa e correção incidem só
+  // sobre o que ainda falta pagar (saldo restante), não sobre o valor original inteiro, pra não
+  // penalizar quem já pagou parte em dia.
+  const saldoRestante = Math.max(0, parcela.valorOriginal - (parcela.valorPago ?? 0));
+
   let multa = 0;
   let juros = 0;
   let correcao = 0;
 
   if (diasAtraso > 0) {
-    // Multa e correção incidem sobre o valor da locação; juros de mora são valor fixo por dia
-    // de atraso (cláusula contratual), não um percentual sobre a parcela.
-    multa = parcela.valorOriginal * (parametros.percentualMulta / 100);
+    // Multa e correção incidem sobre o saldo restante da locação; juros de mora são valor fixo
+    // por dia de atraso (cláusula contratual), não um percentual sobre a parcela.
+    multa = saldoRestante * (parametros.percentualMulta / 100);
     juros = parametros.jurosMoraDiarioReais * diasAtraso;
     const mesesAtraso = diasAtraso / 30;
-    correcao = parcela.valorOriginal * (parametros.indiceCorrecaoMensal / 100) * mesesAtraso;
+    correcao = saldoRestante * (parametros.indiceCorrecaoMensal / 100) * mesesAtraso;
   }
 
   const desconto = parcela.desconto;
   if (desconto?.descontarMulta) multa = 0;
 
-  let valorFinal = parcela.valorOriginal + multa + juros + correcao;
+  let valorFinal = saldoRestante + multa + juros + correcao;
   if (desconto?.percentual) valorFinal *= 1 - desconto.percentual / 100;
   if (desconto?.valorFixo) valorFinal -= desconto.valorFixo;
   valorFinal = Math.max(0, valorFinal);

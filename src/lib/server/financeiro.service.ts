@@ -87,13 +87,6 @@ async function sincronizarParcelasVencidasDoContrato(supabase: SupabaseAdmin, co
   }
 }
 
-async function sincronizarTodosOsContratos(supabase: SupabaseAdmin) {
-  const { data: contratos } = await supabase.from("contratos").select("id").neq("status", "encerrado");
-  for (const c of contratos ?? []) {
-    await sincronizarParcelasVencidasDoContrato(supabase, c.id as string);
-  }
-}
-
 export async function listarParcelasPorContrato(contratoId: string): Promise<Parcela[]> {
   const supabase = createAdminClient();
   await sincronizarParcelasVencidasDoContrato(supabase, contratoId);
@@ -183,7 +176,7 @@ export interface DescontoParcelaInput {
   motivo?: string;
 }
 
-async function usuarioIdDoContrato(supabase: SupabaseAdmin, contratoId: string): Promise<string | undefined> {
+export async function usuarioIdDoContrato(supabase: SupabaseAdmin, contratoId: string): Promise<string | undefined> {
   const { data: contrato } = await supabase.from("contratos").select("cliente_id").eq("id", contratoId).maybeSingle();
   if (!contrato) return undefined;
   const { data: cliente } = await supabase
@@ -279,128 +272,11 @@ export async function listarExtratoPorContrato(contratoId: string): Promise<Movi
   return (data ?? []).map(mapMovimentoExtrato);
 }
 
-/** O cliente envia o comprovante de pagamento (anexos opcionais), mas a parcela NÃO é marcada
- * como paga imediatamente — fica "aguardando_confirmacao" até o administrador conferir o
- * recebimento na conta bancária e confirmar manualmente. */
-export async function enviarComprovantePagamento(
-  parcelaId: string,
-  formaPagamento: "pix" | "boleto",
-  anexos: File[]
-): Promise<Parcela> {
-  const supabase = createAdminClient();
-  const { data: parcela } = await supabase.from("parcelas").select("*").eq("id", parcelaId).maybeSingle();
-  if (!parcela) throw new Error("Parcela não encontrada");
-  if (parcela.status === "pago") throw new Error("Esta parcela já está paga.");
-  if (parcela.status === "aguardando_confirmacao") {
-    throw new Error("Esta parcela já está aguardando confirmação do pagamento.");
-  }
-  if (parcela.status === "renegociado") {
-    throw new Error("Esta parcela foi renegociada em um acordo — pague-a por lá, em Financeiro Acordos.");
-  }
-
-  const agora = new Date().toISOString();
-  const { data: atualizada, error } = await supabase
-    .from("parcelas")
-    .update({ status: "aguardando_confirmacao", forma_pagamento: formaPagamento, data_envio_comprovante: agora })
-    .eq("id", parcelaId)
-    .select()
-    .single();
-  if (error || !atualizada) throw new Error(error?.message ?? "Não foi possível enviar o comprovante.");
-
-  if (anexos.length > 0) {
-    await supabase.from("documentos").insert(
-      anexos.map((arquivo) => ({
-        contrato_id: parcela.contrato_id,
-        parcela_id: parcelaId,
-        categoria: "comprovante",
-        nome: arquivo.name,
-        url: "#",
-        tamanho_kb: Math.max(1, Math.round(arquivo.size / 1024)),
-        criado_em: agora,
-      }))
-    );
-  }
-
-  return mapParcela(atualizada);
-}
-
-/** Fila de conferência do financeiro — parcelas aguardando confirmação de pagamento. */
-export async function listarParcelasAguardandoConfirmacao(): Promise<Parcela[]> {
-  const supabase = createAdminClient();
-  await sincronizarTodosOsContratos(supabase);
-  const { data, error } = await supabase
-    .from("parcelas")
-    .select("*")
-    .eq("status", "aguardando_confirmacao")
-    .order("data_envio_comprovante");
-  if (error) throw new Error(error.message);
-  return (data ?? []).map(mapParcela);
-}
-
 export async function listarComprovantesPorParcela(parcelaId: string): Promise<Documento[]> {
   const supabase = createAdminClient();
   const { data, error } = await supabase.from("documentos").select("*").eq("parcela_id", parcelaId);
   if (error) throw new Error(error.message);
   return (data ?? []).map(mapDocumento);
-}
-
-/** Administrador confirma que o pagamento caiu na conta — só então a parcela vira "pago". */
-export async function confirmarPagamento(parcelaId: string): Promise<Parcela> {
-  const supabase = createAdminClient();
-  const { data: parcela } = await supabase.from("parcelas").select("*").eq("id", parcelaId).maybeSingle();
-  if (!parcela) throw new Error("Parcela não encontrada");
-  if (parcela.status !== "aguardando_confirmacao") {
-    throw new Error("Esta parcela não está aguardando confirmação.");
-  }
-
-  const parametros = await obterParametrosFinanceiros();
-  const valorAtualizado = calcularValorAtualizado(mapParcela(parcela), parametros);
-  const dataPagamento = new Date().toISOString();
-
-  const { data: atualizada, error } = await supabase
-    .from("parcelas")
-    .update({ status: "pago", data_pagamento: dataPagamento })
-    .eq("id", parcelaId)
-    .select()
-    .single();
-  if (error || !atualizada) throw new Error(error?.message ?? "Não foi possível confirmar o pagamento.");
-
-  const { data: ultimoMovimento } = await supabase
-    .from("movimentos_extrato")
-    .select("saldo")
-    .eq("contrato_id", parcela.contrato_id as string)
-    .order("data", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  const saldoAtual = (ultimoMovimento?.saldo as number | undefined) ?? 0;
-
-  await supabase.from("movimentos_extrato").insert({
-    contrato_id: parcela.contrato_id,
-    descricao: `Pagamento parcela ${atualizada.numero} — ${atualizada.competencia}`,
-    data: dataPagamento,
-    tipo: "entrada",
-    valor: valorAtualizado.valorFinal,
-    saldo: saldoAtual + valorAtualizado.valorFinal,
-  });
-
-  // A próxima parcela só é liberada quando o prazo desta vencer (sincronizarParcelasVencidas),
-  // não no momento do pagamento — assim nunca existe mais de uma parcela em aberto ao mesmo tempo.
-
-  const usuarioId = await usuarioIdDoContrato(supabase, parcela.contrato_id as string);
-  if (usuarioId) {
-    await criarNotificacao({
-      id: crypto.randomUUID(),
-      usuarioId,
-      tipo: "pagamento_confirmado",
-      titulo: "Pagamento confirmado",
-      mensagem: `O pagamento da parcela ${atualizada.numero} (${atualizada.competencia}) foi confirmado.`,
-      lida: false,
-      criadoEm: new Date().toISOString(),
-      link: "/financeiro",
-    });
-  }
-
-  return mapParcela(atualizada);
 }
 
 export interface BaixaManualInput {
@@ -481,39 +357,3 @@ export async function darBaixaManual(
   return mapParcela(atualizada);
 }
 
-/** Administrador não encontrou o pagamento na conta — devolve a parcela para cobrança. */
-export async function recusarPagamento(parcelaId: string): Promise<Parcela> {
-  const supabase = createAdminClient();
-  const { data: parcela } = await supabase.from("parcelas").select("*").eq("id", parcelaId).maybeSingle();
-  if (!parcela) throw new Error("Parcela não encontrada");
-  if (parcela.status !== "aguardando_confirmacao") {
-    throw new Error("Esta parcela não está aguardando confirmação.");
-  }
-
-  const novoStatus =
-    new Date(parcela.data_vencimento as string).getTime() < Date.now() ? "vencido" : "em_aberto";
-
-  const { data: atualizada, error } = await supabase
-    .from("parcelas")
-    .update({ status: novoStatus, data_envio_comprovante: null, forma_pagamento: null })
-    .eq("id", parcelaId)
-    .select()
-    .single();
-  if (error || !atualizada) throw new Error(error?.message ?? "Não foi possível recusar o pagamento.");
-
-  const usuarioId = await usuarioIdDoContrato(supabase, parcela.contrato_id as string);
-  if (usuarioId) {
-    await criarNotificacao({
-      id: crypto.randomUUID(),
-      usuarioId,
-      tipo: "pagamento_recusado",
-      titulo: "Pagamento não confirmado",
-      mensagem: `Não conseguimos confirmar o pagamento da parcela ${atualizada.numero} (${atualizada.competencia}). Verifique e tente novamente.`,
-      lida: false,
-      criadoEm: new Date().toISOString(),
-      link: "/financeiro",
-    });
-  }
-
-  return mapParcela(atualizada);
-}

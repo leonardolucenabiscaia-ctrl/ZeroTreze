@@ -54,6 +54,7 @@ export function gerarParcelas(contrato: Contrato): Parcela[] {
         numero,
         competencia: competenciaDaSemana(vencimento),
         valorOriginal: contrato.valorParcela,
+        valorPago: foiPaga ? contrato.valorParcela : 0,
         dataVencimento: vencimento.toISOString(),
         dataPagamento,
         status,
@@ -67,6 +68,7 @@ export function gerarParcelas(contrato: Contrato): Parcela[] {
         numero,
         competencia: competenciaDaSemana(vencimento),
         valorOriginal: contrato.valorParcela,
+        valorPago: 0,
         dataVencimento: vencimento.toISOString(),
         status: "em_aberto",
       });

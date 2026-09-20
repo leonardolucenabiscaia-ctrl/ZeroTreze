@@ -16,6 +16,7 @@ export interface Documento {
   contratoId?: string;
   veiculoId?: string;
   parcelaId?: string;
+  pagamentoParcialId?: string;
   parcelaAcordoId?: string;
   acordoId?: string;
   categoria: CategoriaDocumento;

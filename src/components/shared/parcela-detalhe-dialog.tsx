@@ -113,6 +113,7 @@ export function ParcelaDetalheDialog({
     ["Número", String(parcela.numero)],
     ["Competência", parcela.competencia],
     ["Valor original", formatCurrency(parcela.valorOriginal)],
+    ["Já pago (parciais confirmados)", formatCurrency(parcela.valorPago)],
     ["Juros", formatCurrency(atualizado.juros)],
     ["Multa", formatCurrency(atualizado.multa)],
     ["Correção monetária", formatCurrency(atualizado.correcao)],

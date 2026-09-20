@@ -30,6 +30,10 @@ export interface Parcela {
   numero: number;
   competencia: string;
   valorOriginal: number;
+  /** Soma dos pagamentos parciais já CONFIRMADOS pelo administrador — o locatário pode pagar aos
+   * poucos ao longo da semana (ver `PagamentoParcial`); multa/juros incidem só sobre o saldo
+   * restante (valorOriginal - valorPago), não sobre o valor original inteiro. */
+  valorPago: number;
   dataVencimento: string;
   dataPagamento?: string;
   status: StatusParcela;
@@ -48,5 +52,21 @@ export interface ValorAtualizadoParcela {
   juros: number;
   multa: number;
   correcao: number;
+  /** Quanto ainda falta pagar agora (saldo restante + encargos), não o valor original. */
   valorFinal: number;
+}
+
+export type StatusPagamentoParcial = "aguardando_confirmacao" | "confirmado" | "recusado";
+
+/** Um envio de pagamento parcial pelo cliente — várias podem existir pra mesma parcela ao mesmo
+ * tempo (ex: pagou uma parte na segunda, outra na quarta), cada uma revisada e confirmada
+ * separadamente pelo administrador. Só quando confirmado, o valor entra em `Parcela.valorPago`. */
+export interface PagamentoParcial {
+  id: string;
+  parcelaId: string;
+  valor: number;
+  formaPagamento?: "pix" | "boleto" | "dinheiro" | "outro";
+  status: StatusPagamentoParcial;
+  enviadoEm: string;
+  confirmadoEm?: string;
 }
