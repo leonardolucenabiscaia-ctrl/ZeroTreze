@@ -14,6 +14,7 @@ import type {
   Parcela,
   PagamentoParcial,
   ParcelaAcordo,
+  PagamentoParcialAcordo,
   ParametrosFinanceiros,
   RegraCobranca,
   ScoreLocatario,
@@ -225,6 +226,7 @@ export function mapDocumento(row: Record<string, unknown>): Documento {
     parcelaId: (row.parcela_id as string | null) ?? undefined,
     pagamentoParcialId: (row.pagamento_parcial_id as string | null) ?? undefined,
     parcelaAcordoId: (row.parcela_acordo_id as string | null) ?? undefined,
+    pagamentoParcialAcordoId: (row.pagamento_parcial_acordo_id as string | null) ?? undefined,
     acordoId: (row.acordo_id as string | null) ?? undefined,
     categoria: row.categoria as Documento["categoria"],
     nome: row.nome as string,
@@ -258,6 +260,7 @@ export function mapParcelaAcordo(row: Record<string, unknown>): ParcelaAcordo {
     acordoId: row.acordo_id as string,
     numero: row.numero as number,
     valor: row.valor as number,
+    valorPago: (row.valor_pago as number | null) ?? 0,
     vencimento: row.vencimento as string,
     status: row.status as ParcelaAcordo["status"],
     formaPagamento: (row.forma_pagamento as ParcelaAcordo["formaPagamento"] | null) ?? undefined,
@@ -281,6 +284,18 @@ export function mapParcelaAcordo(row: Record<string, unknown>): ParcelaAcordo {
           motivo: row.baixa_manual_motivo as string,
         }
       : undefined,
+  };
+}
+
+export function mapPagamentoParcialAcordo(row: Record<string, unknown>): PagamentoParcialAcordo {
+  return {
+    id: row.id as string,
+    parcelaAcordoId: row.parcela_acordo_id as string,
+    valor: row.valor as number,
+    formaPagamento: (row.forma_pagamento as PagamentoParcialAcordo["formaPagamento"] | null) ?? undefined,
+    status: row.status as PagamentoParcialAcordo["status"],
+    enviadoEm: row.enviado_em as string,
+    confirmadoEm: (row.confirmado_em as string | null) ?? undefined,
   };
 }
 

@@ -1,4 +1,4 @@
-import type { BaixaManualParcela } from "./parcela";
+import type { BaixaManualParcela, StatusPagamentoParcial } from "./parcela";
 
 export type StatusAcordo = "ativo" | "quitado" | "rompido";
 export type PeriodicidadeAcordo = "semanal" | "mensal";
@@ -22,6 +22,9 @@ export interface ParcelaAcordo {
   acordoId: string;
   numero: number;
   valor: number;
+  /** Soma dos pagamentos parciais já CONFIRMADOS pelo administrador — mesmo esquema das parcelas
+   * de contrato: o locatário pode ir completando aos poucos ao longo da semana. */
+  valorPago: number;
   vencimento: string;
   status: StatusParcelaAcordo;
   formaPagamento?: "pix" | "boleto" | "dinheiro" | "outro";
@@ -29,6 +32,18 @@ export interface ParcelaAcordo {
   dataPagamento?: string;
   desconto?: DescontoParcelaAcordo;
   baixaManual?: BaixaManualParcela;
+}
+
+/** Um envio de pagamento parcial pelo cliente pra uma parcela de acordo — mesmo esquema de
+ * `PagamentoParcial` das parcelas de contrato. */
+export interface PagamentoParcialAcordo {
+  id: string;
+  parcelaAcordoId: string;
+  valor: number;
+  formaPagamento?: "pix" | "boleto" | "dinheiro" | "outro";
+  status: StatusPagamentoParcial;
+  enviadoEm: string;
+  confirmadoEm?: string;
 }
 
 export interface Acordo {

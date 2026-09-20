@@ -17,6 +17,7 @@ export function gerarAcordo(clienteId: string, contratoId: string, valorParcela:
       acordoId,
       numero: i + 1,
       valor: valorParcela,
+      valorPago: pago ? valorParcela : 0,
       vencimento: vencimento.toISOString(),
       status: pago ? "pago" : "em_aberto",
     };

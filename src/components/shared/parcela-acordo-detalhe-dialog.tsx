@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { StatusPill } from "./status-pill";
 import { formatCurrency, formatDateTime, formatDate } from "@/lib/utils/formatters";
+import { calcularSaldoAcordo } from "@/lib/calculations/parcela-acordo";
 import type { BaixaManualParcela, DescontoParcelaAcordo, ParcelaAcordo } from "@/lib/types";
 
 export interface DescontoParcelaAcordoInput {
@@ -36,15 +37,6 @@ export interface BaixaManualAcordoInput {
  * quitadas, e que não estejam aguardando confirmação de um comprovante já enviado. */
 function podeReceberAcaoAdministrativa(parcela: ParcelaAcordo): boolean {
   return parcela.status === "em_aberto" || parcela.status === "vencido";
-}
-
-/** A parcela do acordo é um valor fixo negociado (sem juros/multa/correção) — o desconto só
- * abate direto sobre esse valor. */
-function calcularValorComDesconto(valor: number, desconto?: { percentual?: number; valorFixo?: number }): number {
-  let valorFinal = valor;
-  if (desconto?.percentual) valorFinal *= 1 - desconto.percentual / 100;
-  if (desconto?.valorFixo) valorFinal -= desconto.valorFixo;
-  return Math.max(0, Math.round(valorFinal * 100) / 100);
 }
 
 function descreverBaixaManual(baixa: BaixaManualParcela): string {
@@ -92,19 +84,20 @@ export function ParcelaAcordoDetalheDialog({
     setPercentual(parcela.desconto?.percentual ? String(parcela.desconto.percentual) : "");
     setValorFixo(parcela.desconto?.valorFixo ? String(parcela.desconto.valorFixo) : "");
     setMotivo(parcela.desconto?.motivo ?? "");
-    setValorBaixa(String(calcularValorComDesconto(parcela.valor, parcela.desconto)));
+    setValorBaixa(String(calcularSaldoAcordo(parcela)));
     setFormaPagamentoBaixa("dinheiro");
     setMotivoBaixa("");
   }, [parcela]);
 
   if (!parcela) return null;
 
-  const valorAtual = calcularValorComDesconto(parcela.valor, parcela.desconto);
+  const valorAtual = calcularSaldoAcordo(parcela);
 
   const linhas: [string, string][] = [
     ["Número", String(parcela.numero)],
     ["Valor original", formatCurrency(parcela.valor)],
-    ["Valor atual", formatCurrency(valorAtual)],
+    ["Já pago (parciais confirmados)", formatCurrency(parcela.valorPago)],
+    ["Saldo atual", formatCurrency(valorAtual)],
     ["Vencimento", formatDate(parcela.vencimento)],
     ["Comprovante enviado", parcela.dataEnvioComprovante ? formatDate(parcela.dataEnvioComprovante) : "—"],
     ["Pagamento confirmado", parcela.dataPagamento ? formatDate(parcela.dataPagamento) : "—"],
@@ -113,9 +106,13 @@ export function ParcelaAcordoDetalheDialog({
 
   const percentualNumero = Number(percentual) || 0;
   const valorFixoNumero = Number(valorFixo) || 0;
-  const previaValor = calcularValorComDesconto(parcela.valor, {
-    percentual: percentualNumero || undefined,
-    valorFixo: valorFixoNumero || undefined,
+  const previaValor = calcularSaldoAcordo({
+    valor: parcela.valor,
+    valorPago: parcela.valorPago,
+    desconto: {
+      percentual: percentualNumero || undefined,
+      valorFixo: valorFixoNumero || undefined,
+    },
   });
 
   const haveraDesconto = !!percentualNumero || !!valorFixoNumero;

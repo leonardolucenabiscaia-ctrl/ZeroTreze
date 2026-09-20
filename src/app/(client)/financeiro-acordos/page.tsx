@@ -114,10 +114,7 @@ export default function FinanceiroAcordosPage() {
         parcela={parcelaPagamento}
         open={parcelaPagamento !== null}
         onOpenChange={(open) => !open && setParcelaPagamento(null)}
-        onPago={() => {
-          setParcelaPagamento(null);
-          carregar();
-        }}
+        onPago={carregar}
       />
     </div>
   );

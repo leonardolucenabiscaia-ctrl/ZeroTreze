@@ -7,15 +7,16 @@ import { toast } from "sonner";
 import { useAuth } from "@/lib/auth/auth-context";
 import { listarAcordos } from "@/lib/services/acordos.service";
 import { listarClientes } from "@/lib/services/clientes.service";
+import { aplicarDescontoParcelaAcordo, darBaixaManualAcordo } from "@/lib/services/financeiro-acordos.service";
 import {
-  confirmarPagamentoAcordo,
-  recusarPagamentoAcordo,
-  aplicarDescontoParcelaAcordo,
-  darBaixaManualAcordo,
-} from "@/lib/services/financeiro-acordos.service";
+  confirmarPagamentoParcialAcordo,
+  listarPagamentosParciaisAcordoPendentes,
+  recusarPagamentoParcialAcordo,
+} from "@/lib/services/pagamentos-parciais-acordo.service";
 import { registrarAcao } from "@/lib/services/auditoria.service";
+import { calcularSaldoAcordo } from "@/lib/calculations/parcela-acordo";
 import { formatCurrency, formatDate } from "@/lib/utils/formatters";
-import type { Acordo, Cliente, ParcelaAcordo, StatusParcelaAcordo } from "@/lib/types";
+import type { Acordo, Cliente, PagamentoParcialAcordo, ParcelaAcordo, StatusParcelaAcordo } from "@/lib/types";
 
 import {
   Table,
@@ -56,13 +57,22 @@ interface LinhaParcelaAcordo {
   acordoNumero: string;
 }
 
+interface LinhaPagamentoPendenteAcordo {
+  pagamento: PagamentoParcialAcordo;
+  clienteId: string;
+  clienteNome: string;
+  acordoNumero: string;
+  parcelaNumero: number;
+}
+
 export default function AdminFinanceiroAcordosPage() {
   const { usuario } = useAuth();
   const [linhas, setLinhas] = React.useState<LinhaParcelaAcordo[] | null>(null);
+  const [pagamentosPendentes, setPagamentosPendentes] = React.useState<PagamentoParcialAcordo[] | null>(null);
   const [clientes, setClientes] = React.useState<Cliente[]>([]);
   const [filtro, setFiltro] = React.useState<Filtro>("todos");
   const [filtroClienteId, setFiltroClienteId] = React.useState(TODOS);
-  const [revisando, setRevisando] = React.useState<LinhaParcelaAcordo | null>(null);
+  const [revisando, setRevisando] = React.useState<LinhaPagamentoPendenteAcordo | null>(null);
   const [parcelaDetalhe, setParcelaDetalhe] = React.useState<LinhaParcelaAcordo | null>(null);
 
   React.useEffect(() => {
@@ -70,8 +80,13 @@ export default function AdminFinanceiroAcordosPage() {
   }, []);
 
   async function carregar() {
-    const [acordos, clientesCarregados] = await Promise.all([listarAcordos(), listarClientes()]);
+    const [acordos, clientesCarregados, pendentes] = await Promise.all([
+      listarAcordos(),
+      listarClientes(),
+      listarPagamentosParciaisAcordoPendentes(),
+    ]);
     setClientes(clientesCarregados);
+    setPagamentosPendentes(pendentes);
 
     const mapaClientes = new Map<string, Cliente>(clientesCarregados.map((c) => [c.id, c]));
     const todasLinhas: LinhaParcelaAcordo[] = [];
@@ -88,19 +103,19 @@ export default function AdminFinanceiroAcordosPage() {
     setLinhas(todasLinhas);
   }
 
-  async function handleConfirmar(parcelaAcordoId: string) {
+  async function handleConfirmar(pagamentoAcordoId: string) {
     try {
-      await confirmarPagamentoAcordo(parcelaAcordoId);
+      await confirmarPagamentoParcialAcordo(pagamentoAcordoId);
       if (usuario && revisando) {
         await registrarAcao({
           usuarioId: usuario.id,
           usuarioNome: usuario.nome,
-          acao: "Confirmou o pagamento (acordo)",
+          acao: "Confirmou um pagamento parcial (acordo)",
           entidade: "Parcela de acordo",
-          entidadeId: `${revisando.acordoNumero} · parcela ${revisando.parcela.numero}`,
+          entidadeId: `${revisando.acordoNumero} · parcela ${revisando.parcelaNumero}`,
         });
       }
-      toast.success("Pagamento confirmado. O cliente já pode ver a parcela como paga.");
+      toast.success("Pagamento confirmado. O saldo da parcela já foi atualizado.");
       setRevisando(null);
       await carregar();
     } catch (error) {
@@ -108,19 +123,19 @@ export default function AdminFinanceiroAcordosPage() {
     }
   }
 
-  async function handleRecusar(parcelaAcordoId: string) {
+  async function handleRecusar(pagamentoAcordoId: string) {
     try {
-      await recusarPagamentoAcordo(parcelaAcordoId);
+      await recusarPagamentoParcialAcordo(pagamentoAcordoId);
       if (usuario && revisando) {
         await registrarAcao({
           usuarioId: usuario.id,
           usuarioNome: usuario.nome,
-          acao: "Recusou o pagamento (acordo)",
+          acao: "Recusou um pagamento parcial (acordo)",
           entidade: "Parcela de acordo",
-          entidadeId: `${revisando.acordoNumero} · parcela ${revisando.parcela.numero}`,
+          entidadeId: `${revisando.acordoNumero} · parcela ${revisando.parcelaNumero}`,
         });
       }
-      toast.success("Pagamento recusado. A parcela voltou para cobrança.");
+      toast.success("Pagamento recusado.");
       setRevisando(null);
       await carregar();
     } catch (error) {
@@ -168,22 +183,41 @@ export default function AdminFinanceiroAcordosPage() {
     }
   }
 
-  if (!linhas) return <Skeleton className="h-96 w-full" />;
+  if (!linhas || !pagamentosPendentes) return <Skeleton className="h-96 w-full" />;
+
+  const mapaParcelas = new Map<string, LinhaParcelaAcordo>(linhas.map((l) => [l.parcela.id, l]));
+  const linhasPendentes: LinhaPagamentoPendenteAcordo[] = [];
+  for (const pagamento of pagamentosPendentes) {
+    const contexto = mapaParcelas.get(pagamento.parcelaAcordoId);
+    if (!contexto) continue;
+    linhasPendentes.push({
+      pagamento,
+      clienteId: contexto.clienteId,
+      clienteNome: contexto.clienteNome,
+      acordoNumero: contexto.acordoNumero,
+      parcelaNumero: contexto.parcela.numero,
+    });
+  }
 
   const filtradas = linhas.filter((l) => {
     if (filtro !== "todos" && l.parcela.status !== filtro) return false;
     if (filtroClienteId !== TODOS && l.clienteId !== filtroClienteId) return false;
     return true;
   });
+  const linhasPendentesFiltradas = linhasPendentes.filter(
+    (l) => filtroClienteId === TODOS || l.clienteId === filtroClienteId
+  );
+
   const totalPago = linhas
     .filter((l) => l.parcela.status === "pago")
     .reduce((soma, l) => soma + l.parcela.valor, 0);
   const totalEmAberto = linhas
     .filter((l) => l.parcela.status === "em_aberto" || l.parcela.status === "vencido")
-    .reduce((soma, l) => soma + l.parcela.valor, 0);
-  const aguardandoConfirmacao = linhas.filter((l) => l.parcela.status === "aguardando_confirmacao");
+    .reduce((soma, l) => soma + calcularSaldoAcordo(l.parcela), 0);
 
   const clientesDisponiveis = clientes.filter((c) => linhas.some((l) => l.clienteId === c.id));
+
+  const mostrandoAguardando = filtro === "aguardando_confirmacao";
 
   return (
     <div className="flex flex-col gap-4">
@@ -194,7 +228,7 @@ export default function AdminFinanceiroAcordosPage() {
         <StatCard label="Total em aberto" value={formatCurrency(totalEmAberto)} icon={Wallet} tone="warning" />
         <StatCard
           label="Aguardando confirmação"
-          value={String(aguardandoConfirmacao.length)}
+          value={String(linhasPendentesFiltradas.length)}
           icon={Clock}
           tone="warning"
         />
@@ -227,7 +261,41 @@ export default function AdminFinanceiroAcordosPage() {
         />
       </div>
 
-      {filtradas.length === 0 ? (
+      {mostrandoAguardando ? (
+        linhasPendentesFiltradas.length === 0 ? (
+          <EmptyState icon={Clock} title="Nenhum pagamento aguardando confirmação" />
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Cliente</TableHead>
+                <TableHead>Acordo</TableHead>
+                <TableHead>Parcela</TableHead>
+                <TableHead>Valor enviado</TableHead>
+                <TableHead>Enviado em</TableHead>
+                <TableHead className="text-right">Ações</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {linhasPendentesFiltradas.slice(0, 100).map((linha) => (
+                <TableRow key={linha.pagamento.id}>
+                  <TableCell>{linha.clienteNome}</TableCell>
+                  <TableCell>{linha.acordoNumero}</TableCell>
+                  <TableCell>{linha.parcelaNumero}</TableCell>
+                  <TableCell>{formatCurrency(linha.pagamento.valor)}</TableCell>
+                  <TableCell>{formatDate(linha.pagamento.enviadoEm)}</TableCell>
+                  <TableCell className="text-right">
+                    <Button size="sm" onClick={() => setRevisando(linha)}>
+                      <Clock className="size-4" />
+                      Revisar
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )
+      ) : filtradas.length === 0 ? (
         <EmptyState icon={Wallet} title="Nenhuma parcela de acordo encontrada" />
       ) : (
         <Table>
@@ -236,7 +304,7 @@ export default function AdminFinanceiroAcordosPage() {
               <TableHead>Cliente</TableHead>
               <TableHead>Acordo</TableHead>
               <TableHead>Parcela</TableHead>
-              <TableHead>Valor</TableHead>
+              <TableHead>Valor atual</TableHead>
               <TableHead>Vencimento</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Ações</TableHead>
@@ -250,28 +318,20 @@ export default function AdminFinanceiroAcordosPage() {
                   <TableCell>{clienteNome}</TableCell>
                   <TableCell>{acordoNumero}</TableCell>
                   <TableCell>{parcela.numero}</TableCell>
-                  <TableCell>{formatCurrency(parcela.valor)}</TableCell>
+                  <TableCell>{formatCurrency(calcularSaldoAcordo(parcela))}</TableCell>
                   <TableCell>{formatDate(parcela.vencimento)}</TableCell>
                   <TableCell>
                     <StatusPill status={parcela.status} />
                   </TableCell>
                   <TableCell className="text-right">
-                    <div className="flex justify-end gap-1.5">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setParcelaDetalhe(linha)}
-                        aria-label="Visualizar parcela"
-                      >
-                        <Eye className="size-4" />
-                      </Button>
-                      {parcela.status === "aguardando_confirmacao" && (
-                        <Button size="sm" onClick={() => setRevisando(linha)}>
-                          <Clock className="size-4" />
-                          Revisar
-                        </Button>
-                      )}
-                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setParcelaDetalhe(linha)}
+                      aria-label="Visualizar parcela"
+                    >
+                      <Eye className="size-4" />
+                    </Button>
                   </TableCell>
                 </TableRow>
               );
@@ -281,9 +341,10 @@ export default function AdminFinanceiroAcordosPage() {
       )}
 
       <RevisarPagamentoAcordoDialog
-        parcela={revisando?.parcela ?? null}
+        pagamento={revisando?.pagamento ?? null}
         clienteNome={revisando?.clienteNome ?? ""}
         acordoNumero={revisando?.acordoNumero ?? ""}
+        parcelaNumero={revisando?.parcelaNumero ?? 0}
         open={revisando !== null}
         onOpenChange={(open) => !open && setRevisando(null)}
         onConfirmar={handleConfirmar}

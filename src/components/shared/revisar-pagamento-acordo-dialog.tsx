@@ -12,48 +12,48 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { StatusPill } from "./status-pill";
-import { listarComprovantesPorParcelaAcordo } from "@/lib/services/financeiro-acordos.service";
-import { formatCurrency, formatDate } from "@/lib/utils/formatters";
-import type { Documento, ParcelaAcordo } from "@/lib/types";
+import { listarComprovantesPorPagamentoParcialAcordo } from "@/lib/services/pagamentos-parciais-acordo.service";
+import { formatCurrency, formatDateTime } from "@/lib/utils/formatters";
+import type { Documento, PagamentoParcialAcordo } from "@/lib/types";
 
-/** Mesmo fluxo do `RevisarPagamentoDialog` das parcelas de contrato, sem juros/multa/correção. */
 export function RevisarPagamentoAcordoDialog({
-  parcela,
+  pagamento,
   clienteNome,
   acordoNumero,
+  parcelaNumero,
   open,
   onOpenChange,
   onConfirmar,
   onRecusar,
 }: {
-  parcela: ParcelaAcordo | null;
+  pagamento: PagamentoParcialAcordo | null;
   clienteNome: string;
   acordoNumero: string;
+  parcelaNumero: number;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onConfirmar: (parcelaAcordoId: string) => Promise<void>;
-  onRecusar: (parcelaAcordoId: string) => Promise<void>;
+  onConfirmar: (pagamentoAcordoId: string) => Promise<void>;
+  onRecusar: (pagamentoAcordoId: string) => Promise<void>;
 }) {
   const [comprovantes, setComprovantes] = React.useState<Documento[]>([]);
   const [carregando, setCarregando] = React.useState(true);
   const [processando, setProcessando] = React.useState<"confirmar" | "recusar" | null>(null);
 
   React.useEffect(() => {
-    if (!open || !parcela) return;
+    if (!open || !pagamento) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setCarregando(true);
-    listarComprovantesPorParcelaAcordo(parcela.id)
+    listarComprovantesPorPagamentoParcialAcordo(pagamento.id)
       .then(setComprovantes)
       .finally(() => setCarregando(false));
-  }, [open, parcela]);
+  }, [open, pagamento]);
 
-  if (!parcela) return null;
+  if (!pagamento) return null;
 
   async function handleConfirmar() {
     setProcessando("confirmar");
     try {
-      await onConfirmar(parcela!.id);
+      await onConfirmar(pagamento!.id);
     } finally {
       setProcessando(null);
     }
@@ -62,7 +62,7 @@ export function RevisarPagamentoAcordoDialog({
   async function handleRecusar() {
     setProcessando("recusar");
     try {
-      await onRecusar(parcela!.id);
+      await onRecusar(pagamento!.id);
     } finally {
       setProcessando(null);
     }
@@ -72,33 +72,24 @@ export function RevisarPagamentoAcordoDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            Revisar pagamento
-            <StatusPill status={parcela.status} />
-          </DialogTitle>
+          <DialogTitle>Revisar pagamento</DialogTitle>
           <DialogDescription>
-            {clienteNome} · Acordo {acordoNumero} · Parcela {parcela.numero}
+            {clienteNome} · Acordo {acordoNumero} · Parcela {parcelaNumero}
           </DialogDescription>
         </DialogHeader>
 
         <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
           <div>
-            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">Valor</dt>
-            <dd className="font-medium text-gold">{formatCurrency(parcela.valor)}</dd>
+            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">Valor enviado</dt>
+            <dd className="font-medium text-gold">{formatCurrency(pagamento.valor)}</dd>
           </div>
           <div>
             <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">Forma de pagamento</dt>
-            <dd className="font-medium text-foreground">{parcela.formaPagamento?.toUpperCase() ?? "—"}</dd>
+            <dd className="font-medium text-foreground">{pagamento.formaPagamento?.toUpperCase() ?? "—"}</dd>
           </div>
           <div>
-            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">Vencimento</dt>
-            <dd className="font-medium text-foreground">{formatDate(parcela.vencimento)}</dd>
-          </div>
-          <div>
-            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">Comprovante enviado</dt>
-            <dd className="font-medium text-foreground">
-              {parcela.dataEnvioComprovante ? formatDate(parcela.dataEnvioComprovante) : "—"}
-            </dd>
+            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">Enviado em</dt>
+            <dd className="font-medium text-foreground">{formatDateTime(pagamento.enviadoEm)}</dd>
           </div>
         </dl>
 
