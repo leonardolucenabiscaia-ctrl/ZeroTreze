@@ -35,6 +35,47 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 
+interface DadosVeiculoEdicaveis {
+  marca: string;
+  modelo: string;
+  ano: string;
+  cor: string;
+  placa: string;
+  renavam: string;
+  chassi: string;
+  categoria: string;
+  combustivel: string;
+  seguradora: string;
+  numeroApolice: string;
+  proximaRevisao: string;
+  ultimaRevisao: string;
+  garantiaAte: string;
+  assistencia247: boolean;
+}
+
+const DADOS_VEICULO_VAZIOS: DadosVeiculoEdicaveis = {
+  marca: "",
+  modelo: "",
+  ano: "",
+  cor: "",
+  placa: "",
+  renavam: "",
+  chassi: "",
+  categoria: "",
+  combustivel: "",
+  seguradora: "",
+  numeroApolice: "",
+  proximaRevisao: "",
+  ultimaRevisao: "",
+  garantiaAte: "",
+  assistencia247: true,
+};
+
+function paraDataInput(iso: string | undefined): string {
+  if (!iso) return "";
+  return new Date(iso).toISOString().slice(0, 10);
+}
+
 const CATEGORIA_LABEL: Record<string, string> = {
   contrato: "Contrato",
   crlv: "CRLV",
@@ -58,8 +99,7 @@ export default function AdminVeiculoDetalhePage() {
   const [novaQuilometragem, setNovaQuilometragem] = React.useState("");
   const [salvandoKm, setSalvandoKm] = React.useState(false);
   const [editandoDados, setEditandoDados] = React.useState(false);
-  const [cor, setCor] = React.useState("");
-  const [categoria, setCategoria] = React.useState("");
+  const [dadosEdicao, setDadosEdicao] = React.useState<DadosVeiculoEdicaveis>(DADOS_VEICULO_VAZIOS);
   const [salvandoDados, setSalvandoDados] = React.useState(false);
   const [confirmandoIndisponibilidade, setConfirmandoIndisponibilidade] = React.useState(false);
   const [alternandoIndisponibilidade, setAlternandoIndisponibilidade] = React.useState(false);
@@ -106,9 +146,33 @@ export default function AdminVeiculoDetalhePage() {
 
   function abrirEdicaoDados() {
     if (!veiculo) return;
-    setCor(veiculo.cor);
-    setCategoria(veiculo.categoria);
+    setDadosEdicao({
+      marca: veiculo.marca,
+      modelo: veiculo.modelo,
+      ano: String(veiculo.ano),
+      cor: veiculo.cor,
+      placa: veiculo.placa,
+      renavam: veiculo.renavam,
+      chassi: veiculo.chassi,
+      categoria: veiculo.categoria,
+      combustivel: veiculo.combustivel,
+      seguradora: veiculo.seguradora,
+      numeroApolice: veiculo.numeroApolice,
+      proximaRevisao: paraDataInput(veiculo.proximaRevisao),
+      ultimaRevisao: paraDataInput(veiculo.ultimaRevisao),
+      garantiaAte: paraDataInput(veiculo.garantiaAte),
+      assistencia247: veiculo.assistencia247,
+    });
     setEditandoDados(true);
+  }
+
+  function campoVeiculo(campo: keyof Omit<DadosVeiculoEdicaveis, "assistencia247">) {
+    return {
+      id: `veiculo-${campo}`,
+      value: dadosEdicao[campo],
+      onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+        setDadosEdicao((atual) => ({ ...atual, [campo]: e.target.value })),
+    };
   }
 
   async function handleSalvarDados(event: React.FormEvent) {
@@ -116,13 +180,29 @@ export default function AdminVeiculoDetalhePage() {
     if (!veiculo) return;
     setSalvandoDados(true);
     try {
-      const atualizado = await atualizarVeiculo(veiculo.id, { cor, categoria });
+      const atualizado = await atualizarVeiculo(veiculo.id, {
+        marca: dadosEdicao.marca,
+        modelo: dadosEdicao.modelo,
+        ano: Number(dadosEdicao.ano),
+        cor: dadosEdicao.cor,
+        placa: dadosEdicao.placa,
+        renavam: dadosEdicao.renavam,
+        chassi: dadosEdicao.chassi,
+        categoria: dadosEdicao.categoria,
+        combustivel: dadosEdicao.combustivel,
+        seguradora: dadosEdicao.seguradora,
+        numeroApolice: dadosEdicao.numeroApolice,
+        proximaRevisao: dadosEdicao.proximaRevisao,
+        ultimaRevisao: dadosEdicao.ultimaRevisao,
+        garantiaAte: dadosEdicao.garantiaAte,
+        assistencia247: dadosEdicao.assistencia247,
+      });
       setVeiculo(atualizado);
       if (usuario) {
         await registrarAcao({
           usuarioId: usuario.id,
           usuarioNome: usuario.nome,
-          acao: "Completou os dados do veículo",
+          acao: "Editou os dados do veículo",
           entidade: "Veículo",
           entidadeId: `${atualizado.marca} ${atualizado.modelo} — ${atualizado.placa}`,
         });
@@ -211,10 +291,12 @@ export default function AdminVeiculoDetalhePage() {
             </h1>
             {veiculo.bloqueado && <Badge variant="destructive">Bloqueado</Badge>}
             {veiculo.indisponivel && <Badge variant="warning">Indisponível</Badge>}
-            <Button size="sm" variant="outline" onClick={abrirEdicaoDados}>
-              <Pencil className="size-3.5" />
-              Completar dados
-            </Button>
+            {usuario?.perfil === "administrador" && (
+              <Button size="sm" variant="outline" onClick={abrirEdicaoDados}>
+                <Pencil className="size-3.5" />
+                Editar dados
+              </Button>
+            )}
             <Button
               size="sm"
               variant={veiculo.indisponivel ? "secondary" : "outline"}
@@ -288,26 +370,87 @@ export default function AdminVeiculoDetalhePage() {
       </Dialog>
 
       <Dialog open={editandoDados} onOpenChange={setEditandoDados}>
-        <DialogContent>
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Completar dados do veículo</DialogTitle>
+            <DialogTitle>Editar dados do veículo</DialogTitle>
             <DialogDescription>
-              Preencha o que estiver faltando para {veiculo.marca} {veiculo.modelo} ({veiculo.placa}).
+              Altere os dados cadastrais de {veiculo.marca} {veiculo.modelo} ({veiculo.placa}).
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSalvarDados} className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="veiculo-cor">Cor</Label>
-              <Input id="veiculo-cor" value={cor} onChange={(e) => setCor(e.target.value)} required />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="veiculo-marca">Marca</Label>
+                <Input {...campoVeiculo("marca")} required />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="veiculo-modelo">Modelo</Label>
+                <Input {...campoVeiculo("modelo")} required />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="veiculo-ano">Ano</Label>
+                <Input type="number" {...campoVeiculo("ano")} required />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="veiculo-cor">Cor</Label>
+                <Input {...campoVeiculo("cor")} required />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="veiculo-placa">Placa</Label>
+                <Input {...campoVeiculo("placa")} required />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="veiculo-renavam">Renavam</Label>
+                <Input {...campoVeiculo("renavam")} required />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="veiculo-chassi">Chassi</Label>
+                <Input {...campoVeiculo("chassi")} required />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="veiculo-categoria">Categoria</Label>
+                <Input {...campoVeiculo("categoria")} required />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="veiculo-combustivel">Combustível</Label>
+                <Input {...campoVeiculo("combustivel")} required />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="veiculo-seguradora">Seguradora</Label>
+                <Input {...campoVeiculo("seguradora")} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="veiculo-numeroApolice">Número da apólice</Label>
+                <Input {...campoVeiculo("numeroApolice")} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="veiculo-ultimaRevisao">Última revisão</Label>
+                <Input type="date" {...campoVeiculo("ultimaRevisao")} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="veiculo-proximaRevisao">Próxima revisão</Label>
+                <Input type="date" {...campoVeiculo("proximaRevisao")} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="veiculo-garantiaAte">Garantia até</Label>
+                <Input type="date" {...campoVeiculo("garantiaAte")} />
+              </div>
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="veiculo-categoria">Categoria</Label>
-              <Input
-                id="veiculo-categoria"
-                value={categoria}
-                onChange={(e) => setCategoria(e.target.value)}
-                required
-              />
+              <Label>Assistência 24h</Label>
+              <div className="flex flex-wrap gap-2">
+                {([true, false] as const).map((valor) => (
+                  <Button
+                    key={String(valor)}
+                    type="button"
+                    size="sm"
+                    variant={dadosEdicao.assistencia247 === valor ? "default" : "outline"}
+                    onClick={() => setDadosEdicao((atual) => ({ ...atual, assistencia247: valor }))}
+                  >
+                    {valor ? "Sim" : "Não"}
+                  </Button>
+                ))}
+              </div>
             </div>
             <DialogFooter>
               <Button

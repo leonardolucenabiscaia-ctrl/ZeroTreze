@@ -267,14 +267,39 @@ export async function criarVeiculo(dados: NovoVeiculoInput): Promise<Veiculo> {
   return mapVeiculo(veiculoRow, []);
 }
 
+/** Campos editáveis pelo administrador ficam de fora de propósito quando têm fluxo/guarda próprios:
+ * `quilometragem` (só sobe — ver `atualizarQuilometragem`), `fotoUrl` (upload dedicado), `bloqueado`
+ * /`bloqueadoEm`, `manutencaoTipo`/`manutencaoDesde`, `indisponivel`/`indisponivelDesde` (cada um com
+ * sua própria ação com efeitos colaterais). */
 export async function atualizarVeiculo(veiculoId: string, dados: Partial<Veiculo>): Promise<Veiculo> {
   const supabase = createAdminClient();
   const patch: Record<string, unknown> = {};
+  if (dados.marca !== undefined) patch.marca = dados.marca;
+  if (dados.modelo !== undefined) patch.modelo = dados.modelo;
+  if (dados.ano !== undefined) patch.ano = dados.ano;
   if (dados.cor !== undefined) patch.cor = dados.cor;
-  if (dados.combustivel !== undefined) patch.combustivel = dados.combustivel;
+  if (dados.renavam !== undefined) patch.renavam = dados.renavam;
+  if (dados.chassi !== undefined) patch.chassi = dados.chassi.toUpperCase();
   if (dados.categoria !== undefined) patch.categoria = dados.categoria;
+  if (dados.combustivel !== undefined) patch.combustivel = dados.combustivel;
   if (dados.seguradora !== undefined) patch.seguradora = dados.seguradora;
   if (dados.numeroApolice !== undefined) patch.numero_apolice = dados.numeroApolice;
+  if (dados.proximaRevisao !== undefined) patch.proxima_revisao = dados.proximaRevisao || null;
+  if (dados.ultimaRevisao !== undefined) patch.ultima_revisao = dados.ultimaRevisao || null;
+  if (dados.garantiaAte !== undefined) patch.garantia_ate = dados.garantiaAte || null;
+  if (dados.assistencia247 !== undefined) patch.assistencia_247 = dados.assistencia247;
+
+  if (dados.placa !== undefined) {
+    const placaNormalizada = dados.placa.toUpperCase().replace(/[^A-Z0-9]/g, "");
+    const { data: existente } = await supabase
+      .from("veiculos")
+      .select("id")
+      .eq("placa", placaNormalizada)
+      .neq("id", veiculoId)
+      .maybeSingle();
+    if (existente) throw new Error("Já existe um veículo cadastrado com essa placa.");
+    patch.placa = placaNormalizada;
+  }
 
   const { data, error } = await supabase.from("veiculos").update(patch).eq("id", veiculoId).select().single();
   if (error || !data) throw new Error("Veículo não encontrado");

@@ -34,6 +34,10 @@ export async function criarContrato(dados: NovoContratoInput): Promise<Contrato>
   return apiFetch<Contrato>("/api/contratos", { method: "POST", body: JSON.stringify(dados) });
 }
 
+export async function atualizarContrato(id: string, dados: Partial<Contrato>): Promise<Contrato> {
+  return apiFetch<Contrato>(`/api/contratos/${id}`, { method: "PATCH", body: JSON.stringify(dados) });
+}
+
 export async function encerrarContrato(contratoId: string): Promise<Contrato> {
   return apiFetch<Contrato>(`/api/contratos/${contratoId}/encerrar`, { method: "POST" });
 }

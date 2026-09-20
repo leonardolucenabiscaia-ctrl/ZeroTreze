@@ -58,6 +58,8 @@ export async function atualizarCliente(id: string, dados: Partial<Cliente>): Pro
   const supabase = createAdminClient();
   const patch: Record<string, unknown> = {};
   if (dados.nome !== undefined) patch.nome = dados.nome;
+  if (dados.tipoDocumento !== undefined) patch.tipo_documento = dados.tipoDocumento;
+  if (dados.documento !== undefined) patch.documento = dados.documento;
   if (dados.rg !== undefined) patch.rg = dados.rg;
   if (dados.nacionalidade !== undefined) patch.nacionalidade = dados.nacionalidade;
   if (dados.profissao !== undefined) patch.profissao = dados.profissao;

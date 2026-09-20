@@ -6,6 +6,12 @@ import type { PerfilUsuario } from "@/lib/types";
 /** Perfis internos (não-cliente) — atalho para restringir rotas administrativas. */
 export const PERFIS_STAFF: PerfilUsuario[] = ["operador", "gestor", "administrador"];
 
+/** Só o administrador — editar os dados cadastrais de clientes, veículos, contratos e acordos
+ * (fora dos fluxos guiados com efeitos colaterais próprios, como confirmar pagamento ou encerrar
+ * contrato) é restrito a esse perfil; gestor e operador continuam com acesso de leitura/operação
+ * normal, só não editam esses dados cadastrais diretamente. */
+export const PERFIS_ADMIN: PerfilUsuario[] = ["administrador"];
+
 /** Roda a lógica de um Route Handler, devolvendo JSON de sucesso ou `{ error }` em caso de
  * exceção — evita repetir o mesmo try/catch em cada uma das rotas de `/api/*`.
  *

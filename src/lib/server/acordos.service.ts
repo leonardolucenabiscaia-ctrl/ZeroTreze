@@ -54,6 +54,23 @@ export async function buscarAcordoPorId(id: string): Promise<Acordo | undefined>
   return acordo;
 }
 
+/** Só `descricao` e `situacao` são editáveis diretamente — de propósito fora da whitelist:
+ * `valorTotal`/`valorEntrada`/`periodicidade` (a forma financeira já foi derivada na criação e o
+ * cronograma em `parcelas_acordo` já soma exatamente `valorTotal`; editar aqui sem regenerar o
+ * cronograma desincronizaria os dois) e `clienteId`/`contratoId` (trocar a FK desalinharia o
+ * vínculo com o contrato original que gerou a negociação). */
+export async function atualizarAcordo(id: string, dados: Partial<Acordo>): Promise<Acordo> {
+  const supabase = createAdminClient();
+  const patch: Record<string, unknown> = {};
+  if (dados.descricao !== undefined) patch.descricao = dados.descricao || null;
+  if (dados.situacao !== undefined) patch.situacao = dados.situacao;
+
+  const { data, error } = await supabase.from("acordos").update(patch).eq("id", id).select().single();
+  if (error || !data) throw new Error("Acordo não encontrado");
+  const [acordo] = await anexarCronograma(supabase, [data]);
+  return acordo;
+}
+
 export interface NovoAcordoInput {
   clienteId: string;
   contratoId: string;

@@ -60,6 +60,9 @@ import {
 } from "@/components/ui/table";
 
 interface DadosEdicaveis {
+  nome: string;
+  tipoDocumento: "cpf" | "cnpj";
+  documento: string;
   email: string;
   rg: string;
   nacionalidade: string;
@@ -73,9 +76,16 @@ interface DadosEdicaveis {
   bairro: string;
   cidade: string;
   uf: string;
+  banco: string;
+  agencia: string;
+  conta: string;
+  chavePix: string;
 }
 
 const DADOS_EDICAO_VAZIOS: DadosEdicaveis = {
+  nome: "",
+  tipoDocumento: "cpf",
+  documento: "",
   email: "",
   rg: "",
   nacionalidade: "",
@@ -89,6 +99,10 @@ const DADOS_EDICAO_VAZIOS: DadosEdicaveis = {
   bairro: "",
   cidade: "",
   uf: "",
+  banco: "",
+  agencia: "",
+  conta: "",
+  chavePix: "",
 };
 
 /** E-mail placeholder gerado quando o cliente foi cadastrado sem e-mail (ver `criarCliente`) —
@@ -143,6 +157,9 @@ export default function ClienteDetalhePage() {
   function abrirEdicaoDados() {
     if (!cliente) return;
     setDadosEdicao({
+      nome: cliente.nome,
+      tipoDocumento: cliente.tipoDocumento,
+      documento: cliente.documento,
       email: emailPendente(usuario?.email) ? "" : (usuario?.email ?? ""),
       rg: cliente.rg,
       nacionalidade: cliente.nacionalidade,
@@ -156,11 +173,15 @@ export default function ClienteDetalhePage() {
       bairro: cliente.endereco.bairro,
       cidade: cliente.endereco.cidade,
       uf: cliente.endereco.estado,
+      banco: cliente.dadosBancarios.banco,
+      agencia: cliente.dadosBancarios.agencia,
+      conta: cliente.dadosBancarios.conta,
+      chavePix: cliente.dadosBancarios.chavePix,
     });
     setEditandoDados(true);
   }
 
-  function campoEdicao(campo: keyof DadosEdicaveis) {
+  function campoEdicao(campo: keyof Omit<DadosEdicaveis, "tipoDocumento">) {
     return {
       id: `cliente-${campo}`,
       value: dadosEdicao[campo],
@@ -175,6 +196,9 @@ export default function ClienteDetalhePage() {
     setSalvandoDados(true);
     try {
       const atualizado = await atualizarCliente(cliente.id, {
+        nome: dadosEdicao.nome,
+        tipoDocumento: dadosEdicao.tipoDocumento,
+        documento: dadosEdicao.documento,
         rg: dadosEdicao.rg,
         nacionalidade: dadosEdicao.nacionalidade,
         profissao: dadosEdicao.profissao,
@@ -187,6 +211,12 @@ export default function ClienteDetalhePage() {
           cidade: dadosEdicao.cidade,
           estado: dadosEdicao.uf,
           cep: dadosEdicao.cep,
+        },
+        dadosBancarios: {
+          banco: dadosEdicao.banco,
+          agencia: dadosEdicao.agencia,
+          conta: dadosEdicao.conta,
+          chavePix: dadosEdicao.chavePix,
         },
       });
       setCliente(atualizado);
@@ -322,10 +352,12 @@ export default function ClienteDetalhePage() {
               {score.pontuacao} · {score.categoria}
             </Badge>
           )}
-          <Button size="sm" variant="outline" onClick={abrirEdicaoDados}>
-            <Pencil className="size-3.5" />
-            Completar dados
-          </Button>
+          {usuarioLogado?.perfil === "administrador" && (
+            <Button size="sm" variant="outline" onClick={abrirEdicaoDados}>
+              <Pencil className="size-3.5" />
+              Editar dados
+            </Button>
+          )}
           <Button size="sm" variant="outline" onClick={handleReenviarConvite} disabled={reenviandoConvite}>
             <Mail className="size-3.5" />
             {reenviandoConvite ? "Enviando…" : "Enviar convite via WhatsApp"}
@@ -349,13 +381,39 @@ export default function ClienteDetalhePage() {
       <Dialog open={editandoDados} onOpenChange={setEditandoDados}>
         <DialogContent className="max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Completar dados de {cliente.nome}</DialogTitle>
-            <DialogDescription>Preencha o que estiver faltando no cadastro.</DialogDescription>
+            <DialogTitle>Editar dados de {cliente.nome}</DialogTitle>
+            <DialogDescription>Altere os dados cadastrais do cliente.</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSalvarDados} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
+              <Label htmlFor="cliente-nome">Nome completo</Label>
+              <Input {...campoEdicao("nome")} />
+            </div>
+            <div className="flex flex-col gap-1.5">
               <Label htmlFor="cliente-email">E-mail</Label>
               <Input type="email" {...campoEdicao("email")} placeholder="email@exemplo.com" />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>Tipo de documento</Label>
+              <div className="flex flex-wrap gap-2">
+                {(["cpf", "cnpj"] as const).map((tipo) => (
+                  <Button
+                    key={tipo}
+                    type="button"
+                    size="sm"
+                    variant={dadosEdicao.tipoDocumento === tipo ? "default" : "outline"}
+                    onClick={() => setDadosEdicao((atual) => ({ ...atual, tipoDocumento: tipo }))}
+                  >
+                    {tipo.toUpperCase()}
+                  </Button>
+                ))}
+              </div>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="cliente-documento">
+                {dadosEdicao.tipoDocumento === "cnpj" ? "CNPJ" : "CPF"}
+              </Label>
+              <Input {...campoEdicao("documento")} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">
@@ -405,6 +463,22 @@ export default function ClienteDetalhePage() {
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="cliente-uf">UF</Label>
                 <Input {...campoEdicao("uf")} maxLength={2} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="cliente-banco">Banco</Label>
+                <Input {...campoEdicao("banco")} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="cliente-agencia">Agência</Label>
+                <Input {...campoEdicao("agencia")} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="cliente-conta">Conta</Label>
+                <Input {...campoEdicao("conta")} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="cliente-chavePix">Chave PIX</Label>
+                <Input {...campoEdicao("chavePix")} />
               </div>
             </div>
             <DialogFooter>

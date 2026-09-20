@@ -13,6 +13,10 @@ export async function buscarAcordoPorId(id: string): Promise<Acordo | undefined>
   return apiFetch<Acordo | null>(`/api/acordos/${id}`).then((v) => v ?? undefined);
 }
 
+export async function atualizarAcordo(id: string, dados: Partial<Acordo>): Promise<Acordo> {
+  return apiFetch<Acordo>(`/api/acordos/${id}`, { method: "PATCH", body: JSON.stringify(dados) });
+}
+
 export interface NovoAcordoInput {
   clienteId: string;
   contratoId: string;

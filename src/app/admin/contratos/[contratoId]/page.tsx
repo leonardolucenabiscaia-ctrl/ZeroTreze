@@ -3,11 +3,11 @@
 import * as React from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { AlertTriangle, FileCheck2, FileDown, Lock, Printer, Unlock } from "lucide-react";
+import { AlertTriangle, FileCheck2, FileDown, Lock, Pencil, Printer, Unlock } from "lucide-react";
 import { toast } from "sonner";
 
 import { useAuth } from "@/lib/auth/auth-context";
-import { buscarContratoPorId, encerrarContrato } from "@/lib/services/contratos.service";
+import { atualizarContrato, buscarContratoPorId, encerrarContrato } from "@/lib/services/contratos.service";
 import { buscarClientePorId } from "@/lib/services/clientes.service";
 import { bloquearVeiculo, buscarVeiculoPorId, desbloquearVeiculo } from "@/lib/services/veiculos.service";
 import {
@@ -31,6 +31,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 /** O status da ClickSign é uma string livre (reflete o que a API deles manda ou o nome do evento
  * de webhook) — o envelope fica "closed" quando todo mundo assina; "document_closed" é o nome do
@@ -60,6 +62,11 @@ export default function AdminContratoDetalhePage() {
   const [encerrando, setEncerrando] = React.useState(false);
   const [confirmandoBloqueio, setConfirmandoBloqueio] = React.useState(false);
   const [alternandoBloqueio, setAlternandoBloqueio] = React.useState(false);
+  const [editandoContrato, setEditandoContrato] = React.useState(false);
+  const [numeroEdicao, setNumeroEdicao] = React.useState("");
+  const [caucaoEdicao, setCaucaoEdicao] = React.useState("");
+  const [limiteRenovacaoEdicao, setLimiteRenovacaoEdicao] = React.useState("");
+  const [salvandoContrato, setSalvandoContrato] = React.useState(false);
 
   React.useEffect(() => {
     buscarContratoPorId(params.contratoId).then(async (c) => {
@@ -103,6 +110,43 @@ export default function AdminContratoDetalhePage() {
       toast.error(error instanceof Error ? error.message : "Não foi possível encerrar o contrato.");
     } finally {
       setEncerrando(false);
+    }
+  }
+
+  function abrirEdicaoContrato() {
+    if (!contrato) return;
+    setNumeroEdicao(contrato.numero);
+    setCaucaoEdicao(String(contrato.valorCaucao));
+    setLimiteRenovacaoEdicao(String(contrato.limiteRenovacao));
+    setEditandoContrato(true);
+  }
+
+  async function handleSalvarContrato(event: React.FormEvent) {
+    event.preventDefault();
+    if (!contrato) return;
+    setSalvandoContrato(true);
+    try {
+      const atualizado = await atualizarContrato(contrato.id, {
+        numero: numeroEdicao,
+        valorCaucao: Number(caucaoEdicao),
+        limiteRenovacao: Number(limiteRenovacaoEdicao),
+      });
+      setContrato(atualizado);
+      if (usuario) {
+        await registrarAcao({
+          usuarioId: usuario.id,
+          usuarioNome: usuario.nome,
+          acao: "Editou os dados do contrato",
+          entidade: "Contrato",
+          entidadeId: atualizado.numero,
+        });
+      }
+      toast.success("Dados do contrato atualizados com sucesso!");
+      setEditandoContrato(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível atualizar o contrato.");
+    } finally {
+      setSalvandoContrato(false);
     }
   }
 
@@ -222,6 +266,12 @@ export default function AdminContratoDetalhePage() {
               Imprimir contrato
             </Link>
           </Button>
+          {usuario?.perfil === "administrador" && (
+            <Button size="sm" variant="outline" onClick={abrirEdicaoContrato}>
+              <Pencil className="size-4" />
+              Editar contrato
+            </Button>
+          )}
           <Button
             size="sm"
             variant={veiculo.bloqueado ? "secondary" : "outline"}
@@ -261,6 +311,66 @@ export default function AdminContratoDetalhePage() {
         podeDarBaixa
         onDarBaixa={handleDarBaixa}
       />
+
+      <Dialog open={editandoContrato} onOpenChange={setEditandoContrato}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar contrato {contrato.numero}</DialogTitle>
+            <DialogDescription>
+              Só os campos abaixo podem ser alterados diretamente — cliente, veículo, datas e valor
+              da parcela ficam fixos porque já foram usados para gerar o cronograma de parcelas e o
+              contrato assinado.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSalvarContrato} className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="contrato-numero">Número do contrato</Label>
+              <Input
+                id="contrato-numero"
+                value={numeroEdicao}
+                onChange={(e) => setNumeroEdicao(e.target.value)}
+                required
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="contrato-caucao">Valor da caução</Label>
+              <Input
+                id="contrato-caucao"
+                type="number"
+                step="0.01"
+                min="0"
+                value={caucaoEdicao}
+                onChange={(e) => setCaucaoEdicao(e.target.value)}
+                required
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="contrato-limiteRenovacao">Limite de renovação</Label>
+              <Input
+                id="contrato-limiteRenovacao"
+                type="number"
+                min="0"
+                value={limiteRenovacaoEdicao}
+                onChange={(e) => setLimiteRenovacaoEdicao(e.target.value)}
+                required
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setEditandoContrato(false)}
+                disabled={salvandoContrato}
+              >
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={salvandoContrato}>
+                {salvandoContrato ? "Salvando…" : "Salvar"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={confirmandoEncerramento} onOpenChange={setConfirmandoEncerramento}>
         <DialogContent>
