@@ -1,13 +1,18 @@
 "use client";
 
 import * as React from "react";
-import { Wallet, Clock } from "lucide-react";
+import { Eye, Wallet, Clock } from "lucide-react";
 import { toast } from "sonner";
 
 import { useAuth } from "@/lib/auth/auth-context";
 import { listarAcordos } from "@/lib/services/acordos.service";
 import { listarClientes } from "@/lib/services/clientes.service";
-import { confirmarPagamentoAcordo, recusarPagamentoAcordo } from "@/lib/services/financeiro-acordos.service";
+import {
+  confirmarPagamentoAcordo,
+  recusarPagamentoAcordo,
+  aplicarDescontoParcelaAcordo,
+  darBaixaManualAcordo,
+} from "@/lib/services/financeiro-acordos.service";
 import { registrarAcao } from "@/lib/services/auditoria.service";
 import { formatCurrency, formatDate } from "@/lib/utils/formatters";
 import type { Acordo, Cliente, ParcelaAcordo, StatusParcelaAcordo } from "@/lib/types";
@@ -24,6 +29,11 @@ import { SelectBusca } from "@/components/ui/select-busca";
 import { StatCard } from "@/components/shared/stat-card";
 import { StatusPill } from "@/components/shared/status-pill";
 import { RevisarPagamentoAcordoDialog } from "@/components/shared/revisar-pagamento-acordo-dialog";
+import {
+  ParcelaAcordoDetalheDialog,
+  type BaixaManualAcordoInput,
+  type DescontoParcelaAcordoInput,
+} from "@/components/shared/parcela-acordo-detalhe-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
@@ -53,6 +63,7 @@ export default function AdminFinanceiroAcordosPage() {
   const [filtro, setFiltro] = React.useState<Filtro>("todos");
   const [filtroClienteId, setFiltroClienteId] = React.useState(TODOS);
   const [revisando, setRevisando] = React.useState<LinhaParcelaAcordo | null>(null);
+  const [parcelaDetalhe, setParcelaDetalhe] = React.useState<LinhaParcelaAcordo | null>(null);
 
   React.useEffect(() => {
     carregar();
@@ -114,6 +125,46 @@ export default function AdminFinanceiroAcordosPage() {
       await carregar();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível recusar o pagamento.");
+    }
+  }
+
+  async function handleAplicarDesconto(parcelaAcordoId: string, desconto: DescontoParcelaAcordoInput) {
+    try {
+      const atualizada = await aplicarDescontoParcelaAcordo(parcelaAcordoId, desconto, usuario?.nome ?? "Administrador");
+      if (parcelaDetalhe) setParcelaDetalhe({ ...parcelaDetalhe, parcela: atualizada });
+      if (usuario && parcelaDetalhe) {
+        await registrarAcao({
+          usuarioId: usuario.id,
+          usuarioNome: usuario.nome,
+          acao: "Aplicou desconto numa parcela de acordo",
+          entidade: "Parcela de acordo",
+          entidadeId: `${parcelaDetalhe.acordoNumero} · parcela ${atualizada.numero}`,
+        });
+      }
+      toast.success(atualizada.desconto ? "Desconto aplicado com sucesso." : "Desconto removido.");
+      await carregar();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível aplicar o desconto.");
+    }
+  }
+
+  async function handleDarBaixa(parcelaAcordoId: string, dados: BaixaManualAcordoInput) {
+    try {
+      const atualizada = await darBaixaManualAcordo(parcelaAcordoId, dados, usuario?.nome ?? "Administrador");
+      if (parcelaDetalhe) setParcelaDetalhe({ ...parcelaDetalhe, parcela: atualizada });
+      if (usuario && parcelaDetalhe) {
+        await registrarAcao({
+          usuarioId: usuario.id,
+          usuarioNome: usuario.nome,
+          acao: "Deu baixa manual num pagamento de acordo",
+          entidade: "Parcela de acordo",
+          entidadeId: `${parcelaDetalhe.acordoNumero} · parcela ${atualizada.numero}`,
+        });
+      }
+      toast.success("Baixa registrada — a parcela já está marcada como paga.");
+      await carregar();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível dar baixa no pagamento.");
     }
   }
 
@@ -205,12 +256,22 @@ export default function AdminFinanceiroAcordosPage() {
                     <StatusPill status={parcela.status} />
                   </TableCell>
                   <TableCell className="text-right">
-                    {parcela.status === "aguardando_confirmacao" && (
-                      <Button size="sm" onClick={() => setRevisando(linha)}>
-                        <Clock className="size-4" />
-                        Revisar
+                    <div className="flex justify-end gap-1.5">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setParcelaDetalhe(linha)}
+                        aria-label="Visualizar parcela"
+                      >
+                        <Eye className="size-4" />
                       </Button>
-                    )}
+                      {parcela.status === "aguardando_confirmacao" && (
+                        <Button size="sm" onClick={() => setRevisando(linha)}>
+                          <Clock className="size-4" />
+                          Revisar
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               );
@@ -227,6 +288,16 @@ export default function AdminFinanceiroAcordosPage() {
         onOpenChange={(open) => !open && setRevisando(null)}
         onConfirmar={handleConfirmar}
         onRecusar={handleRecusar}
+      />
+
+      <ParcelaAcordoDetalheDialog
+        parcela={parcelaDetalhe?.parcela ?? null}
+        open={parcelaDetalhe !== null}
+        onOpenChange={(open) => !open && setParcelaDetalhe(null)}
+        podeAplicarDesconto
+        onAplicarDesconto={handleAplicarDesconto}
+        podeDarBaixa
+        onDarBaixa={handleDarBaixa}
       />
     </div>
   );
