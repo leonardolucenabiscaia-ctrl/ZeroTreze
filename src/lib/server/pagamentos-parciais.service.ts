@@ -121,10 +121,29 @@ async function buscarPagamentoPendente(supabase: SupabaseAdmin, pagamentoParcial
 
 /** Administrador confere o recebimento na conta bancária e confirma esse envio específico — o
  * valor passa a contar pra `parcelas.valor_pago`; se cobrir o valor original, a parcela vira
- * "pago". */
+ * "pago".
+ *
+ * A transição do pagamento (aguardando_confirmacao -> confirmado) e a soma em
+ * `parcelas.valor_pago` são feitas de forma atômica — de propósito, pra dois cliques em
+ * "confirmar" (duplo clique, ou dois administradores no mesmo item da fila) não conseguirem
+ * creditar o mesmo pagamento duas vezes nem perder o incremento um do outro. */
 export async function confirmarPagamentoParcial(pagamentoParcialId: string): Promise<PagamentoParcial> {
   const supabase = createAdminClient();
   const pagamento = await buscarPagamentoPendente(supabase, pagamentoParcialId);
+  const agora = new Date().toISOString();
+
+  // Só transiciona se ainda estiver "aguardando_confirmacao" nesse exato instante — o filtro
+  // extra no .eq() faz o Postgres travar a linha e garantir que só uma chamada concorrente
+  // consiga fazer essa transição pra esse pagamento específico.
+  const { data: atualizado, error } = await supabase
+    .from("pagamentos_parciais")
+    .update({ status: "confirmado", confirmado_em: agora })
+    .eq("id", pagamentoParcialId)
+    .eq("status", "aguardando_confirmacao")
+    .select()
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!atualizado) throw new Error("Este pagamento não está mais aguardando confirmação.");
 
   const { data: parcela } = await supabase
     .from("parcelas")
@@ -133,27 +152,16 @@ export async function confirmarPagamentoParcial(pagamentoParcialId: string): Pro
     .maybeSingle();
   if (!parcela) throw new Error("Parcela não encontrada");
 
-  const agora = new Date().toISOString();
-  const novoValorPago = (parcela.valor_pago as number) + (pagamento.valor as number);
-  const quitada = novoValorPago >= (parcela.valor_original as number) - 0.01;
-
-  const { error: erroParcela } = await supabase
-    .from("parcelas")
-    .update(
-      quitada
-        ? { valor_pago: novoValorPago, status: "pago", data_pagamento: agora }
-        : { valor_pago: novoValorPago }
-    )
-    .eq("id", parcela.id as string);
-  if (erroParcela) throw new Error(erroParcela.message);
-
-  const { data: atualizado, error } = await supabase
-    .from("pagamentos_parciais")
-    .update({ status: "confirmado", confirmado_em: agora })
-    .eq("id", pagamentoParcialId)
-    .select()
+  const { data: incremento, error: erroIncremento } = await supabase
+    .rpc("incrementar_valor_pago_parcela", {
+      p_parcela_id: parcela.id as string,
+      p_incremento: pagamento.valor as number,
+    })
     .single();
-  if (error || !atualizado) throw new Error(error?.message ?? "Não foi possível confirmar o pagamento.");
+  if (erroIncremento || !incremento) {
+    throw new Error(erroIncremento?.message ?? "Não foi possível atualizar o valor pago da parcela.");
+  }
+  const quitada = (incremento as { quitada: boolean }).quitada;
 
   const { data: ultimoMovimento } = await supabase
     .from("movimentos_extrato")

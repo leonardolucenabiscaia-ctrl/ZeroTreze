@@ -1,6 +1,7 @@
 import "server-only";
 import { NextResponse } from "next/server";
 import { createSessionClient } from "@/lib/supabase/server";
+import { RateLimitError } from "./rate-limit.service";
 import type { PerfilUsuario } from "@/lib/types";
 
 /** Perfis internos (não-cliente) — atalho para restringir rotas administrativas. */
@@ -45,6 +46,9 @@ export async function handleRoute<T>(
     const data = await fn();
     return NextResponse.json(data ?? null, { status: successStatus });
   } catch (error) {
+    if (error instanceof RateLimitError) {
+      return NextResponse.json({ error: error.message }, { status: 429 });
+    }
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Erro inesperado." },
       { status: 400 }

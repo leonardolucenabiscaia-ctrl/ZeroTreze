@@ -162,6 +162,12 @@ export async function criarContrato(dados: NovoContratoInput): Promise<Contrato>
     })
     .select()
     .single();
+  if (error?.code === "23505") {
+    // Índice único `contratos_veiculo_ativo_unico` (ver migração 0019) — pega o caso raro de
+    // duas criações de contrato pro mesmo veículo acontecerem quase ao mesmo tempo (a checagem
+    // acima, sozinha, não impede isso: as duas passariam por ela antes de qualquer uma salvar).
+    throw new Error("Esse veículo já está vinculado a um contrato ativo.");
+  }
   if (error || !contratoRow) throw new Error(error?.message ?? "Não foi possível criar o contrato.");
 
   const parcelas = gerarParcelas(contratoTmp);

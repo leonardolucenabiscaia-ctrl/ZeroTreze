@@ -144,6 +144,10 @@ export async function darBaixaManualAcordo(
   if (!dados.motivo.trim()) throw new Error("Explique como esse pagamento foi recebido.");
 
   const agora = new Date().toISOString();
+  // O filtro extra `.eq("status", parcela.status)` faz a baixa só valer se o status ainda for
+  // exatamente o que acabamos de ler — trava a linha no Postgres, então um duplo clique ou duas
+  // pessoas dando baixa na mesma parcela ao mesmo tempo não geram dois lançamentos duplicados no
+  // extrato: a segunda chamada encontra o status já mudado e cai no erro abaixo.
   const { data: atualizada, error } = await supabase
     .from("parcelas_acordo")
     .update({
@@ -156,9 +160,11 @@ export async function darBaixaManualAcordo(
       baixa_manual_motivo: dados.motivo.trim(),
     })
     .eq("id", parcelaAcordoId)
+    .eq("status", parcela.status)
     .select()
-    .single();
-  if (error || !atualizada) throw new Error(error?.message ?? "Não foi possível dar baixa no pagamento.");
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!atualizada) throw new Error("Esta parcela já foi paga por outra ação — recarregue a página.");
 
   const { data: acordo } = await supabase
     .from("acordos")
