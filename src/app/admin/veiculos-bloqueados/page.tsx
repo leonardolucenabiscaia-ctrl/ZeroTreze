@@ -2,10 +2,13 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Lock } from "lucide-react";
+import { Lock, ShieldCheck } from "lucide-react";
+import { toast } from "sonner";
 
-import { listarVeiculosBloqueados } from "@/lib/services/veiculos.service";
+import { desbloquearVeiculo, listarVeiculosBloqueados } from "@/lib/services/veiculos.service";
 import { contratoAtivoPorVeiculo } from "@/lib/services/contratos.service";
+import { registrarAcao } from "@/lib/services/auditoria.service";
+import { useAuth } from "@/lib/auth/auth-context";
 import { formatDateTime } from "@/lib/utils/formatters";
 import type { Contrato, Veiculo } from "@/lib/types";
 
@@ -19,6 +22,15 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 interface LinhaVeiculoBloqueado {
   veiculo: Veiculo;
@@ -26,7 +38,10 @@ interface LinhaVeiculoBloqueado {
 }
 
 export default function VeiculosBloqueadosPage() {
+  const { usuario } = useAuth();
   const [linhas, setLinhas] = React.useState<LinhaVeiculoBloqueado[] | null>(null);
+  const [veiculoParaDesbloquear, setVeiculoParaDesbloquear] = React.useState<Veiculo | null>(null);
+  const [desbloqueando, setDesbloqueando] = React.useState(false);
 
   React.useEffect(() => {
     listarVeiculosBloqueados().then(async (veiculos) => {
@@ -39,6 +54,30 @@ export default function VeiculosBloqueadosPage() {
       setLinhas(comContrato);
     });
   }, []);
+
+  async function handleConfirmarDesbloqueio() {
+    if (!veiculoParaDesbloquear) return;
+    setDesbloqueando(true);
+    try {
+      const atualizado = await desbloquearVeiculo(veiculoParaDesbloquear.id);
+      setLinhas((atuais) => (atuais ?? []).filter((l) => l.veiculo.id !== atualizado.id));
+      if (usuario) {
+        await registrarAcao({
+          usuarioId: usuario.id,
+          usuarioNome: usuario.nome,
+          acao: "Desbloqueou o veículo",
+          entidade: "Veículo",
+          entidadeId: `${atualizado.marca} ${atualizado.modelo} — ${atualizado.placa}`,
+        });
+      }
+      toast.success("Veículo desbloqueado com sucesso.");
+      setVeiculoParaDesbloquear(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível desbloquear o veículo.");
+    } finally {
+      setDesbloqueando(false);
+    }
+  }
 
   if (!linhas) return <Skeleton className="h-96 w-full" />;
 
@@ -65,6 +104,7 @@ export default function VeiculosBloqueadosPage() {
               <TableHead>Placa</TableHead>
               <TableHead>Contrato</TableHead>
               <TableHead>Bloqueado em</TableHead>
+              <TableHead className="text-right">Ação</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -86,11 +126,40 @@ export default function VeiculosBloqueadosPage() {
                   )}
                 </TableCell>
                 <TableCell>{veiculo.bloqueadoEm ? formatDateTime(veiculo.bloqueadoEm) : "—"}</TableCell>
+                <TableCell className="text-right">
+                  <Button size="sm" variant="outline" onClick={() => setVeiculoParaDesbloquear(veiculo)}>
+                    <ShieldCheck className="size-3.5" />
+                    Desbloquear
+                  </Button>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       )}
+
+      <Dialog open={veiculoParaDesbloquear !== null} onOpenChange={(open) => !open && setVeiculoParaDesbloquear(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Desbloquear o veículo {veiculoParaDesbloquear?.placa}?</DialogTitle>
+            <DialogDescription>
+              O veículo volta a ficar liberado para uso. O contrato não é afetado.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setVeiculoParaDesbloquear(null)}
+              disabled={desbloqueando}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={handleConfirmarDesbloqueio} disabled={desbloqueando}>
+              {desbloqueando ? "Salvando…" : "Sim, desbloquear"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

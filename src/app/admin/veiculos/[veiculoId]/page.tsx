@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useParams, useRouter } from "next/navigation";
-import { FileText, FolderOpen, Lock, Pencil, Trash2, Unlock } from "lucide-react";
+import { FileText, FolderOpen, Lock, Pencil, ShieldCheck, ShieldOff, Trash2, Unlock } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -11,6 +11,8 @@ import {
   atualizarVeiculo,
   marcarVeiculoIndisponivel,
   marcarVeiculoDisponivel,
+  bloquearVeiculo,
+  desbloquearVeiculo,
   excluirVeiculo,
 } from "@/lib/services/veiculos.service";
 import { listarDocumentosPorVeiculo } from "@/lib/services/documentos.service";
@@ -103,6 +105,8 @@ export default function AdminVeiculoDetalhePage() {
   const [salvandoDados, setSalvandoDados] = React.useState(false);
   const [confirmandoIndisponibilidade, setConfirmandoIndisponibilidade] = React.useState(false);
   const [alternandoIndisponibilidade, setAlternandoIndisponibilidade] = React.useState(false);
+  const [confirmandoBloqueio, setConfirmandoBloqueio] = React.useState(false);
+  const [alternandoBloqueio, setAlternandoBloqueio] = React.useState(false);
   const [confirmandoExclusao, setConfirmandoExclusao] = React.useState(false);
   const [placaDigitada, setPlacaDigitada] = React.useState("");
   const [excluindo, setExcluindo] = React.useState(false);
@@ -243,6 +247,31 @@ export default function AdminVeiculoDetalhePage() {
     }
   }
 
+  async function handleConfirmarBloqueio() {
+    if (!veiculo) return;
+    setAlternandoBloqueio(true);
+    try {
+      const vaiBloquear = !veiculo.bloqueado;
+      const atualizado = vaiBloquear ? await bloquearVeiculo(veiculo.id) : await desbloquearVeiculo(veiculo.id);
+      setVeiculo(atualizado);
+      if (usuario) {
+        await registrarAcao({
+          usuarioId: usuario.id,
+          usuarioNome: usuario.nome,
+          acao: vaiBloquear ? "Bloqueou o veículo" : "Desbloqueou o veículo",
+          entidade: "Veículo",
+          entidadeId: `${atualizado.marca} ${atualizado.modelo} — ${atualizado.placa}`,
+        });
+      }
+      toast.success(vaiBloquear ? "Veículo bloqueado com sucesso." : "Veículo desbloqueado com sucesso.");
+      setConfirmandoBloqueio(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível atualizar o bloqueio do veículo.");
+    } finally {
+      setAlternandoBloqueio(false);
+    }
+  }
+
   async function handleConfirmarExclusao() {
     if (!veiculo) return;
     setExcluindo(true);
@@ -297,6 +326,14 @@ export default function AdminVeiculoDetalhePage() {
                 Editar dados
               </Button>
             )}
+            <Button
+              size="sm"
+              variant={veiculo.bloqueado ? "secondary" : "outline"}
+              onClick={() => setConfirmandoBloqueio(true)}
+            >
+              {veiculo.bloqueado ? <ShieldCheck className="size-3.5" /> : <ShieldOff className="size-3.5" />}
+              {veiculo.bloqueado ? "Desbloquear veículo" : "Bloquear veículo"}
+            </Button>
             <Button
               size="sm"
               variant={veiculo.indisponivel ? "secondary" : "outline"}
@@ -466,6 +503,41 @@ export default function AdminVeiculoDetalhePage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={confirmandoBloqueio} onOpenChange={setConfirmandoBloqueio}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {veiculo.bloqueado ? "Desbloquear" : "Bloquear"} o veículo {veiculo.placa}?
+            </DialogTitle>
+            <DialogDescription>
+              {veiculo.bloqueado
+                ? "O veículo volta a ficar liberado para uso. O contrato não é afetado."
+                : "O veículo fica impedido de uso até ser desbloqueado. O contrato continua rodando normalmente — parcelas, prazo e status não são alterados."}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setConfirmandoBloqueio(false)}
+              disabled={alternandoBloqueio}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant={veiculo.bloqueado ? "default" : "destructive"}
+              onClick={handleConfirmarBloqueio}
+              disabled={alternandoBloqueio}
+            >
+              {alternandoBloqueio
+                ? "Salvando…"
+                : veiculo.bloqueado
+                  ? "Sim, desbloquear"
+                  : "Sim, bloquear veículo"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
