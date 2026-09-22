@@ -13,7 +13,7 @@ import { listarClientes } from "@/lib/services/clientes.service";
 import { listarVeiculos } from "@/lib/services/veiculos.service";
 import { registrarAcao } from "@/lib/services/auditoria.service";
 import { useAuth } from "@/lib/auth/auth-context";
-import { formatDocument } from "@/lib/utils/formatters";
+import { formatDocument, dataDeHojeBrasil } from "@/lib/utils/formatters";
 import type { Cliente, Contrato, Veiculo } from "@/lib/types";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,7 +23,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SelectBusca } from "@/components/ui/select-busca";
 
-const hoje = new Date().toISOString().slice(0, 10);
+const hoje = dataDeHojeBrasil();
 
 const multaSchema = z
   .object({

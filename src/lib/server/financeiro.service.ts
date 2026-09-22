@@ -3,6 +3,7 @@ import { addWeeks } from "date-fns";
 import { createAdminClient } from "@/lib/supabase/server";
 import { calcularValorAtualizado } from "@/lib/calculations/juros-multa-correcao";
 import { competenciaDaSemana } from "@/lib/mock-data/generators/financeiro";
+import { parseData } from "@/lib/utils/formatters";
 import { mapDocumento, mapMovimentoExtrato, mapParametrosFinanceiros, mapParcela } from "./mappers";
 import { criarNotificacao } from "./notificacoes.service";
 import type { Documento, MovimentoExtrato, ParametrosFinanceiros, Parcela } from "@/lib/types";
@@ -79,7 +80,7 @@ async function sincronizarParcelasVencidasDoContrato(supabase: SupabaseAdmin, co
       .maybeSingle();
 
     if (emAberto) {
-      if (new Date(emAberto.data_vencimento as string).getTime() >= agora) break;
+      if (parseData(emAberto.data_vencimento as string).getTime() >= agora) break;
       await supabase.from("parcelas").update({ status: "vencido" }).eq("id", emAberto.id as string);
     }
 

@@ -13,7 +13,7 @@ import { listarClientes } from "@/lib/services/clientes.service";
 import { listarParcelasPorContrato } from "@/lib/services/financeiro.service";
 import { registrarAcao } from "@/lib/services/auditoria.service";
 import { useAuth } from "@/lib/auth/auth-context";
-import { formatCurrency, formatDate, formatDocument } from "@/lib/utils/formatters";
+import { formatCurrency, formatDate, formatDocument, dataDeHojeBrasil } from "@/lib/utils/formatters";
 import type { Cliente, Contrato, Parcela } from "@/lib/types";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,7 +27,7 @@ import { FileUploader } from "@/components/shared/file-uploader";
 import { SelectBusca } from "@/components/ui/select-busca";
 import { Checkbox } from "@/components/ui/checkbox";
 
-const hoje = new Date().toISOString().slice(0, 10);
+const hoje = dataDeHojeBrasil();
 
 const acordoSchema = z.object({
   clienteId: z.string().min(1, "Selecione o cliente"),

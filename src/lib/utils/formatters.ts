@@ -8,18 +8,49 @@ export function formatCurrency(value: number): string {
   }).format(value);
 }
 
+const REGEX_DATA_SOMENTE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Interpreta uma data no formato "YYYY-MM-DD" (sem hora — sempre vinda de uma coluna `date` do
+ * banco: vencimento, validade da CNH, data de nascimento etc.) como meia-noite no fuso de
+ * Brasília (UTC-3, fixo — o Brasil não usa mais horário de verão desde 2019), não importa em que
+ * fuso o código está rodando (navegador do cliente ou o servidor da Vercel, que roda em UTC).
+ *
+ * Evita o bug clássico de `new Date("2026-01-22")`: o JS sempre interpreta strings sem hora como
+ * meia-noite EM UTC — num fuso atrás de UTC (como o do Brasil) isso aparece/compara como um dia
+ * antes do que foi digitado. Datas que já vêm com hora/fuso (timestamptz — `criadoEm`,
+ * `dataEnvioComprovante` etc.) passam direto, sem alteração: representam um instante real, não só
+ * uma data. */
+export function parseData(date: Date | string): Date {
+  if (typeof date === "string" && REGEX_DATA_SOMENTE.test(date)) {
+    return new Date(`${date}T00:00:00-03:00`);
+  }
+  return typeof date === "string" ? new Date(date) : date;
+}
+
 export function formatDate(date: Date | string, pattern = "dd/MM/yyyy"): string {
-  const d = typeof date === "string" ? new Date(date) : date;
-  return format(d, pattern, { locale: ptBR });
+  return format(parseData(date), pattern, { locale: ptBR });
 }
 
 export function formatDateTime(date: Date | string): string {
   return formatDate(date, "dd/MM/yyyy 'às' HH:mm");
 }
 
+/** Converte uma data/timestamp pro formato ("YYYY-MM-DD") de um `<input type="date">`, sempre no
+ * fuso de Brasília. Não usar `new Date(iso).toISOString().slice(0, 10)` pra isso:
+ * `toISOString()` sempre usa UTC, então nas últimas horas do dia em Brasília (21h-23h59, quando em
+ * UTC já é o dia seguinte) o campo apareceria preenchido com o dia seguinte ao real. */
+export function formatDateInput(date: Date | string): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(parseData(date));
+}
+
+/** Data de hoje ("YYYY-MM-DD") no fuso de Brasília — pra preencher o valor padrão de campos
+ * `<input type="date">` (ex.: "data de entrada na plataforma"). */
+export function dataDeHojeBrasil(): string {
+  return formatDateInput(new Date());
+}
+
 export function formatRelative(date: Date | string): string {
-  const d = typeof date === "string" ? new Date(date) : date;
-  return formatDistanceToNow(d, { locale: ptBR, addSuffix: true });
+  return formatDistanceToNow(parseData(date), { locale: ptBR, addSuffix: true });
 }
 
 export function formatCPF(value: string): string {
@@ -66,8 +97,8 @@ export function formatPlate(value: string): string {
 }
 
 export function daysBetween(a: Date | string, b: Date | string): number {
-  const da = new Date(a);
-  const db = new Date(b);
+  const da = parseData(a);
+  const db = parseData(b);
   const ms = db.setHours(0, 0, 0, 0) - da.setHours(0, 0, 0, 0);
   return Math.round(ms / (1000 * 60 * 60 * 24));
 }

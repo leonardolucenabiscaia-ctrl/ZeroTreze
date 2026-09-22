@@ -18,7 +18,7 @@ import {
 import { listarDocumentosPorVeiculo } from "@/lib/services/documentos.service";
 import { registrarAcao } from "@/lib/services/auditoria.service";
 import { useAuth } from "@/lib/auth/auth-context";
-import { formatDate } from "@/lib/utils/formatters";
+import { formatDate, formatDateInput } from "@/lib/utils/formatters";
 import type { Documento, Veiculo } from "@/lib/types";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -75,7 +75,7 @@ const DADOS_VEICULO_VAZIOS: DadosVeiculoEdicaveis = {
 
 function paraDataInput(iso: string | undefined): string {
   if (!iso) return "";
-  return new Date(iso).toISOString().slice(0, 10);
+  return formatDateInput(iso);
 }
 
 const CATEGORIA_LABEL: Record<string, string> = {

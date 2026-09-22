@@ -12,11 +12,16 @@ import type { Acordo } from "@/lib/types";
  * contrato, aqui não precisa "liberar a próxima" — o cronograma inteiro já é gerado de uma vez na
  * criação do acordo. */
 async function sincronizarParcelasAcordoVencidas(supabase: ReturnType<typeof createAdminClient>) {
+  // Compara contra a data de HOJE em Brasília, também como data pura (sem hora) — nunca contra um
+  // timestamp, que faria o Postgres converter "vencimento" pra meia-noite EM UTC antes de
+  // comparar, virando "vencido" até um dia inteiro mais cedo (a Vercel roda em UTC, 3h à frente
+  // do horário de Brasília).
+  const hojeBrasilia = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
   await supabase
     .from("parcelas_acordo")
     .update({ status: "vencido" })
     .eq("status", "em_aberto")
-    .lt("vencimento", new Date().toISOString());
+    .lt("vencimento", hojeBrasilia);
 }
 
 async function anexarCronograma(

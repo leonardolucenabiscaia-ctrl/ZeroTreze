@@ -6,6 +6,7 @@ import { formatarNumeroContrato } from "@/lib/mock-data/generators/contrato";
 import { gerarPdfContrato } from "./pdf/contrato-pdf";
 import { enviarDocumentoParaAssinatura } from "./clicksign.service";
 import { mapCliente, mapContrato, mapVeiculo } from "./mappers";
+import { parseData } from "@/lib/utils/formatters";
 import type { Contrato } from "@/lib/types";
 
 const PRAZO_MINIMO_MESES = 6;
@@ -110,7 +111,7 @@ export async function criarContrato(dados: NovoContratoInput): Promise<Contrato>
     .maybeSingle();
   if (ativoExistente) throw new Error("Esse veículo já está vinculado a um contrato ativo.");
 
-  const dataInicio = new Date(dados.dataInicio);
+  const dataInicio = parseData(dados.dataInicio);
   const dataFim = addMonths(dataInicio, PRAZO_MINIMO_MESES);
   const anoContrato = dataInicio.getFullYear();
 

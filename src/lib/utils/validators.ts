@@ -1,3 +1,5 @@
+import { parseData } from "./formatters";
+
 export function validarCPF(valorBruto: string): boolean {
   const cpf = valorBruto.replace(/\D/g, "");
   if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
@@ -20,7 +22,7 @@ export function validarCPF(valorBruto: string): boolean {
 }
 
 export function calcularIdade(dataNascimento: string | Date): number {
-  const nascimento = new Date(dataNascimento);
+  const nascimento = parseData(dataNascimento);
   const hoje = new Date();
   let idade = hoje.getFullYear() - nascimento.getFullYear();
   const aindaNaoFezAniversario =
@@ -37,7 +39,7 @@ export function isMaiorDeIdade(dataNascimento: string | Date): boolean {
 
 export function isCnhValida(validade: string | Date): boolean {
   if (!validade) return false;
-  const dataValidade = new Date(validade);
+  const dataValidade = parseData(validade);
   const hoje = new Date();
   hoje.setHours(0, 0, 0, 0);
   return dataValidade.getTime() >= hoje.getTime();

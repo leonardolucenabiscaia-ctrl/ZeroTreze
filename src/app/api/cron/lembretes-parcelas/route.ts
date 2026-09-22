@@ -3,7 +3,7 @@ import { addDays, startOfDay, subDays } from "date-fns";
 import crypto from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/server";
 import { criarNotificacao, enviarWhatsAppNotificacao } from "@/lib/server/notificacoes.service";
-import { formatCurrency } from "@/lib/utils/formatters";
+import { formatCurrency, parseData } from "@/lib/utils/formatters";
 import type { TipoNotificacao } from "@/lib/types";
 
 const FUSO_NEGOCIO = "America/Sao_Paulo";
@@ -112,7 +112,7 @@ export async function GET(request: NextRequest) {
   let comErro = 0;
 
   for (const parcela of parcelas ?? []) {
-    const dataVencimento = new Date(parcela.data_vencimento as string);
+    const dataVencimento = parseData(parcela.data_vencimento as string);
     const diffDias = diferencaEmDiasNoNegocio(dataVencimento, hoje);
     const regra = REGRAS.find((r) => r.offsetDias === diffDias);
     if (!regra) continue;

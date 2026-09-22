@@ -24,7 +24,7 @@ import {
 } from "@/lib/services/pagamentos-parciais.service";
 import { registrarAcao } from "@/lib/services/auditoria.service";
 import { calcularValorAtualizado } from "@/lib/calculations/juros-multa-correcao";
-import { formatCurrency, formatDate } from "@/lib/utils/formatters";
+import { formatCurrency, formatDate, parseData } from "@/lib/utils/formatters";
 import type {
   Cliente,
   Contrato,
@@ -92,7 +92,7 @@ interface LinhaPagamentoPendente {
  * Financeiro daquele contrato específico). Decidir isso aqui, na leitura, evita depender de
  * qualquer sincronização rodar antes: o dashboard fica correto e rápido ao mesmo tempo. */
 function comStatusEfetivo(parcela: Parcela): Parcela {
-  if (parcela.status === "em_aberto" && new Date(parcela.dataVencimento).getTime() < Date.now()) {
+  if (parcela.status === "em_aberto" && parseData(parcela.dataVencimento).getTime() < Date.now()) {
     return { ...parcela, status: "vencido" };
   }
   return parcela;

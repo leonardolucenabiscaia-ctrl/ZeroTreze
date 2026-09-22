@@ -17,7 +17,7 @@ import { useContratoAtivo } from "@/hooks/use-contrato-ativo";
 import { listarParcelasPorContrato, obterParametrosFinanceiros } from "@/lib/services/financeiro.service";
 import { buscarScorePorCliente } from "@/lib/services/score.service";
 import { calcularValorAtualizado } from "@/lib/calculations/juros-multa-correcao";
-import { formatCurrency, formatDate, daysBetween } from "@/lib/utils/formatters";
+import { formatCurrency, formatDate, daysBetween, parseData } from "@/lib/utils/formatters";
 import type { ParametrosFinanceiros, Parcela, ScoreLocatario } from "@/lib/types";
 
 import { VehicleCard } from "@/components/shared/vehicle-card";
@@ -84,11 +84,11 @@ export default function DashboardPage() {
   }
 
   const anosDisponiveis = Array.from(
-    new Set(parcelas.map((p) => new Date(p.dataVencimento).getFullYear()))
+    new Set(parcelas.map((p) => parseData(p.dataVencimento).getFullYear()))
   ).sort((a, b) => a - b);
 
   const parcelasFiltradas = parcelas.filter((p) => {
-    const data = new Date(p.dataVencimento);
+    const data = parseData(p.dataVencimento);
     if (mesFiltro !== "todos" && data.getMonth() !== Number(mesFiltro)) return false;
     if (anoFiltro !== "todos" && data.getFullYear() !== Number(anoFiltro)) return false;
     return true;
@@ -96,7 +96,7 @@ export default function DashboardPage() {
 
   const proximaParcela = parcelas
     .filter((p) => p.status === "em_aberto" || p.status === "vencido")
-    .sort((a, b) => new Date(a.dataVencimento).getTime() - new Date(b.dataVencimento).getTime())[0];
+    .sort((a, b) => parseData(a.dataVencimento).getTime() - parseData(b.dataVencimento).getTime())[0];
   const temPagamentoEmAnalise = parcelas.some((p) => p.status === "aguardando_confirmacao");
 
   const parcelasPagas = parcelasFiltradas.filter((p) => p.status === "pago");

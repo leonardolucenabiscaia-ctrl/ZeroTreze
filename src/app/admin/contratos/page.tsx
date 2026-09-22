@@ -6,7 +6,7 @@ import { FileText, Plus } from "lucide-react";
 
 import { listarContratos } from "@/lib/services/contratos.service";
 import { listarClientes } from "@/lib/services/clientes.service";
-import { formatCurrency, formatDate } from "@/lib/utils/formatters";
+import { formatCurrency, formatDate, parseData } from "@/lib/utils/formatters";
 import type { Cliente, Contrato } from "@/lib/types";
 
 import {
@@ -30,7 +30,7 @@ import { Button } from "@/components/ui/button";
  */
 function fimExibicao(contrato: Contrato): string {
   if (contrato.status === "encerrado") return formatDate(contrato.dataFim);
-  if (new Date(contrato.dataFim).getTime() < Date.now()) return "-";
+  if (parseData(contrato.dataFim).getTime() < Date.now()) return "-";
   return formatDate(contrato.dataFim);
 }
 

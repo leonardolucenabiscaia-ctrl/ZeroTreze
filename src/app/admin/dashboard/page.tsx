@@ -30,7 +30,7 @@ import { listarParcelasPorContrato, obterParametrosFinanceiros } from "@/lib/ser
 import { listarChamados } from "@/lib/services/chamados.service";
 import { listarScores } from "@/lib/services/score.service";
 import { calcularValorAtualizado } from "@/lib/calculations/juros-multa-correcao";
-import { formatCurrency } from "@/lib/utils/formatters";
+import { formatCurrency, parseData } from "@/lib/utils/formatters";
 import type { Chamado, Cliente, Contrato, ParametrosFinanceiros, Parcela, ScoreLocatario, Veiculo } from "@/lib/types";
 
 import { StatCard } from "@/components/shared/stat-card";
@@ -136,11 +136,11 @@ export default function AdminDashboardPage() {
 
   const parcelasEscopo = parcelas.filter((p) => contratoIdsFiltrados.has(p.contratoId));
   const anosDisponiveis = Array.from(
-    new Set(parcelasEscopo.map((p) => new Date(p.dataVencimento).getFullYear()))
+    new Set(parcelasEscopo.map((p) => parseData(p.dataVencimento).getFullYear()))
   ).sort((a, b) => a - b);
 
   const parcelasPeriodo = parcelasEscopo.filter((p) => {
-    const data = new Date(p.dataVencimento);
+    const data = parseData(p.dataVencimento);
     if (mesFiltro !== "todos" && data.getMonth() !== Number(mesFiltro)) return false;
     if (anoFiltro !== "todos" && data.getFullYear() !== Number(anoFiltro)) return false;
     return true;
@@ -162,7 +162,7 @@ export default function AdminDashboardPage() {
         mes,
         valor: parcelasPagas
           .filter((p) => {
-            const d = new Date(p.dataVencimento);
+            const d = parseData(p.dataVencimento);
             return d.getFullYear() === ano && d.getMonth() === indice;
           })
           .reduce((soma, p) => soma + p.valorOriginal, 0),
@@ -174,7 +174,7 @@ export default function AdminDashboardPage() {
       const referencia = new Date(hoje.getFullYear(), hoje.getMonth() - (5 - i), 1);
       const valor = parcelasPagas
         .filter((p) => {
-          const d = new Date(p.dataVencimento);
+          const d = parseData(p.dataVencimento);
           return d.getFullYear() === referencia.getFullYear() && d.getMonth() === referencia.getMonth();
         })
         .reduce((soma, p) => soma + p.valorOriginal, 0);
