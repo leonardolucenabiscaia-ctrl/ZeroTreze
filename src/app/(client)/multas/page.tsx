@@ -2,10 +2,10 @@
 
 import * as React from "react";
 import { AlertTriangle } from "lucide-react";
-import { toast } from "sonner";
 
 import { useContratoAtivo } from "@/hooks/use-contrato-ativo";
-import { listarMultasPorContrato, pagarMulta } from "@/lib/services/multas.service";
+import { listarMultasPorContrato } from "@/lib/services/multas.service";
+import { calcularValorAtualizadoMulta } from "@/lib/calculations/multa";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils/formatters";
 import type { Multa, StatusMulta } from "@/lib/types";
 
@@ -17,7 +17,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
 import { StatusPill } from "@/components/shared/status-pill";
@@ -34,12 +33,6 @@ export default function MultasPage() {
     if (!contrato) return;
     listarMultasPorContrato(contrato.id).then(setMultas);
   }, [contrato]);
-
-  async function handlePagar(multa: Multa) {
-    const atualizada = await pagarMulta(multa.id);
-    setMultas((atuais) => atuais.map((m) => (m.id === atualizada.id ? atualizada : m)));
-    toast.success("Multa paga com sucesso.");
-  }
 
   if (loading) return <Skeleton className="h-96 w-full" />;
   if (!contrato) return <EmptyState icon={AlertTriangle} title="Nenhum contrato ativo" />;
@@ -66,6 +59,11 @@ export default function MultasPage() {
         />
       </div>
 
+      <p className="text-xs text-muted-foreground">
+        O pagamento de multas é confirmado diretamente pela nossa equipe — entre em contato pelo
+        Atendimento para combinar a forma de pagamento.
+      </p>
+
       {filtradas.length === 0 ? (
         <EmptyState icon={AlertTriangle} title="Nenhuma multa encontrada" description="Ótimo, seu histórico está limpo por aqui." />
       ) : (
@@ -81,34 +79,40 @@ export default function MultasPage() {
               <TableHead>Vencimento</TableHead>
               <TableHead>Situação</TableHead>
               <TableHead>Ciência</TableHead>
-              <TableHead className="text-right">Ação</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtradas.map((multa) => (
-              <TableRow key={multa.id}>
-                <TableCell className="font-mono text-xs">{multa.numeroAuto}</TableCell>
-                <TableCell>{multa.orgao}</TableCell>
-                <TableCell>{formatDate(multa.data)}</TableCell>
-                <TableCell className="max-w-56 truncate">{multa.descricao}</TableCell>
-                <TableCell>{formatCurrency(multa.valor)}</TableCell>
-                <TableCell>{multa.pontos}</TableCell>
-                <TableCell>{formatDate(multa.vencimento)}</TableCell>
-                <TableCell>
-                  <StatusPill status={multa.situacao} />
-                </TableCell>
-                <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
-                  {multa.cienciaEm ? formatDateTime(multa.cienciaEm) : "—"}
-                </TableCell>
-                <TableCell className="text-right">
-                  {multa.situacao !== "paga" && (
-                    <Button size="sm" onClick={() => handlePagar(multa)}>
-                      Pagar
-                    </Button>
-                  )}
-                </TableCell>
-              </TableRow>
-            ))}
+            {filtradas.map((multa) => {
+              const valorAtual = calcularValorAtualizadoMulta(multa);
+              return (
+                <TableRow key={multa.id}>
+                  <TableCell className="font-mono text-xs">{multa.numeroAuto}</TableCell>
+                  <TableCell>{multa.orgao}</TableCell>
+                  <TableCell>{formatDate(multa.data)}</TableCell>
+                  <TableCell className="max-w-56 truncate">{multa.descricao}</TableCell>
+                  <TableCell>
+                    {valorAtual < multa.valor ? (
+                      <div className="flex flex-col">
+                        <span className="text-xs text-muted-foreground line-through">
+                          {formatCurrency(multa.valor)}
+                        </span>
+                        <span className="font-medium text-gold">{formatCurrency(valorAtual)}</span>
+                      </div>
+                    ) : (
+                      formatCurrency(multa.valor)
+                    )}
+                  </TableCell>
+                  <TableCell>{multa.pontos}</TableCell>
+                  <TableCell>{formatDate(multa.vencimento)}</TableCell>
+                  <TableCell>
+                    <StatusPill status={multa.situacao} />
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                    {multa.cienciaEm ? formatDateTime(multa.cienciaEm) : "—"}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       )}

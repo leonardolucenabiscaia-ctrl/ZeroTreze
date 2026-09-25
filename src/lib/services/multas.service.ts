@@ -20,8 +20,42 @@ export async function confirmarCienciaMulta(multaId: string): Promise<Multa> {
   return apiFetch<Multa>(`/api/multas/${multaId}/confirmar-ciencia`, { method: "POST" });
 }
 
-export async function pagarMulta(multaId: string): Promise<Multa> {
-  return apiFetch<Multa>(`/api/multas/${multaId}/pagar`, { method: "POST" });
+export interface DescontoMultaInput {
+  percentual?: number;
+  valorFixo?: number;
+  motivo?: string;
+}
+
+/** Aplica (ou remove, se ambas as formas vierem vazias) um desconto administrativo sobre uma
+ * multa ainda não paga. */
+export async function aplicarDescontoMulta(
+  multaId: string,
+  desconto: DescontoMultaInput,
+  usuarioNome: string
+): Promise<Multa> {
+  return apiFetch<Multa>(`/api/multas/${multaId}/desconto`, {
+    method: "POST",
+    body: JSON.stringify({ desconto, usuarioNome }),
+  });
+}
+
+export interface BaixaManualMultaInput {
+  valor: number;
+  formaPagamento: "pix" | "boleto" | "dinheiro" | "outro";
+  motivo: string;
+}
+
+/** Administrador registra que recebeu o pagamento da multa fora do fluxo digital e dá baixa
+ * direto nela. */
+export async function darBaixaManualMulta(
+  multaId: string,
+  dados: BaixaManualMultaInput,
+  usuarioNome: string
+): Promise<Multa> {
+  return apiFetch<Multa>(`/api/multas/${multaId}/baixa-manual`, {
+    method: "POST",
+    body: JSON.stringify({ dados, usuarioNome }),
+  });
 }
 
 export interface NovaMultaInput {

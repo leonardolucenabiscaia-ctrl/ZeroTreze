@@ -3,13 +3,15 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { formatCurrency, formatDateTime } from "@/lib/utils/formatters";
 import { criarNotificacao, enviarWhatsAppNotificacao } from "./notificacoes.service";
 import { mapMulta } from "./mappers";
+import { paginarTodasAsLinhas } from "./pagination";
 import type { Multa } from "@/lib/types";
 
 export async function listarMultas(): Promise<Multa[]> {
   const supabase = createAdminClient();
-  const { data, error } = await supabase.from("multas").select("*").order("data", { ascending: false });
-  if (error) throw new Error(error.message);
-  return (data ?? []).map(mapMulta);
+  const linhas = await paginarTodasAsLinhas((inicio, fim) =>
+    supabase.from("multas").select("*").order("data", { ascending: false }).range(inicio, fim)
+  );
+  return linhas.map(mapMulta);
 }
 
 export async function listarMultasPorContrato(contratoId: string): Promise<Multa[]> {
@@ -81,16 +83,152 @@ export async function confirmarCienciaMulta(multaId: string): Promise<Multa> {
   return mapMulta(multaAtualizada);
 }
 
-export async function pagarMulta(multaId: string): Promise<Multa> {
+/** Só faz sentido aplicar desconto ou dar baixa manual sobre multas ainda não pagas. */
+function podeReceberAcaoAdministrativa(multa: { situacao: string }): boolean {
+  return multa.situacao !== "paga";
+}
+
+export interface DescontoMultaInput {
+  percentual?: number;
+  valorFixo?: number;
+  motivo?: string;
+}
+
+/** Aplica (ou remove, se ambas as formas vierem vazias) um desconto administrativo sobre uma
+ * multa ainda não paga — mesmo esquema já usado nas parcelas de acordo. */
+export async function aplicarDescontoMulta(
+  multaId: string,
+  desconto: DescontoMultaInput,
+  usuarioNome: string
+): Promise<Multa> {
   const supabase = createAdminClient();
-  const { data, error } = await supabase
+  const { data: multa } = await supabase.from("multas").select("*").eq("id", multaId).maybeSingle();
+  if (!multa) throw new Error("Multa não encontrada");
+  if (!podeReceberAcaoAdministrativa(multa)) throw new Error("Esta multa já está paga.");
+  if (desconto.percentual !== undefined && (desconto.percentual < 0 || desconto.percentual > 100)) {
+    throw new Error("O percentual de desconto deve estar entre 0 e 100.");
+  }
+  if (desconto.valorFixo !== undefined && desconto.valorFixo < 0) {
+    throw new Error("O valor de desconto não pode ser negativo.");
+  }
+
+  const semDesconto = !desconto.percentual && !desconto.valorFixo;
+  if (!semDesconto && !desconto.motivo?.trim()) {
+    throw new Error("Explique o motivo do desconto — o cliente também vai ver essa explicação.");
+  }
+
+  const patch = semDesconto
+    ? {
+        desconto_percentual: null,
+        desconto_valor_fixo: null,
+        desconto_aplicado_por_nome: null,
+        desconto_aplicado_em: null,
+        desconto_motivo: null,
+      }
+    : {
+        desconto_percentual: desconto.percentual || null,
+        desconto_valor_fixo: desconto.valorFixo || null,
+        desconto_aplicado_por_nome: usuarioNome,
+        desconto_aplicado_em: new Date().toISOString(),
+        desconto_motivo: desconto.motivo!.trim(),
+      };
+
+  const { data: atualizada, error } = await supabase
     .from("multas")
-    .update({ situacao: "paga" })
+    .update(patch)
     .eq("id", multaId)
     .select()
     .single();
-  if (error || !data) throw new Error(error?.message ?? "Multa não encontrada");
-  return mapMulta(data);
+  if (error || !atualizada) throw new Error(error?.message ?? "Não foi possível aplicar o desconto.");
+
+  if (!semDesconto) {
+    const { data: contrato } = await supabase
+      .from("contratos")
+      .select("cliente_id")
+      .eq("id", multa.contrato_id as string)
+      .maybeSingle();
+    const cliente = contrato
+      ? (await supabase.from("clientes").select("usuario_id").eq("id", contrato.cliente_id).maybeSingle()).data
+      : null;
+    if (cliente) {
+      await criarNotificacao({
+        id: crypto.randomUUID(),
+        usuarioId: cliente.usuario_id,
+        tipo: "desconto_parcela_aplicado",
+        titulo: "Desconto aplicado",
+        mensagem: `Você recebeu um desconto na multa ${atualizada.numero_auto} (${atualizada.descricao}).`,
+        lida: false,
+        criadoEm: new Date().toISOString(),
+        link: "/multas",
+      });
+    }
+  }
+
+  return mapMulta(atualizada);
+}
+
+export interface BaixaManualMultaInput {
+  valor: number;
+  formaPagamento: "pix" | "boleto" | "dinheiro" | "outro";
+  motivo: string;
+}
+
+/** Administrador registra que recebeu o pagamento da multa fora do fluxo digital (dinheiro, ou
+ * outro meio sem comprovante) e dá baixa direto nela. */
+export async function darBaixaManualMulta(
+  multaId: string,
+  dados: BaixaManualMultaInput,
+  usuarioNome: string
+): Promise<Multa> {
+  const supabase = createAdminClient();
+  const { data: multa } = await supabase.from("multas").select("*").eq("id", multaId).maybeSingle();
+  if (!multa) throw new Error("Multa não encontrada");
+  if (!podeReceberAcaoAdministrativa(multa)) throw new Error("Esta multa já está paga.");
+  if (!(dados.valor > 0)) throw new Error("O valor recebido deve ser maior que zero.");
+  if (!dados.motivo.trim()) throw new Error("Explique como esse pagamento foi recebido.");
+
+  const agora = new Date().toISOString();
+  // O filtro extra `.eq("situacao", multa.situacao)` faz a baixa só valer se a situação ainda for
+  // exatamente a que acabamos de ler — evita que um duplo clique dê baixa duas vezes na mesma multa.
+  const { data: atualizada, error } = await supabase
+    .from("multas")
+    .update({
+      situacao: "paga",
+      forma_pagamento: dados.formaPagamento,
+      baixa_manual_valor: dados.valor,
+      baixa_manual_por_nome: usuarioNome,
+      baixa_manual_em: agora,
+      baixa_manual_motivo: dados.motivo.trim(),
+    })
+    .eq("id", multaId)
+    .eq("situacao", multa.situacao)
+    .select()
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!atualizada) throw new Error("Esta multa já foi paga por outra ação — recarregue a página.");
+
+  const { data: contrato } = await supabase
+    .from("contratos")
+    .select("cliente_id")
+    .eq("id", multa.contrato_id as string)
+    .maybeSingle();
+  const cliente = contrato
+    ? (await supabase.from("clientes").select("usuario_id").eq("id", contrato.cliente_id).maybeSingle()).data
+    : null;
+  if (cliente) {
+    await criarNotificacao({
+      id: crypto.randomUUID(),
+      usuarioId: cliente.usuario_id,
+      tipo: "pagamento_confirmado",
+      titulo: "Multa paga",
+      mensagem: `A multa ${atualizada.numero_auto} (${atualizada.descricao}) foi registrada como paga.`,
+      lida: false,
+      criadoEm: agora,
+      link: "/multas",
+    });
+  }
+
+  return mapMulta(atualizada);
 }
 
 export interface NovaMultaInput {

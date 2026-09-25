@@ -251,6 +251,25 @@ export function mapMulta(row: Record<string, unknown>): Multa {
     dataRegistro: row.data_registro as string,
     anexoUrl: (row.anexo_url as string | null) ?? undefined,
     cienciaEm: (row.ciencia_em as string | null) ?? undefined,
+    formaPagamento: (row.forma_pagamento as Multa["formaPagamento"] | null) ?? undefined,
+    desconto:
+      row.desconto_percentual || row.desconto_valor_fixo
+        ? {
+            percentual: (row.desconto_percentual as number | null) ?? undefined,
+            valorFixo: (row.desconto_valor_fixo as number | null) ?? undefined,
+            aplicadoPorNome: row.desconto_aplicado_por_nome as string,
+            aplicadoEm: row.desconto_aplicado_em as string,
+            motivo: (row.desconto_motivo as string | null) ?? undefined,
+          }
+        : undefined,
+    baixaManual: row.baixa_manual_em
+      ? {
+          valor: row.baixa_manual_valor as number,
+          aplicadoPorNome: row.baixa_manual_por_nome as string,
+          aplicadoEm: row.baixa_manual_em as string,
+          motivo: row.baixa_manual_motivo as string,
+        }
+      : undefined,
   };
 }
 

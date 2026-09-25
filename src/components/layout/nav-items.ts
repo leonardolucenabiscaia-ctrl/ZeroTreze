@@ -90,6 +90,12 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     icon: Handshake,
     recurso: "financeiro",
   },
+  {
+    href: "/admin/financeiro-multas",
+    label: "Financeiro Multas",
+    icon: AlertTriangle,
+    recurso: "financeiro",
+  },
   { href: "/admin/acordos", label: "Acordos", icon: Handshake, recurso: "acordos" },
   { href: "/admin/notificacoes", label: "Notificações", icon: Bell, recurso: "notificacoes" },
   { href: "/admin/chamados", label: "Chamados", icon: Headset, recurso: "chamados" },

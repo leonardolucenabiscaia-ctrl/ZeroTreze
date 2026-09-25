@@ -1,5 +1,22 @@
 export type StatusMulta = "pendente" | "paga" | "vencida" | "recorrida";
 
+/** Mesmo esquema de desconto administrativo já usado nas parcelas de acordo — a multa é um valor
+ * fixo, sem juros/correção acumulando. */
+export interface DescontoMulta {
+  percentual?: number;
+  valorFixo?: number;
+  aplicadoPorNome: string;
+  aplicadoEm: string;
+  motivo?: string;
+}
+
+export interface BaixaManualMulta {
+  valor: number;
+  aplicadoPorNome: string;
+  aplicadoEm: string;
+  motivo: string;
+}
+
 export interface Multa {
   id: string;
   contratoId: string;
@@ -21,4 +38,7 @@ export interface Multa {
    * do cliente fica bloqueado (só a tela de ciência da multa é acessível) — ver `MultaCienciaGate`.
    */
   cienciaEm?: string;
+  formaPagamento?: "pix" | "boleto" | "dinheiro" | "outro";
+  desconto?: DescontoMulta;
+  baixaManual?: BaixaManualMulta;
 }
