@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { formatCurrency } from "@/lib/utils/formatters";
 import { criarNotificacao, enviarWhatsAppNotificacao } from "./notificacoes.service";
 import { mapAcordo } from "./mappers";
+import { paginarTodasAsLinhas } from "./pagination";
 import type { Acordo } from "@/lib/types";
 
 /** Nenhuma parcela de acordo pode continuar "em_aberto" depois que o vencimento já passou — como
@@ -30,8 +31,10 @@ async function anexarCronograma(
 ): Promise<Acordo[]> {
   if (acordos.length === 0) return [];
   const ids = acordos.map((a) => a.id as string);
-  const { data: parcelas } = await supabase.from("parcelas_acordo").select("*").in("acordo_id", ids);
-  return acordos.map((a) => mapAcordo(a, (parcelas ?? []).filter((p) => p.acordo_id === a.id)));
+  const parcelas = await paginarTodasAsLinhas((inicio, fim) =>
+    supabase.from("parcelas_acordo").select("*").in("acordo_id", ids).range(inicio, fim)
+  );
+  return acordos.map((a) => mapAcordo(a, parcelas.filter((p) => p.acordo_id === a.id)));
 }
 
 export async function listarAcordos(): Promise<Acordo[]> {
