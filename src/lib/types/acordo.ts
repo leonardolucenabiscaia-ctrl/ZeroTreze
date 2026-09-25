@@ -1,4 +1,5 @@
 import type { BaixaManualParcela, StatusPagamentoParcial } from "./parcela";
+import type { AssinaturaContrato } from "./contrato";
 
 export type StatusAcordo = "ativo" | "quitado" | "rompido";
 export type PeriodicidadeAcordo = "semanal" | "mensal";
@@ -60,4 +61,8 @@ export interface Acordo {
   cronograma: ParcelaAcordo[];
   descricao?: string;
   criadoEm: string;
+  /** Ausente se o envio para assinatura ainda não foi feito ou falhou (não bloqueia o acordo). */
+  assinatura?: AssinaturaContrato;
+  /** URL do PDF assinado — só existe depois que a ClickSign confirma que todo mundo assinou. */
+  arquivoUrl?: string;
 }

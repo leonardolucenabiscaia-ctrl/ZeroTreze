@@ -2,14 +2,16 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Handshake, Pencil, Plus, Printer } from "lucide-react";
+import { FileCheck2, FileDown, Handshake, Pencil, Plus, Printer } from "lucide-react";
 import { toast } from "sonner";
 
 import { atualizarAcordo, listarAcordos } from "@/lib/services/acordos.service";
 import { listarClientes } from "@/lib/services/clientes.service";
 import { registrarAcao } from "@/lib/services/auditoria.service";
 import { useAuth } from "@/lib/auth/auth-context";
-import { formatCurrency } from "@/lib/utils/formatters";
+import { formatCurrency, formatDateTime } from "@/lib/utils/formatters";
+import { assinaturaConcluida } from "@/lib/utils/assinatura";
+import { Badge } from "@/components/ui/badge";
 import type { Acordo, Cliente, StatusAcordo } from "@/lib/types";
 
 import {
@@ -115,6 +117,7 @@ export default function AdminAcordosPage() {
               <TableHead>Entrada</TableHead>
               <TableHead>Parcelas</TableHead>
               <TableHead>Situação</TableHead>
+              <TableHead>Assinatura</TableHead>
               <TableHead className="text-right">Ação</TableHead>
             </TableRow>
           </TableHeader>
@@ -129,12 +132,39 @@ export default function AdminAcordosPage() {
                 <TableCell>
                   <StatusPill status={acordo.situacao} />
                 </TableCell>
+                <TableCell>
+                  {acordo.assinatura ? (
+                    assinaturaConcluida(acordo.assinatura.status) ? (
+                      <div className="flex items-center gap-1.5">
+                        <Badge variant="success">
+                          <FileCheck2 className="size-3" />
+                          Assinado
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">
+                          {formatDateTime(acordo.assinatura.atualizadoEm ?? acordo.assinatura.enviadoEm)}
+                        </span>
+                      </div>
+                    ) : (
+                      <Badge variant="warning">{acordo.assinatura.status}</Badge>
+                    )
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
+                </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">
                     {usuario?.perfil === "administrador" && (
                       <Button size="sm" variant="outline" onClick={() => abrirEdicaoAcordo(acordo)}>
                         <Pencil className="size-4" />
                         Editar
+                      </Button>
+                    )}
+                    {acordo.assinatura && assinaturaConcluida(acordo.assinatura.status) && acordo.arquivoUrl && (
+                      <Button asChild size="sm" variant="outline">
+                        <a href={acordo.arquivoUrl} target="_blank" rel="noreferrer">
+                          <FileDown className="size-4" />
+                          Assinado
+                        </a>
                       </Button>
                     )}
                     <Button asChild size="sm" variant="outline">

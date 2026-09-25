@@ -337,6 +337,15 @@ export function mapAcordo(
       .map(mapParcelaAcordo),
     descricao: (row.descricao as string | null) ?? undefined,
     criadoEm: row.criado_em as string,
+    assinatura: row.assinatura_document_key
+      ? {
+          status: row.assinatura_status as string,
+          documentKey: row.assinatura_document_key as string,
+          enviadoEm: row.assinatura_enviado_em as string,
+          atualizadoEm: (row.assinatura_atualizado_em as string | null) ?? undefined,
+        }
+      : undefined,
+    arquivoUrl: (row.arquivo_url as string | null) ?? undefined,
   };
 }
 

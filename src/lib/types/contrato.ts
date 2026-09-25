@@ -9,12 +9,14 @@ export interface AditivoContrato {
 }
 
 /** Status da solicitação de assinatura eletrônica na ClickSign — string livre porque reflete
- * exatamente o que a API deles envia (ex.: "draft", "running", "closed", "canceled"). */
+ * exatamente o que a API deles envia (ex.: "draft", "running", "closed", "canceled"). Usado tanto
+ * por contrato quanto por acordo — `requestId`/`signingKey` são campos legados da antiga
+ * integração AssinaDoc, sem equivalente na ClickSign (só existem em contratos antigos). */
 export interface AssinaturaContrato {
   status: string;
-  requestId: number;
+  requestId?: number;
   documentKey: string;
-  signingKey: string;
+  signingKey?: string;
   enviadoEm: string;
   atualizadoEm?: string;
 }

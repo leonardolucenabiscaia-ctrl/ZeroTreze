@@ -8,27 +8,111 @@ const BUCKET_CONTRATOS_ASSINADOS = "contratos-assinados";
 
 /** Baixa o PDF assinado (com as páginas de certificação da ClickSign) e sobe pro Storage,
  * devolvendo a URL pública — melhor esforço: se falhar (ex.: ClickSign ainda processando), o
- * status do contrato já foi atualizado de qualquer forma, só o documento fica pendente. */
+ * status já foi atualizado de qualquer forma, só o documento fica pendente. Contrato e acordo
+ * dividem o mesmo bucket, diferenciados só pelo prefixo do nome do arquivo. */
 async function guardarDocumentoAssinado(
   supabase: ReturnType<typeof createAdminClient>,
-  contratoId: string,
+  nomeArquivo: string,
   envelopeId: string,
   documentId: string
 ): Promise<string | null> {
   try {
     const pdfBuffer = await baixarDocumentoAssinado(envelopeId, documentId);
-    const caminho = `${contratoId}.pdf`;
     const { error: uploadError } = await supabase.storage
       .from(BUCKET_CONTRATOS_ASSINADOS)
-      .upload(caminho, pdfBuffer, { contentType: "application/pdf", upsert: true });
+      .upload(nomeArquivo, pdfBuffer, { contentType: "application/pdf", upsert: true });
     if (uploadError) throw new Error(uploadError.message);
 
-    const { data } = supabase.storage.from(BUCKET_CONTRATOS_ASSINADOS).getPublicUrl(caminho);
+    const { data } = supabase.storage.from(BUCKET_CONTRATOS_ASSINADOS).getPublicUrl(nomeArquivo);
     return `${data.publicUrl}?v=${Date.now()}`;
   } catch (error) {
     console.error("[clicksign:webhook] Falha ao guardar o documento assinado:", error);
     return null;
   }
+}
+
+interface RegistroAssinatura {
+  id: string;
+  numero: string;
+  assinaturaStatus: string | null;
+  assinaturaEnvelopeId: string | null;
+}
+
+/** Contrato e acordo passam pelo mesmíssimo fluxo de assinatura — essa função cuida de um dos
+ * dois (`tabela`), aplicando a atualização de status, guardando o PDF assinado quando fechar, e
+ * notificando o cliente. Devolve `null` se esse documentId não pertence a essa tabela (aí quem
+ * chamou tenta a outra). */
+async function processarWebhookPara(
+  supabase: ReturnType<typeof createAdminClient>,
+  tabela: "contratos" | "acordos",
+  documentId: string,
+  eventName: string
+): Promise<boolean> {
+  const { data: linha } = await supabase
+    .from(tabela)
+    .select("id, numero, cliente_id, assinatura_status, assinatura_envelope_id")
+    .eq("assinatura_document_key", documentId)
+    .maybeSingle();
+
+  if (!linha) return false;
+
+  const registro: RegistroAssinatura = {
+    id: linha.id as string,
+    numero: linha.numero as string,
+    assinaturaStatus: (linha.assinatura_status as string | null) ?? null,
+    assinaturaEnvelopeId: (linha.assinatura_envelope_id as string | null) ?? null,
+  };
+
+  const patch: Record<string, unknown> = {
+    assinatura_status: eventName,
+    assinatura_atualizado_em: new Date().toISOString(),
+  };
+
+  // "document_closed" = todo mundo já assinou — só a partir daí a ClickSign disponibiliza o PDF
+  // com as páginas de certificação da assinatura.
+  if (eventName === "document_closed" && registro.assinaturaEnvelopeId) {
+    const prefixo = tabela === "contratos" ? "" : "acordo-";
+    const urlAssinado = await guardarDocumentoAssinado(
+      supabase,
+      `${prefixo}${registro.id}.pdf`,
+      registro.assinaturaEnvelopeId,
+      documentId
+    );
+    if (urlAssinado) patch.arquivo_url = urlAssinado;
+  }
+
+  await supabase.from(tabela).update(patch).eq("id", registro.id);
+
+  if (eventName !== registro.assinaturaStatus) {
+    const clienteId = linha.cliente_id as string;
+    const { data: cliente } = await supabase
+      .from("clientes")
+      .select("usuario_id")
+      .eq("id", clienteId)
+      .maybeSingle();
+
+    if (cliente) {
+      const statusEhFinal = /closed|signed|assin/i.test(eventName);
+      const rotulo = tabela === "contratos" ? "contrato" : "acordo";
+      const link = tabela === "contratos" ? "/contratos" : "/acordos";
+      await criarNotificacao({
+        id: crypto.randomUUID(),
+        usuarioId: cliente.usuario_id,
+        tipo: "documento_disponivel",
+        titulo: statusEhFinal
+          ? `${rotulo === "contrato" ? "Contrato" : "Acordo"} assinado com sucesso`
+          : `Atualização na assinatura do ${rotulo}`,
+        mensagem: statusEhFinal
+          ? `O ${rotulo} ${registro.numero} foi assinado eletronicamente.`
+          : `O status da assinatura do ${rotulo} ${registro.numero} mudou para "${eventName}".`,
+        lida: false,
+        criadoEm: new Date().toISOString(),
+        link,
+      });
+    }
+  }
+
+  return true;
 }
 
 /**
@@ -48,6 +132,9 @@ async function guardarDocumentoAssinado(
  * documentação oficial em 2026-08-25 depois de descobrir que os webhooks reais da ClickSign
  * estavam sendo rejeitados com 401 por esse app, já que o header antigo nunca é enviado de
  * verdade), no formato `sha256=<hex>`.
+ *
+ * Um documentId pode pertencer a um contrato OU a um acordo (a ClickSign não diferencia) — tenta
+ * `contratos` primeiro e, se não achar, tenta `acordos`.
  */
 function assinaturaValida(corpoBruto: string, assinaturaRecebida: string | null): boolean {
   const segredo = process.env.CLICKSIGN_WEBHOOK_SECRET;
@@ -84,56 +171,12 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = createAdminClient();
-  const { data: contrato } = await supabase
-    .from("contratos")
-    .select("id, numero, cliente_id, assinatura_status, assinatura_envelope_id")
-    .eq("assinatura_document_key", documentId)
-    .maybeSingle();
 
-  if (!contrato) {
-    return NextResponse.json({ recebido: true, ignorado: "documentId não corresponde a nenhum contrato" });
-  }
-
-  const patch: Record<string, unknown> = {
-    assinatura_status: eventName,
-    assinatura_atualizado_em: new Date().toISOString(),
-  };
-
-  // "document_closed" = todo mundo já assinou — só a partir daí a ClickSign disponibiliza o PDF
-  // com as páginas de certificação da assinatura.
-  if (eventName === "document_closed" && contrato.assinatura_envelope_id) {
-    const urlAssinado = await guardarDocumentoAssinado(
-      supabase,
-      contrato.id,
-      contrato.assinatura_envelope_id,
-      documentId
-    );
-    if (urlAssinado) patch.arquivo_url = urlAssinado;
-  }
-
-  await supabase.from("contratos").update(patch).eq("id", contrato.id);
-
-  if (eventName !== contrato.assinatura_status) {
-    const { data: cliente } = await supabase
-      .from("clientes")
-      .select("usuario_id")
-      .eq("id", contrato.cliente_id)
-      .maybeSingle();
-
-    if (cliente) {
-      const statusEhFinal = /closed|signed|assin/i.test(eventName);
-      await criarNotificacao({
-        id: crypto.randomUUID(),
-        usuarioId: cliente.usuario_id,
-        tipo: "documento_disponivel",
-        titulo: statusEhFinal ? "Contrato assinado com sucesso" : "Atualização na assinatura do contrato",
-        mensagem: statusEhFinal
-          ? `O contrato ${contrato.numero} foi assinado eletronicamente.`
-          : `O status da assinatura do contrato ${contrato.numero} mudou para "${eventName}".`,
-        lida: false,
-        criadoEm: new Date().toISOString(),
-        link: "/contratos",
-      });
+  const achouEmContratos = await processarWebhookPara(supabase, "contratos", documentId, eventName);
+  if (!achouEmContratos) {
+    const achouEmAcordos = await processarWebhookPara(supabase, "acordos", documentId, eventName);
+    if (!achouEmAcordos) {
+      return NextResponse.json({ recebido: true, ignorado: "documentId não corresponde a nenhum contrato/acordo" });
     }
   }
 

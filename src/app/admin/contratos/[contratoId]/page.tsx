@@ -18,6 +18,7 @@ import {
 } from "@/lib/services/financeiro.service";
 import { registrarAcao } from "@/lib/services/auditoria.service";
 import { formatDateTime } from "@/lib/utils/formatters";
+import { assinaturaConcluida } from "@/lib/utils/assinatura";
 import type { Cliente, Contrato, ParametrosFinanceiros, Parcela, Veiculo } from "@/lib/types";
 
 import { VehicleCard } from "@/components/shared/vehicle-card";
@@ -33,13 +34,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-
-/** O status da ClickSign é uma string livre (reflete o que a API deles manda ou o nome do evento
- * de webhook) — o envelope fica "closed" quando todo mundo assina; "document_closed" é o nome do
- * evento de webhook equivalente. */
-function assinaturaConcluida(status: string): boolean {
-  return /closed|completed|signed|assin/i.test(status);
-}
 import {
   Dialog,
   DialogContent,

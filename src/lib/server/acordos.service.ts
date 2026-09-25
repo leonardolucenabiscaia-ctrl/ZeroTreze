@@ -3,8 +3,10 @@ import { addMonths, addWeeks } from "date-fns";
 import { createAdminClient } from "@/lib/supabase/server";
 import { formatCurrency } from "@/lib/utils/formatters";
 import { criarNotificacao, enviarWhatsAppNotificacao } from "./notificacoes.service";
-import { mapAcordo } from "./mappers";
+import { mapAcordo, mapCliente, mapContrato, mapVeiculo } from "./mappers";
 import { paginarTodasAsLinhas } from "./pagination";
+import { gerarPdfAcordo } from "./pdf/acordo-pdf";
+import { enviarDocumentoParaAssinatura } from "./clicksign.service";
 import type { Acordo } from "@/lib/types";
 
 /** Nenhuma parcela de acordo pode continuar "em_aberto" depois que o vencimento já passou — como
@@ -185,6 +187,88 @@ export async function criarAcordo(dados: NovoAcordoInput): Promise<Acordo> {
     formatCurrency(valorTotal),
   ]);
 
-  const [acordo] = await anexarCronograma(supabase, [acordoRow]);
+  const acordoAtualizado = await enviarAcordoParaAssinaturaSeConfigurado(supabase, acordoRow);
+
+  const [acordo] = await anexarCronograma(supabase, [acordoAtualizado]);
   return acordo;
+}
+
+/**
+ * Gera o PDF do acordo e envia pra assinatura eletrônica na ClickSign, assim que o acordo é
+ * criado — mesmo fluxo já usado pra contrato (ver `enviarContratoParaAssinaturaSeConfigurado` em
+ * `contratos.service.ts`). É best-effort: se a ClickSign estiver fora do ar, sem credenciais
+ * configuradas, ou o cliente não tiver e-mail, o acordo continua criado normalmente — só não fica
+ * com `assinatura` preenchida, e o erro fica registrado no log do servidor.
+ */
+async function enviarAcordoParaAssinaturaSeConfigurado(
+  supabase: ReturnType<typeof createAdminClient>,
+  acordoRow: Record<string, unknown>
+): Promise<Record<string, unknown>> {
+  try {
+    const { data: clienteRow } = await supabase
+      .from("clientes")
+      .select("*")
+      .eq("id", acordoRow.cliente_id)
+      .single();
+    if (!clienteRow) throw new Error("Cliente não encontrado.");
+
+    const { data: contratoRow } = await supabase
+      .from("contratos")
+      .select("*")
+      .eq("id", acordoRow.contrato_id)
+      .single();
+    if (!contratoRow) throw new Error("Contrato não encontrado.");
+
+    const { data: veiculoRow } = await supabase
+      .from("veiculos")
+      .select("*")
+      .eq("id", contratoRow.veiculo_id)
+      .single();
+    if (!veiculoRow) throw new Error("Veículo não encontrado.");
+
+    const { data: usuarioRow } = await supabase
+      .from("usuarios")
+      .select("email")
+      .eq("id", clienteRow.usuario_id)
+      .single();
+    if (!usuarioRow?.email || usuarioRow.email.endsWith("@zerotrezetransportes.pendente")) {
+      throw new Error("Cliente sem e-mail cadastrado — complete o cadastro antes de enviar pra assinatura.");
+    }
+
+    const [acordoSemCronograma] = await anexarCronograma(supabase, [acordoRow]);
+    const cliente = mapCliente(clienteRow);
+    const contrato = mapContrato(contratoRow, []);
+    const veiculo = mapVeiculo(veiculoRow, []);
+
+    const pdfBuffer = await gerarPdfAcordo({ acordo: acordoSemCronograma, contrato, cliente, veiculo });
+    const resultado = await enviarDocumentoParaAssinatura({
+      nomeArquivo: `Acordo ${acordoSemCronograma.numero} - ${cliente.nome}`,
+      pdfBuffer,
+      emailSignatario: usuarioRow.email,
+      nomeSignatario: cliente.nome,
+      mensagem: `Olá, ${cliente.nome}! Segue o acordo ${acordoSemCronograma.numero} da Zero Treze Transportes para assinatura eletrônica.`,
+    });
+
+    const agora = new Date().toISOString();
+    const { data: atualizado } = await supabase
+      .from("acordos")
+      .update({
+        assinatura_document_key: resultado.documentId,
+        assinatura_envelope_id: resultado.envelopeId,
+        assinatura_status: resultado.status,
+        assinatura_enviado_em: agora,
+        assinatura_atualizado_em: agora,
+      })
+      .eq("id", acordoRow.id)
+      .select()
+      .single();
+
+    return atualizado ?? acordoRow;
+  } catch (error) {
+    console.error(
+      `[clicksign] Falha ao enviar acordo ${acordoRow.id} para assinatura:`,
+      error instanceof Error ? error.message : error
+    );
+    return acordoRow;
+  }
 }
