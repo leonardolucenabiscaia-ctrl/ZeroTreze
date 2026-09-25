@@ -3,9 +3,10 @@ import { addWeeks } from "date-fns";
 import { createAdminClient } from "@/lib/supabase/server";
 import { calcularValorAtualizado } from "@/lib/calculations/juros-multa-correcao";
 import { competenciaDaSemana } from "@/lib/mock-data/generators/financeiro";
-import { parseData } from "@/lib/utils/formatters";
+import { dataDeHojeBrasil } from "@/lib/utils/formatters";
 import { mapDocumento, mapMovimentoExtrato, mapParametrosFinanceiros, mapParcela } from "./mappers";
 import { criarNotificacao } from "./notificacoes.service";
+import { paginarTodasAsLinhas } from "./pagination";
 import type { Documento, MovimentoExtrato, ParametrosFinanceiros, Parcela } from "@/lib/types";
 
 type SupabaseAdmin = ReturnType<typeof createAdminClient>;
@@ -54,6 +55,11 @@ async function liberarProximaParcelaSeNecessario(supabase: SupabaseAdmin, contra
   const ultimaParcela = parcelasContrato.reduce((atual, p) => (p.numero > atual.numero ? p : atual));
   const proximoVencimento = addWeeks(new Date(ultimaParcela.data_vencimento as string), 1);
 
+  // O índice único `parcelas_contrato_numero_unico` (ver migração 0021) é quem de fato impede
+  // duas chamadas concorrentes de liberarem a mesma parcela duas vezes — a checagem acima (linha
+  // 53) sozinha não garante isso, já que duas requisições podiam ler "nenhuma em_aberto" antes de
+  // qualquer uma inserir. Se isso acontecer, a segunda chamada recebe erro de violação aqui e
+  // devolve `false` normalmente — sem duplicar nada.
   const { error } = await supabase.from("parcelas").insert({
     id: crypto.randomUUID(),
     contrato_id: contratoId,
@@ -68,9 +74,14 @@ async function liberarProximaParcelaSeNecessario(supabase: SupabaseAdmin, contra
 
 /** Nenhuma parcela pode continuar "em_aberto" depois que o prazo (segunda 23h59) já passou —
  * como não há um job de servidor rodando o tempo todo, isso é corrigido aqui, sempre que as
- * parcelas de um contrato são consultadas. */
+ * parcelas de um contrato são consultadas.
+ *
+ * Compara `data_vencimento` (coluna `date`) contra a data de HOJE em Brasília, também como data
+ * pura (sem hora) — a parcela só vira "vencido" quando o vencimento já ficou pra trás (estritamente
+ * antes de hoje), nunca no próprio dia em que vence (mesmo padrão já usado em
+ * `acordos.service.ts`). */
 async function sincronizarParcelasVencidasDoContrato(supabase: SupabaseAdmin, contratoId: string) {
-  const agora = Date.now();
+  const hojeBrasil = dataDeHojeBrasil();
   for (let i = 0; i < 500; i++) {
     const { data: emAberto } = await supabase
       .from("parcelas")
@@ -80,7 +91,7 @@ async function sincronizarParcelasVencidasDoContrato(supabase: SupabaseAdmin, co
       .maybeSingle();
 
     if (emAberto) {
-      if (parseData(emAberto.data_vencimento as string).getTime() >= agora) break;
+      if ((emAberto.data_vencimento as string) >= hojeBrasil) break;
       await supabase.from("parcelas").update({ status: "vencido" }).eq("id", emAberto.id as string);
     }
 
@@ -98,30 +109,6 @@ export async function listarParcelasPorContrato(contratoId: string): Promise<Par
     .order("numero");
   if (error) throw new Error(error.message);
   return (data ?? []).map(mapParcela);
-}
-
-const TAMANHO_PAGINA = 1000;
-
-/** O PostgREST corta cada requisição em 1000 linhas por padrão — qualquer consulta que possa
- * devolver mais que isso (parcelas, com o histórico dos contratos, já passa fácil disso) precisa
- * paginar com `.range()` ou trunca em silêncio. Esse helper faz isso genericamente: recebe uma
- * função que monta a query dado um intervalo, e repete até a última página vir incompleta. */
-async function paginarTodasAsLinhas<T>(
-  montarQuery: (inicio: number, fim: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>
-): Promise<T[]> {
-  const todas: T[] = [];
-  let pagina = 0;
-
-  while (true) {
-    const inicio = pagina * TAMANHO_PAGINA;
-    const { data, error } = await montarQuery(inicio, inicio + TAMANHO_PAGINA - 1);
-    if (error) throw new Error(error.message);
-    todas.push(...(data ?? []));
-    if (!data || data.length < TAMANHO_PAGINA) break;
-    pagina++;
-  }
-
-  return todas;
 }
 
 /** Parcelas "vivas" (em_aberto, vencido ou aguardando_confirmacao) de todos os contratos — é o
@@ -329,22 +316,15 @@ export async function darBaixaManual(
   if (error) throw new Error(error.message);
   if (!atualizada) throw new Error("Esta parcela já foi paga por outra ação — recarregue a página.");
 
-  const { data: ultimoMovimento } = await supabase
-    .from("movimentos_extrato")
-    .select("saldo")
-    .eq("contrato_id", parcela.contrato_id as string)
-    .order("data", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  const saldoAtual = (ultimoMovimento?.saldo as number | undefined) ?? 0;
-
-  await supabase.from("movimentos_extrato").insert({
-    contrato_id: parcela.contrato_id,
-    descricao: `Baixa manual (${dados.formaPagamento}) — parcela ${atualizada.numero} — ${dados.motivo.trim()}`,
-    data: agora,
-    tipo: "entrada",
-    valor: dados.valor,
-    saldo: saldoAtual + dados.valor,
+  // Lê o saldo anterior e insere a linha nova numa operação só, atômica (função no banco — ver
+  // migração 0021) — evita que dois lançamentos do mesmo contrato quase ao mesmo tempo leiam o
+  // mesmo saldo anterior e um deles suma do saldo acumulado.
+  await supabase.rpc("inserir_movimento_extrato", {
+    p_contrato_id: parcela.contrato_id as string,
+    p_descricao: `Baixa manual (${dados.formaPagamento}) — parcela ${atualizada.numero} — ${dados.motivo.trim()}`,
+    p_data: agora,
+    p_tipo: "entrada",
+    p_valor: dados.valor,
   });
 
   const usuarioId = await usuarioIdDoContrato(supabase, parcela.contrato_id as string);

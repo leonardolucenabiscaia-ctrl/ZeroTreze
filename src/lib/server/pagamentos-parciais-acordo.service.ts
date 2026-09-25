@@ -129,13 +129,17 @@ async function buscarPagamentoPendente(supabase: SupabaseAdmin, pagamentoParcial
 }
 
 /** Administrador confere o recebimento na conta bancária e confirma esse envio específico — o
- * valor passa a contar pra `parcelas_acordo.valor_pago`; se cobrir o valor da parcela, ela vira
- * "pago". Se essa for a última parcela em aberto do acordo, o acordo inteiro vira "quitado".
+ * valor passa a contar pra `parcelas_acordo.valor_pago`; se cobrir o que falta (considerando
+ * qualquer desconto administrativo aplicado), ela vira "pago". Se essa for a última parcela em
+ * aberto do acordo, o acordo inteiro vira "quitado".
  *
  * A transição do pagamento (aguardando_confirmacao -> confirmado) e a soma em
  * `parcelas_acordo.valor_pago` são feitas de forma atômica — de propósito, pra dois cliques em
  * "confirmar" (duplo clique, ou dois administradores no mesmo item da fila) não conseguirem
- * creditar o mesmo pagamento duas vezes nem perder o incremento um do outro. */
+ * creditar o mesmo pagamento duas vezes nem perder o incremento um do outro. Quem decide "ficou
+ * quitada?" é sempre `calcularSaldoAcordo` (a mesma conta usada em todo o resto do sistema, já
+ * considerando o desconto) — nunca uma comparação direta contra o valor da parcela, que ficaria
+ * errada quando há desconto aplicado. */
 export async function confirmarPagamentoParcialAcordo(
   pagamentoParcialAcordoId: string
 ): Promise<PagamentoParcialAcordo> {
@@ -163,16 +167,26 @@ export async function confirmarPagamentoParcialAcordo(
     .maybeSingle();
   if (!parcela) throw new Error("Parcela do acordo não encontrada");
 
-  const { data: incremento, error: erroIncremento } = await supabase
-    .rpc("incrementar_valor_pago_parcela_acordo", {
+  const { data: novoValorPago, error: erroIncremento } = await supabase.rpc(
+    "incrementar_valor_pago_parcela_acordo",
+    {
       p_parcela_acordo_id: parcela.id as string,
       p_incremento: pagamento.valor as number,
-    })
-    .single();
-  if (erroIncremento || !incremento) {
+    }
+  );
+  if (erroIncremento || novoValorPago === null) {
     throw new Error(erroIncremento?.message ?? "Não foi possível atualizar o valor pago da parcela.");
   }
-  const quitada = (incremento as { quitada: boolean }).quitada;
+
+  const parcelaAtualizada = { ...mapParcelaAcordo(parcela), valorPago: novoValorPago as number };
+  const saldo = calcularSaldoAcordo(parcelaAtualizada);
+  const quitada = saldo <= 0.01;
+  if (quitada) {
+    await supabase
+      .from("parcelas_acordo")
+      .update({ status: "pago", data_pagamento: agora })
+      .eq("id", parcela.id as string);
+  }
 
   const { data: acordo } = await supabase
     .from("acordos")
@@ -183,24 +197,17 @@ export async function confirmarPagamentoParcialAcordo(
   if (acordo) {
     if (quitada) await atualizarSituacaoDoAcordoSeQuitado(supabase, acordo.id as string);
 
-    const { data: ultimoMovimento } = await supabase
-      .from("movimentos_extrato")
-      .select("saldo")
-      .eq("contrato_id", acordo.contrato_id as string)
-      .order("data", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    const saldoAtual = (ultimoMovimento?.saldo as number | undefined) ?? 0;
-
-    await supabase.from("movimentos_extrato").insert({
-      contrato_id: acordo.contrato_id,
-      descricao: quitada
+    // Lê o saldo anterior e insere a linha nova numa operação só, atômica (função no banco — ver
+    // migração 0021) — evita que dois pagamentos do mesmo contrato confirmados quase ao mesmo
+    // tempo leiam o mesmo saldo anterior e um dos dois lançamentos suma do saldo acumulado.
+    await supabase.rpc("inserir_movimento_extrato", {
+      p_contrato_id: acordo.contrato_id as string,
+      p_descricao: quitada
         ? `Pagamento parcela ${parcela.numero} do acordo ${acordo.numero} (quitada)`
         : `Pagamento parcial da parcela ${parcela.numero} do acordo ${acordo.numero}`,
-      data: agora,
-      tipo: "entrada",
-      valor: pagamento.valor,
-      saldo: saldoAtual + (pagamento.valor as number),
+      p_data: agora,
+      p_tipo: "entrada",
+      p_valor: pagamento.valor as number,
     });
 
     const usuarioId = await usuarioIdDoCliente(supabase, acordo.cliente_id as string);

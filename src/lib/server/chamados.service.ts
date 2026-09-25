@@ -2,6 +2,7 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/server";
 import { criarNotificacao, enviarWhatsAppNotificacao } from "./notificacoes.service";
 import { mapChamado, mapMensagem } from "./mappers";
+import { paginarTodasAsLinhas } from "./pagination";
 import type { CategoriaChamado, Chamado, Mensagem, PrioridadeChamado } from "@/lib/types";
 
 async function anexarMensagensEAvaliacoes(
@@ -26,9 +27,10 @@ async function anexarMensagensEAvaliacoes(
 
 export async function listarChamados(): Promise<Chamado[]> {
   const supabase = createAdminClient();
-  const { data, error } = await supabase.from("chamados").select("*").order("atualizado_em", { ascending: false });
-  if (error) throw new Error(error.message);
-  return anexarMensagensEAvaliacoes(supabase, data ?? []);
+  const linhas = await paginarTodasAsLinhas((inicio, fim) =>
+    supabase.from("chamados").select("*").order("atualizado_em", { ascending: false }).range(inicio, fim)
+  );
+  return anexarMensagensEAvaliacoes(supabase, linhas);
 }
 
 export async function listarChamadosPorCliente(clienteId: string): Promise<Chamado[]> {

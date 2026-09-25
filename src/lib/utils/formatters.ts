@@ -96,9 +96,16 @@ export function formatPlate(value: string): string {
   return value.toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
 
+/** Diferença em dias de calendário entre duas datas, sempre contada no fuso de Brasília — nunca
+ * no fuso ambiente de onde o código roda. `Date.prototype.setHours` (usado numa versão anterior
+ * desta função) zera a hora no fuso ambiente: no servidor da Vercel (UTC), isso arredondava
+ * "agora" pro dia seguinte durante as últimas ~3h de cada dia em Brasília (quando em UTC já é
+ * amanhã), inflando em 1 os dias de atraso — e por consequência a multa/juros — nesse horário
+ * todo santo dia. Extrai a data-calendário de cada lado via `formatDateInput` (que já usa o fuso
+ * de Brasília de propósito) e diferencia como inteiros puros, sem depender de fuso nenhum. */
 export function daysBetween(a: Date | string, b: Date | string): number {
-  const da = parseData(a);
-  const db = parseData(b);
-  const ms = db.setHours(0, 0, 0, 0) - da.setHours(0, 0, 0, 0);
+  const [anoA, mesA, diaA] = formatDateInput(a).split("-").map(Number);
+  const [anoB, mesB, diaB] = formatDateInput(b).split("-").map(Number);
+  const ms = Date.UTC(anoB, mesB - 1, diaB) - Date.UTC(anoA, mesA - 1, diaA);
   return Math.round(ms / (1000 * 60 * 60 * 24));
 }

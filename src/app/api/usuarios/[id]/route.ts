@@ -26,9 +26,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     const dados = await request.json();
-    // Nível de acesso (perfil) só pode ser alterado por alguém da equipe interna, nunca pelo
-    // próprio usuário editando o seu perfil — senão um cliente vira administrador sozinho.
-    if (!ehStaff) delete dados.perfil;
+    // Nível de acesso (perfil) só pode ser alterado por administrador — nunca pelo próprio
+    // usuário editando o seu perfil (senão um cliente vira administrador sozinho), e nem por
+    // gestor/operador (senão qualquer um deles se autopromove a administrador).
+    if (perfilLogado !== "administrador") delete dados.perfil;
 
     return atualizarUsuario(id, dados);
   });

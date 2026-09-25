@@ -13,6 +13,14 @@ export const PERFIS_STAFF: PerfilUsuario[] = ["operador", "gestor", "administrad
  * normal, só não editam esses dados cadastrais diretamente. */
 export const PERFIS_ADMIN: PerfilUsuario[] = ["administrador"];
 
+/** Sessão de quem está chamando a rota — passada pro callback do `handleRoute` pra quando a
+ * checagem de permissão precisa saber QUEM está pedindo, não só "é da equipe?" (ex.: "esse
+ * contrato pertence a esse cliente?"). */
+export interface SessaoRota {
+  userId: string;
+  perfil: PerfilUsuario | undefined;
+}
+
 /** Roda a lógica de um Route Handler, devolvendo JSON de sucesso ou `{ error }` em caso de
  * exceção — evita repetir o mesmo try/catch em cada uma das rotas de `/api/*`.
  *
@@ -20,9 +28,10 @@ export const PERFIS_ADMIN: PerfilUsuario[] = ["administrador"];
  * protege a navegação por página, mas não intercepta `/api/*` (rotas de API cuidam da própria
  * autenticação, ex.: webhooks externos sem cookie de navegador). Passe `perfis` para restringir
  * a rota a perfis específicos (403 fora da lista) — ex.: recursos administrativos que um cliente
- * autenticado ainda assim não deveria conseguir chamar. */
+ * autenticado ainda assim não deveria conseguir chamar. O callback recebe a sessão de quem está
+ * chamando, pra checagens mais finas (ex.: "só a equipe OU o dono desse recurso"). */
 export async function handleRoute<T>(
-  fn: () => Promise<T>,
+  fn: (sessao: SessaoRota) => Promise<T>,
   successStatus = 200,
   perfis?: PerfilUsuario[]
 ): Promise<NextResponse> {
@@ -35,15 +44,16 @@ export async function handleRoute<T>(
     return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
   }
 
+  const perfil = user.app_metadata?.perfil as PerfilUsuario | undefined;
+
   if (perfis) {
-    const perfil = user.app_metadata?.perfil as PerfilUsuario | undefined;
     if (!perfil || !perfis.includes(perfil)) {
       return NextResponse.json({ error: "Sem permissão para acessar este recurso." }, { status: 403 });
     }
   }
 
   try {
-    const data = await fn();
+    const data = await fn({ userId: user.id, perfil });
     return NextResponse.json(data ?? null, { status: successStatus });
   } catch (error) {
     if (error instanceof RateLimitError) {

@@ -4,7 +4,15 @@ import { handleRoute, PERFIS_ADMIN, PERFIS_STAFF } from "@/lib/server/route-help
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  return handleRoute(() => buscarClientePorId(id));
+  return handleRoute(async ({ userId, perfil }) => {
+    const cliente = await buscarClientePorId(id);
+    if (!cliente) return cliente;
+    // Equipe vê qualquer cliente; o próprio cliente só vê a si mesmo — nada de vazar CPF/RG/
+    // endereço de outro cliente só por saber/adivinhar o ID.
+    if (perfil && PERFIS_STAFF.includes(perfil)) return cliente;
+    if (cliente.usuarioId !== userId) return undefined;
+    return cliente;
+  });
 }
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {

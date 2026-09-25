@@ -64,8 +64,8 @@ function AuditoriaConteudo() {
     if (filtroUsuarioId !== TODOS && log.usuarioId !== filtroUsuarioId) return false;
     if (filtroPerfil !== TODOS && log.perfilAutor !== filtroPerfil) return false;
     const dataLog = new Date(log.criadoEm);
-    if (dataInicio && dataLog < new Date(`${dataInicio}T00:00:00`)) return false;
-    if (dataFim && dataLog > new Date(`${dataFim}T23:59:59`)) return false;
+    if (dataInicio && dataLog < new Date(`${dataInicio}T00:00:00-03:00`)) return false;
+    if (dataFim && dataLog > new Date(`${dataFim}T23:59:59-03:00`)) return false;
     return true;
   });
 

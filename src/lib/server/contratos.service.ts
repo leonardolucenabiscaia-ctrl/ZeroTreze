@@ -6,6 +6,7 @@ import { formatarNumeroContrato } from "@/lib/mock-data/generators/contrato";
 import { gerarPdfContrato } from "./pdf/contrato-pdf";
 import { enviarDocumentoParaAssinatura } from "./clicksign.service";
 import { mapCliente, mapContrato, mapVeiculo } from "./mappers";
+import { paginarTodasAsLinhas } from "./pagination";
 import { parseData } from "@/lib/utils/formatters";
 import type { Contrato } from "@/lib/types";
 
@@ -28,9 +29,10 @@ async function anexarAditivos(
 
 export async function listarContratos(): Promise<Contrato[]> {
   const supabase = createAdminClient();
-  const { data, error } = await supabase.from("contratos").select("*").order("criado_em", { ascending: false });
-  if (error) throw new Error(error.message);
-  return anexarAditivos(supabase, data ?? []);
+  const linhas = await paginarTodasAsLinhas((inicio, fim) =>
+    supabase.from("contratos").select("*").order("criado_em", { ascending: false }).range(inicio, fim)
+  );
+  return anexarAditivos(supabase, linhas);
 }
 
 export async function listarContratosPorCliente(clienteId: string): Promise<Contrato[]> {

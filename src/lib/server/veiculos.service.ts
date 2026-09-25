@@ -3,6 +3,7 @@ import { addMonths, addYears } from "date-fns";
 import { createAdminClient } from "@/lib/supabase/server";
 import { fotoDoVeiculo } from "@/lib/mock-data/generators/veiculo-foto";
 import { mapVeiculo } from "./mappers";
+import { paginarTodasAsLinhas } from "./pagination";
 import type { Veiculo } from "@/lib/types";
 
 async function anexarHistorico(
@@ -22,9 +23,10 @@ async function anexarHistorico(
 
 export async function listarVeiculos(): Promise<Veiculo[]> {
   const supabase = createAdminClient();
-  const { data, error } = await supabase.from("veiculos").select("*").order("modelo");
-  if (error) throw new Error(error.message);
-  return anexarHistorico(supabase, data ?? []);
+  const linhas = await paginarTodasAsLinhas((inicio, fim) =>
+    supabase.from("veiculos").select("*").order("modelo").range(inicio, fim)
+  );
+  return anexarHistorico(supabase, linhas);
 }
 
 export async function buscarVeiculoPorId(id: string): Promise<Veiculo | undefined> {

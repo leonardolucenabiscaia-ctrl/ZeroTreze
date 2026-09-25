@@ -3,13 +3,15 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { categoriaPorPontuacao } from "@/lib/calculations/score";
 import { convidarUsuario, reenviarCodigoAcesso } from "./auth-invite";
 import { mapCliente } from "./mappers";
+import { paginarTodasAsLinhas } from "./pagination";
 import type { Cliente } from "@/lib/types";
 
 export async function listarClientes(): Promise<Cliente[]> {
   const supabase = createAdminClient();
-  const { data, error } = await supabase.from("clientes").select("*").order("cliente_desde", { ascending: false });
-  if (error) throw new Error(error.message);
-  return (data ?? []).map(mapCliente);
+  const linhas = await paginarTodasAsLinhas((inicio, fim) =>
+    supabase.from("clientes").select("*").order("cliente_desde", { ascending: false }).range(inicio, fim)
+  );
+  return linhas.map(mapCliente);
 }
 
 export async function buscarClientePorId(id: string): Promise<Cliente | undefined> {

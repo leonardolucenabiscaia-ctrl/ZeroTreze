@@ -1,6 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/server";
 import { mapLogAuditoria } from "./mappers";
+import { paginarTodasAsLinhas } from "./pagination";
 import type { LogAuditoria } from "@/lib/types";
 
 export async function registrarAcao(dados: {
@@ -28,10 +29,8 @@ export async function registrarAcao(dados: {
 
 export async function listarAuditoria(): Promise<LogAuditoria[]> {
   const supabase = createAdminClient();
-  const { data, error } = await supabase
-    .from("auditoria")
-    .select("*")
-    .order("criado_em", { ascending: false });
-  if (error) throw new Error(error.message);
-  return (data ?? []).map(mapLogAuditoria);
+  const linhas = await paginarTodasAsLinhas((inicio, fim) =>
+    supabase.from("auditoria").select("*").order("criado_em", { ascending: false }).range(inicio, fim)
+  );
+  return linhas.map(mapLogAuditoria);
 }
