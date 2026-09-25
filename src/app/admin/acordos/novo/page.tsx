@@ -34,7 +34,7 @@ const acordoSchema = z.object({
   contratoId: z.string().min(1, "Selecione o contrato"),
   valorEntrada: z.number().min(0, "Informe um valor de entrada válido"),
   valorParcela: z.number().positive("Informe um valor de parcela válido"),
-  quantidadeParcelas: z.number().int().min(1, "Informe ao menos 1 parcela").max(24, "Máximo de 24 parcelas"),
+  quantidadeParcelas: z.number().int().min(1, "Informe ao menos 1 parcela"),
   dataPrimeiraParcela: z.string().min(1, "Informe a data da primeira parcela"),
   valorDividaOriginal: z.number().min(0, "Informe um valor válido").optional(),
   periodicidade: z.enum(["semanal", "mensal"], { message: "Selecione a periodicidade" }),
@@ -261,7 +261,6 @@ export default function NovoAcordoPage() {
                   type="number"
                   step="1"
                   min={1}
-                  max={24}
                 />
               </Campo>
 
