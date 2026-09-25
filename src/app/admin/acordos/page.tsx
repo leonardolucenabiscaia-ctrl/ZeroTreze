@@ -2,10 +2,10 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { FileCheck2, FileDown, Handshake, Pencil, Plus, Printer } from "lucide-react";
+import { FileCheck2, FileDown, Handshake, Pencil, Plus, Printer, Send } from "lucide-react";
 import { toast } from "sonner";
 
-import { atualizarAcordo, listarAcordos } from "@/lib/services/acordos.service";
+import { atualizarAcordo, listarAcordos, reenviarAcordoParaAssinatura } from "@/lib/services/acordos.service";
 import { listarClientes } from "@/lib/services/clientes.service";
 import { registrarAcao } from "@/lib/services/auditoria.service";
 import { useAuth } from "@/lib/auth/auth-context";
@@ -51,6 +51,7 @@ export default function AdminAcordosPage() {
   const [descricaoEdicao, setDescricaoEdicao] = React.useState("");
   const [situacaoEdicao, setSituacaoEdicao] = React.useState<StatusAcordo>("ativo");
   const [salvandoAcordo, setSalvandoAcordo] = React.useState(false);
+  const [enviandoAssinaturaId, setEnviandoAssinaturaId] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     listarAcordos().then(setAcordos);
@@ -88,6 +89,28 @@ export default function AdminAcordosPage() {
       toast.error(error instanceof Error ? error.message : "Não foi possível atualizar o acordo.");
     } finally {
       setSalvandoAcordo(false);
+    }
+  }
+
+  async function handleEnviarAssinatura(acordo: Acordo) {
+    setEnviandoAssinaturaId(acordo.id);
+    try {
+      const atualizado = await reenviarAcordoParaAssinatura(acordo.id);
+      setAcordos((atuais) => (atuais ?? []).map((a) => (a.id === atualizado.id ? atualizado : a)));
+      if (usuario) {
+        await registrarAcao({
+          usuarioId: usuario.id,
+          usuarioNome: usuario.nome,
+          acao: "Enviou o acordo para assinatura eletrônica",
+          entidade: "Acordo",
+          entidadeId: atualizado.numero,
+        });
+      }
+      toast.success("Acordo enviado para assinatura — o cliente vai receber um e-mail da ClickSign.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível enviar para assinatura.");
+    } finally {
+      setEnviandoAssinaturaId(null);
     }
   }
 
@@ -165,6 +188,17 @@ export default function AdminAcordosPage() {
                           <FileDown className="size-4" />
                           Assinado
                         </a>
+                      </Button>
+                    )}
+                    {!acordo.assinatura && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleEnviarAssinatura(acordo)}
+                        disabled={enviandoAssinaturaId === acordo.id}
+                      >
+                        <Send className="size-4" />
+                        {enviandoAssinaturaId === acordo.id ? "Enviando…" : "Enviar p/ assinatura"}
                       </Button>
                     )}
                     <Button asChild size="sm" variant="outline">

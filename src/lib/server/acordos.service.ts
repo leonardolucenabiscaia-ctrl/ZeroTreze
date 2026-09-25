@@ -193,77 +193,16 @@ export async function criarAcordo(dados: NovoAcordoInput): Promise<Acordo> {
   return acordo;
 }
 
-/**
- * Gera o PDF do acordo e envia pra assinatura eletrônica na ClickSign, assim que o acordo é
- * criado — mesmo fluxo já usado pra contrato (ver `enviarContratoParaAssinaturaSeConfigurado` em
- * `contratos.service.ts`). É best-effort: se a ClickSign estiver fora do ar, sem credenciais
- * configuradas, ou o cliente não tiver e-mail, o acordo continua criado normalmente — só não fica
- * com `assinatura` preenchida, e o erro fica registrado no log do servidor.
- */
+/** Best-effort: se a ClickSign estiver fora do ar, sem credenciais configuradas, ou o cliente não
+ * tiver e-mail, o acordo continua criado normalmente — só não fica com `assinatura` preenchida, e
+ * o erro fica registrado no log do servidor. Usada na criação do acordo, onde uma falha no envio
+ * não pode travar o resto do fluxo. */
 async function enviarAcordoParaAssinaturaSeConfigurado(
   supabase: ReturnType<typeof createAdminClient>,
   acordoRow: Record<string, unknown>
 ): Promise<Record<string, unknown>> {
   try {
-    const { data: clienteRow } = await supabase
-      .from("clientes")
-      .select("*")
-      .eq("id", acordoRow.cliente_id)
-      .single();
-    if (!clienteRow) throw new Error("Cliente não encontrado.");
-
-    const { data: contratoRow } = await supabase
-      .from("contratos")
-      .select("*")
-      .eq("id", acordoRow.contrato_id)
-      .single();
-    if (!contratoRow) throw new Error("Contrato não encontrado.");
-
-    const { data: veiculoRow } = await supabase
-      .from("veiculos")
-      .select("*")
-      .eq("id", contratoRow.veiculo_id)
-      .single();
-    if (!veiculoRow) throw new Error("Veículo não encontrado.");
-
-    const { data: usuarioRow } = await supabase
-      .from("usuarios")
-      .select("email")
-      .eq("id", clienteRow.usuario_id)
-      .single();
-    if (!usuarioRow?.email || usuarioRow.email.endsWith("@zerotrezetransportes.pendente")) {
-      throw new Error("Cliente sem e-mail cadastrado — complete o cadastro antes de enviar pra assinatura.");
-    }
-
-    const [acordoSemCronograma] = await anexarCronograma(supabase, [acordoRow]);
-    const cliente = mapCliente(clienteRow);
-    const contrato = mapContrato(contratoRow, []);
-    const veiculo = mapVeiculo(veiculoRow, []);
-
-    const pdfBuffer = await gerarPdfAcordo({ acordo: acordoSemCronograma, contrato, cliente, veiculo });
-    const resultado = await enviarDocumentoParaAssinatura({
-      nomeArquivo: `Acordo ${acordoSemCronograma.numero} - ${cliente.nome}`,
-      pdfBuffer,
-      emailSignatario: usuarioRow.email,
-      nomeSignatario: cliente.nome,
-      mensagem: `Olá, ${cliente.nome}! Segue o acordo ${acordoSemCronograma.numero} da Zero Treze Transportes para assinatura eletrônica.`,
-    });
-
-    const agora = new Date().toISOString();
-    const { data: atualizado } = await supabase
-      .from("acordos")
-      .update({
-        assinatura_document_key: resultado.documentId,
-        assinatura_envelope_id: resultado.envelopeId,
-        assinatura_status: resultado.status,
-        assinatura_enviado_em: agora,
-        assinatura_atualizado_em: agora,
-      })
-      .eq("id", acordoRow.id)
-      .select()
-      .single();
-
-    return atualizado ?? acordoRow;
+    return await enviarAcordoParaAssinaturaInterno(supabase, acordoRow);
   } catch (error) {
     console.error(
       `[clicksign] Falha ao enviar acordo ${acordoRow.id} para assinatura:`,
@@ -271,4 +210,87 @@ async function enviarAcordoParaAssinaturaSeConfigurado(
     );
     return acordoRow;
   }
+}
+
+/** Reenvia manualmente um acordo já existente pra assinatura eletrônica — pra acordos criados
+ * antes dessa integração existir, ou quando o envio automático falhou (ex.: cliente sem e-mail na
+ * hora, corrigido depois). Diferente do envio automático na criação, aqui o erro é repassado pra
+ * quem chamou poder mostrar pro administrador o que deu errado. */
+export async function reenviarAcordoParaAssinatura(acordoId: string): Promise<Acordo> {
+  const supabase = createAdminClient();
+  const { data: acordoRow } = await supabase.from("acordos").select("*").eq("id", acordoId).maybeSingle();
+  if (!acordoRow) throw new Error("Acordo não encontrado.");
+
+  const atualizado = await enviarAcordoParaAssinaturaInterno(supabase, acordoRow);
+  const [acordo] = await anexarCronograma(supabase, [atualizado]);
+  return acordo;
+}
+
+/**
+ * Gera o PDF do acordo e envia pra assinatura eletrônica na ClickSign — mesmo fluxo já usado pra
+ * contrato (ver `enviarContratoParaAssinaturaSeConfigurado` em `contratos.service.ts`).
+ */
+async function enviarAcordoParaAssinaturaInterno(
+  supabase: ReturnType<typeof createAdminClient>,
+  acordoRow: Record<string, unknown>
+): Promise<Record<string, unknown>> {
+  const { data: clienteRow } = await supabase
+    .from("clientes")
+    .select("*")
+    .eq("id", acordoRow.cliente_id)
+    .single();
+  if (!clienteRow) throw new Error("Cliente não encontrado.");
+
+  const { data: contratoRow } = await supabase
+    .from("contratos")
+    .select("*")
+    .eq("id", acordoRow.contrato_id)
+    .single();
+  if (!contratoRow) throw new Error("Contrato não encontrado.");
+
+  const { data: veiculoRow } = await supabase
+    .from("veiculos")
+    .select("*")
+    .eq("id", contratoRow.veiculo_id)
+    .single();
+  if (!veiculoRow) throw new Error("Veículo não encontrado.");
+
+  const { data: usuarioRow } = await supabase
+    .from("usuarios")
+    .select("email")
+    .eq("id", clienteRow.usuario_id)
+    .single();
+  if (!usuarioRow?.email || usuarioRow.email.endsWith("@zerotrezetransportes.pendente")) {
+    throw new Error("Cliente sem e-mail cadastrado — complete o cadastro antes de enviar pra assinatura.");
+  }
+
+  const [acordoSemCronograma] = await anexarCronograma(supabase, [acordoRow]);
+  const cliente = mapCliente(clienteRow);
+  const contrato = mapContrato(contratoRow, []);
+  const veiculo = mapVeiculo(veiculoRow, []);
+
+  const pdfBuffer = await gerarPdfAcordo({ acordo: acordoSemCronograma, contrato, cliente, veiculo });
+  const resultado = await enviarDocumentoParaAssinatura({
+    nomeArquivo: `Acordo ${acordoSemCronograma.numero} - ${cliente.nome}`,
+    pdfBuffer,
+    emailSignatario: usuarioRow.email,
+    nomeSignatario: cliente.nome,
+    mensagem: `Olá, ${cliente.nome}! Segue o acordo ${acordoSemCronograma.numero} da Zero Treze Transportes para assinatura eletrônica.`,
+  });
+
+  const agora = new Date().toISOString();
+  const { data: atualizado } = await supabase
+    .from("acordos")
+    .update({
+      assinatura_document_key: resultado.documentId,
+      assinatura_envelope_id: resultado.envelopeId,
+      assinatura_status: resultado.status,
+      assinatura_enviado_em: agora,
+      assinatura_atualizado_em: agora,
+    })
+    .eq("id", acordoRow.id)
+    .select()
+    .single();
+
+  return atualizado ?? acordoRow;
 }

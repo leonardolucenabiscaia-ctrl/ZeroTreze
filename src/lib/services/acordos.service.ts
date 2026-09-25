@@ -17,6 +17,12 @@ export async function atualizarAcordo(id: string, dados: Partial<Acordo>): Promi
   return apiFetch<Acordo>(`/api/acordos/${id}`, { method: "PATCH", body: JSON.stringify(dados) });
 }
 
+/** Envia (ou reenvia) o acordo pra assinatura eletrônica na ClickSign — pra acordos criados antes
+ * dessa integração existir, ou quando o envio automático na criação falhou. */
+export async function reenviarAcordoParaAssinatura(id: string): Promise<Acordo> {
+  return apiFetch<Acordo>(`/api/acordos/${id}/reenviar-assinatura`, { method: "POST" });
+}
+
 export interface NovoAcordoInput {
   clienteId: string;
   contratoId: string;
