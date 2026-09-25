@@ -50,17 +50,20 @@ export async function buscarContratoPorId(id: string): Promise<Contrato | undefi
   return contrato;
 }
 
-/** Só `numero`, `valorCaucao` e `limiteRenovacao` são editáveis diretamente — de propósito fora
- * da whitelist: `clienteId`/`veiculoId` (trocar a FK desalinharia o PDF assinado e o envelope da
- * ClickSign, gerados para o par original), `dataInicio`/`dataFim` (o cronograma de parcelas já foi
- * gerado a partir de `dataInicio` na criação), `valorParcela` (já ficou congelado em
- * `parcelas.valor_original` de cada parcela existente — editar aqui não sincronizaria
- * retroativamente), `status` (segue exclusivamente o fluxo dedicado de "Encerrar contrato", que tem
- * efeitos colaterais próprios) e `arquivoUrl` (gerido automaticamente pelo fluxo de assinatura). */
+/** `numero`, `valorCaucao`, `limiteRenovacao` e `valorParcela` são editáveis diretamente —
+ * `valorParcela` (renegociação de valor semanal) só vale pra parcelas geradas DAQUI PRA FRENTE:
+ * as já existentes já ficaram congeladas em `parcelas.valor_original` na hora em que foram
+ * criadas, editar o contrato não reescreve o histórico. De propósito fora da whitelist:
+ * `clienteId`/`veiculoId` (trocar a FK desalinharia o PDF assinado e o envelope da ClickSign,
+ * gerados para o par original), `dataInicio`/`dataFim` (o cronograma de parcelas já foi gerado a
+ * partir de `dataInicio` na criação), `status` (segue exclusivamente o fluxo dedicado de
+ * "Encerrar contrato", que tem efeitos colaterais próprios) e `arquivoUrl` (gerido
+ * automaticamente pelo fluxo de assinatura). */
 export async function atualizarContrato(id: string, dados: Partial<Contrato>): Promise<Contrato> {
   const supabase = createAdminClient();
   const patch: Record<string, unknown> = {};
   if (dados.numero !== undefined) patch.numero = dados.numero;
+  if (dados.valorParcela !== undefined) patch.valor_parcela = dados.valorParcela;
   if (dados.valorCaucao !== undefined) patch.valor_caucao = dados.valorCaucao;
   if (dados.limiteRenovacao !== undefined) patch.limite_renovacao = dados.limiteRenovacao;
 

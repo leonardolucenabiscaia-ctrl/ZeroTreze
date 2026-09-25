@@ -58,6 +58,7 @@ export default function AdminContratoDetalhePage() {
   const [alternandoBloqueio, setAlternandoBloqueio] = React.useState(false);
   const [editandoContrato, setEditandoContrato] = React.useState(false);
   const [numeroEdicao, setNumeroEdicao] = React.useState("");
+  const [valorParcelaEdicao, setValorParcelaEdicao] = React.useState("");
   const [caucaoEdicao, setCaucaoEdicao] = React.useState("");
   const [limiteRenovacaoEdicao, setLimiteRenovacaoEdicao] = React.useState("");
   const [salvandoContrato, setSalvandoContrato] = React.useState(false);
@@ -110,6 +111,7 @@ export default function AdminContratoDetalhePage() {
   function abrirEdicaoContrato() {
     if (!contrato) return;
     setNumeroEdicao(contrato.numero);
+    setValorParcelaEdicao(String(contrato.valorParcela));
     setCaucaoEdicao(String(contrato.valorCaucao));
     setLimiteRenovacaoEdicao(String(contrato.limiteRenovacao));
     setEditandoContrato(true);
@@ -122,6 +124,7 @@ export default function AdminContratoDetalhePage() {
     try {
       const atualizado = await atualizarContrato(contrato.id, {
         numero: numeroEdicao,
+        valorParcela: Number(valorParcelaEdicao),
         valorCaucao: Number(caucaoEdicao),
         limiteRenovacao: Number(limiteRenovacaoEdicao),
       });
@@ -311,9 +314,10 @@ export default function AdminContratoDetalhePage() {
           <DialogHeader>
             <DialogTitle>Editar contrato {contrato.numero}</DialogTitle>
             <DialogDescription>
-              Só os campos abaixo podem ser alterados diretamente — cliente, veículo, datas e valor
-              da parcela ficam fixos porque já foram usados para gerar o cronograma de parcelas e o
-              contrato assinado.
+              Só os campos abaixo podem ser alterados diretamente — cliente, veículo e datas ficam
+              fixos porque já foram usados para gerar o cronograma de parcelas e o contrato
+              assinado. Mudar o valor da parcela vale só pras parcelas seguintes — as já geradas
+              mantêm o valor com que foram criadas.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSalvarContrato} className="flex flex-col gap-4">
@@ -323,6 +327,18 @@ export default function AdminContratoDetalhePage() {
                 id="contrato-numero"
                 value={numeroEdicao}
                 onChange={(e) => setNumeroEdicao(e.target.value)}
+                required
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="contrato-valorParcela">Valor da parcela semanal</Label>
+              <Input
+                id="contrato-valorParcela"
+                type="number"
+                step="0.01"
+                min="0"
+                value={valorParcelaEdicao}
+                onChange={(e) => setValorParcelaEdicao(e.target.value)}
                 required
               />
             </div>
