@@ -2,12 +2,18 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { FileCheck2, FileDown, Pencil, Printer, Send } from "lucide-react";
+import { useParams, useRouter } from "next/navigation";
+import { AlertTriangle, FileCheck2, FileDown, Pencil, Printer, Send, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { useAuth } from "@/lib/auth/auth-context";
-import { atualizarAcordo, buscarAcordoPorId, reenviarAcordoParaAssinatura } from "@/lib/services/acordos.service";
+import {
+  atualizarAcordo,
+  buscarAcordoPorId,
+  encerrarAcordo,
+  excluirAcordo,
+  reenviarAcordoParaAssinatura,
+} from "@/lib/services/acordos.service";
 import { buscarClientePorId } from "@/lib/services/clientes.service";
 import { buscarContratoPorId } from "@/lib/services/contratos.service";
 import { buscarVeiculoPorId } from "@/lib/services/veiculos.service";
@@ -29,6 +35,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -48,6 +55,7 @@ const SITUACOES_ACORDO: { value: StatusAcordo; label: string }[] = [
 
 export default function AdminAcordoDetalhePage() {
   const params = useParams<{ acordoId: string }>();
+  const router = useRouter();
   const { usuario } = useAuth();
   const [acordo, setAcordo] = React.useState<Acordo | null>(null);
   const [cliente, setCliente] = React.useState<Cliente | null>(null);
@@ -59,6 +67,11 @@ export default function AdminAcordoDetalhePage() {
   const [situacaoEdicao, setSituacaoEdicao] = React.useState<StatusAcordo>("ativo");
   const [salvandoAcordo, setSalvandoAcordo] = React.useState(false);
   const [enviandoAssinatura, setEnviandoAssinatura] = React.useState(false);
+  const [confirmandoEncerramento, setConfirmandoEncerramento] = React.useState(false);
+  const [encerrando, setEncerrando] = React.useState(false);
+  const [confirmandoExclusao, setConfirmandoExclusao] = React.useState(false);
+  const [numeroDigitado, setNumeroDigitado] = React.useState("");
+  const [excluindo, setExcluindo] = React.useState(false);
 
   React.useEffect(() => {
     buscarAcordoPorId(params.acordoId).then(async (a) => {
@@ -132,6 +145,52 @@ export default function AdminAcordoDetalhePage() {
       toast.error(error instanceof Error ? error.message : "Não foi possível enviar para assinatura.");
     } finally {
       setEnviandoAssinatura(false);
+    }
+  }
+
+  async function handleConfirmarEncerramento() {
+    if (!acordo) return;
+    setEncerrando(true);
+    try {
+      const atualizado = await encerrarAcordo(acordo.id);
+      setAcordo(atualizado);
+      if (usuario) {
+        await registrarAcao({
+          usuarioId: usuario.id,
+          usuarioNome: usuario.nome,
+          acao: "Encerrou o acordo",
+          entidade: "Acordo",
+          entidadeId: acordo.numero,
+        });
+      }
+      toast.success("Acordo encerrado com sucesso.");
+      setConfirmandoEncerramento(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível encerrar o acordo.");
+    } finally {
+      setEncerrando(false);
+    }
+  }
+
+  async function handleConfirmarExclusao() {
+    if (!acordo) return;
+    setExcluindo(true);
+    try {
+      await excluirAcordo(acordo.id);
+      if (usuario) {
+        await registrarAcao({
+          usuarioId: usuario.id,
+          usuarioNome: usuario.nome,
+          acao: "Excluiu o acordo (criado errado)",
+          entidade: "Acordo",
+          entidadeId: acordo.numero,
+        });
+      }
+      toast.success("Acordo excluído com sucesso.");
+      router.push("/admin/acordos");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível excluir o acordo.");
+      setExcluindo(false);
     }
   }
 
@@ -254,6 +313,18 @@ export default function AdminAcordoDetalhePage() {
               {enviandoAssinatura ? "Enviando…" : "Enviar p/ assinatura"}
             </Button>
           )}
+          {acordo.situacao === "ativo" && (
+            <Button size="sm" variant="destructive" onClick={() => setConfirmandoEncerramento(true)}>
+              <AlertTriangle className="size-4" />
+              Encerrar acordo
+            </Button>
+          )}
+          {acordo.situacao === "encerrado" && usuario?.perfil === "administrador" && (
+            <Button size="sm" variant="destructive" onClick={() => setConfirmandoExclusao(true)}>
+              <Trash2 className="size-4" />
+              Excluir acordo
+            </Button>
+          )}
         </div>
       </Card>
 
@@ -372,6 +443,73 @@ export default function AdminAcordoDetalhePage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={confirmandoEncerramento} onOpenChange={setConfirmandoEncerramento}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Encerrar acordo {acordo.numero}?</DialogTitle>
+            <DialogDescription>
+              O encerramento é definitivo: o status passa para <strong>Encerrado</strong> e as
+              parcelas em aberto com vencimento futuro são canceladas (as já vencidas continuam
+              registradas como histórico). Essa ação não pode ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setConfirmandoEncerramento(false)}
+              disabled={encerrando}
+            >
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleConfirmarEncerramento} disabled={encerrando}>
+              {encerrando ? "Encerrando…" : "Sim, encerrar acordo"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={confirmandoExclusao}
+        onOpenChange={(open) => {
+          setConfirmandoExclusao(open);
+          if (!open) setNumeroDigitado("");
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirme digitando o número do acordo</DialogTitle>
+            <DialogDescription>
+              Essa ação é definitiva e não pode ser desfeita: apaga o acordo e tudo vinculado a
+              ele (parcelas, pagamentos parciais, documentos). Use só para acordos criados
+              errados — o servidor recusa se houver qualquer parcela paga. Para confirmar, digite{" "}
+              <strong className="text-foreground">{acordo.numero}</strong> abaixo.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="confirmacaoNumeroAcordo">Número do acordo</Label>
+            <Input
+              id="confirmacaoNumeroAcordo"
+              value={numeroDigitado}
+              onChange={(e) => setNumeroDigitado(e.target.value)}
+              placeholder={acordo.numero}
+              autoComplete="off"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmandoExclusao(false)} disabled={excluindo}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmarExclusao}
+              disabled={excluindo || numeroDigitado.trim() !== acordo.numero}
+            >
+              {excluindo ? "Excluindo…" : "Excluir definitivamente"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

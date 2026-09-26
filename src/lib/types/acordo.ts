@@ -1,7 +1,7 @@
 import type { BaixaManualParcela, StatusPagamentoParcial } from "./parcela";
 import type { AssinaturaContrato } from "./contrato";
 
-export type StatusAcordo = "ativo" | "quitado" | "rompido";
+export type StatusAcordo = "ativo" | "quitado" | "rompido" | "encerrado";
 export type PeriodicidadeAcordo = "semanal" | "mensal";
 export type StatusParcelaAcordo = "pago" | "em_aberto" | "vencido" | "aguardando_confirmacao";
 

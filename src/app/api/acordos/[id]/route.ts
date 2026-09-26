@@ -1,4 +1,4 @@
-import { atualizarAcordo, buscarAcordoPorId } from "@/lib/server/acordos.service";
+import { atualizarAcordo, buscarAcordoPorId, excluirAcordo } from "@/lib/server/acordos.service";
 import { buscarClientePorUsuarioId } from "@/lib/server/clientes.service";
 import { handleRoute, PERFIS_ADMIN, PERFIS_STAFF } from "@/lib/server/route-helpers";
 
@@ -21,6 +21,20 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     async () => {
       const dados = await request.json();
       return atualizarAcordo(id, dados);
+    },
+    200,
+    PERFIS_ADMIN
+  );
+}
+
+// Exclusão definitiva — restrita a administrador, igual à de contrato/veículo. As guardas de
+// negócio (só encerrado, sem atividade financeira real) ficam em `excluirAcordo`.
+export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  return handleRoute(
+    async () => {
+      await excluirAcordo(id);
+      return null;
     },
     200,
     PERFIS_ADMIN

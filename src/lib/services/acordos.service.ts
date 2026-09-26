@@ -23,6 +23,18 @@ export async function reenviarAcordoParaAssinatura(id: string): Promise<Acordo> 
   return apiFetch<Acordo>(`/api/acordos/${id}/reenviar-assinatura`, { method: "POST" });
 }
 
+/** Encerramento manual — mesma ideia de `encerrarContrato`. Só aceita acordo ativo. */
+export async function encerrarAcordo(id: string): Promise<Acordo> {
+  return apiFetch<Acordo>(`/api/acordos/${id}/encerrar`, { method: "POST" });
+}
+
+/** Exclusão definitiva do acordo e de tudo vinculado a ele (parcelas, pagamentos parciais,
+ * documentos) — só pensada pra acordos criados errados. O servidor recusa se o acordo não estiver
+ * encerrado ou se houver qualquer parcela paga. */
+export async function excluirAcordo(id: string): Promise<void> {
+  await apiFetch<null>(`/api/acordos/${id}`, { method: "DELETE" });
+}
+
 export interface NovoAcordoInput {
   clienteId: string;
   contratoId: string;

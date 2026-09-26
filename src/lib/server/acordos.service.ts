@@ -1,7 +1,7 @@
 import "server-only";
 import { addMonths, addWeeks } from "date-fns";
 import { createAdminClient } from "@/lib/supabase/server";
-import { formatCurrency } from "@/lib/utils/formatters";
+import { formatCurrency, dataDeHojeBrasil } from "@/lib/utils/formatters";
 import { criarNotificacao, enviarWhatsAppNotificacao } from "./notificacoes.service";
 import { mapAcordo, mapCliente, mapContrato, mapVeiculo } from "./mappers";
 import { paginarTodasAsLinhas } from "./pagination";
@@ -79,6 +79,74 @@ export async function atualizarAcordo(id: string, dados: Partial<Acordo>): Promi
   if (error || !data) throw new Error("Acordo não encontrado");
   const [acordo] = await anexarCronograma(supabase, [data]);
   return acordo;
+}
+
+/** Encerramento manual, feito pelo administrador — diferente de "quitado" (que já acontece
+ * sozinho quando o saldo chega a zero, ver `confirmarPagamentoParcialAcordo`) e de "rompido" (uso
+ * já existente). Mesma ideia de `encerrarContrato`: parcelas futuras ainda em aberto deixam de
+ * fazer sentido (a vencida/já vencida fica registrada como histórico de inadimplência). */
+export async function encerrarAcordo(acordoId: string): Promise<Acordo> {
+  const supabase = createAdminClient();
+  const { data: acordo } = await supabase.from("acordos").select("*").eq("id", acordoId).maybeSingle();
+  if (!acordo) throw new Error("Acordo não encontrado");
+  if (acordo.situacao !== "ativo") {
+    throw new Error("Só é possível encerrar acordos ativos.");
+  }
+
+  const { data: atualizado, error } = await supabase
+    .from("acordos")
+    .update({ situacao: "encerrado" })
+    .eq("id", acordoId)
+    .select()
+    .single();
+  if (error || !atualizado) throw new Error(error?.message ?? "Não foi possível encerrar o acordo.");
+
+  await supabase
+    .from("parcelas_acordo")
+    .delete()
+    .eq("acordo_id", acordoId)
+    .eq("status", "em_aberto")
+    .gt("vencimento", dataDeHojeBrasil());
+
+  const [acordoMapeado] = await anexarCronograma(supabase, [atualizado]);
+  return acordoMapeado;
+}
+
+/** Apaga um acordo inteiro — mesmo esquema de `excluirContrato`: só pensado pra acordos criados
+ * errados, nunca pra "limpar" um que já teve pagamento de verdade. Só aceita acordo já encerrado,
+ * e recusa se houver qualquer parcela paga (ou com valor parcial já confirmado). Passando na
+ * guarda, o delete em `acordos` já é suficiente — `parcelas_acordo`, `pagamentos_parciais_acordo`
+ * e `documentos.acordo_id/parcela_acordo_id/pagamento_parcial_acordo_id` cascadeiam pela FK. */
+export async function excluirAcordo(acordoId: string): Promise<void> {
+  const supabase = createAdminClient();
+  const { data: acordo } = await supabase.from("acordos").select("*").eq("id", acordoId).maybeSingle();
+  if (!acordo) throw new Error("Acordo não encontrado");
+  if (acordo.situacao !== "encerrado") {
+    throw new Error("Só é possível excluir acordos já encerrados.");
+  }
+
+  const { count: parcelasPagas } = await supabase
+    .from("parcelas_acordo")
+    .select("id", { count: "exact", head: true })
+    .eq("acordo_id", acordoId)
+    .or("status.eq.pago,valor_pago.gt.0");
+  if (parcelasPagas && parcelasPagas > 0) {
+    throw new Error(
+      "Este acordo tem parcelas pagas — há atividade financeira real registrada, então não pode ser excluído."
+    );
+  }
+
+  if (acordo.arquivo_url && !String(acordo.arquivo_url).startsWith("/mock/")) {
+    try {
+      const caminho = String(acordo.arquivo_url).split("/contratos-assinados/")[1]?.split("?")[0];
+      if (caminho) await supabase.storage.from("contratos-assinados").remove([caminho]);
+    } catch (error) {
+      console.error("[acordos] Falha ao apagar o PDF assinado do Storage:", error);
+    }
+  }
+
+  const { error } = await supabase.from("acordos").delete().eq("id", acordoId);
+  if (error) throw new Error(error.message);
 }
 
 export interface NovoAcordoInput {
