@@ -447,11 +447,11 @@ export default function AdminVeiculoDetalhePage() {
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="veiculo-renavam">Renavam</Label>
-                <Input {...campoVeiculo("renavam")} required />
+                <Input {...campoVeiculo("renavam")} placeholder="Não informado" />
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="veiculo-chassi">Chassi</Label>
-                <Input {...campoVeiculo("chassi")} required />
+                <Input {...campoVeiculo("chassi")} placeholder="Não informado" />
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="veiculo-categoria">Categoria</Label>
