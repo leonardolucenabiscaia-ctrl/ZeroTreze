@@ -11,8 +11,14 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  return handleRoute(async () => {
+  return handleRoute(async ({ perfil: perfilLogado }) => {
     const dados = await request.json();
+    // Nível de acesso (perfil) só pode ser "administrador" quando quem está criando já é
+    // administrador — senão um gestor/operador poderia se autopromover criando uma conta
+    // administrador pra si mesmo (mesma regra já aplicada na edição, em usuarios/[id]).
+    if (dados.perfil === "administrador" && perfilLogado !== "administrador") {
+      throw new Error("Só um administrador pode criar outra conta de administrador.");
+    }
     return criarUsuarioInterno(dados);
   }, 201, PERFIS_STAFF);
 }

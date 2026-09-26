@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { buscarClientePorUsuarioId, criarCliente, listarClientes } from "@/lib/server/clientes.service";
-import { handleRoute, PERFIS_STAFF } from "@/lib/server/route-helpers";
+import { handleRoute, podeAcessarUsuario, PERFIS_STAFF } from "@/lib/server/route-helpers";
 
 // O envio do convite por WhatsApp pode levar mais que o padrão de 10s da Vercel.
 export const maxDuration = 30;
@@ -8,13 +8,14 @@ export const maxDuration = 30;
 export async function GET(request: NextRequest) {
   const usuarioId = request.nextUrl.searchParams.get("usuarioId");
   // Sem `usuarioId`, a rota lista TODOS os clientes (nome, CPF, endereço, dados bancários) —
-  // só a equipe interna (páginas de admin) usa essa variante; o portal do cliente sempre passa
-  // o próprio `usuarioId`.
-  return handleRoute(
-    async () => (usuarioId ? await buscarClientePorUsuarioId(usuarioId) : await listarClientes()),
-    200,
-    usuarioId ? undefined : PERFIS_STAFF
-  );
+  // só a equipe interna (páginas de admin) usa essa variante. Com `usuarioId`, só a própria
+  // pessoa (ou a equipe) pode buscar — senão qualquer cliente autenticado leria o CPF/endereço/
+  // dados bancários de QUALQUER outro cliente só trocando o id na URL.
+  return handleRoute(async (sessao) => {
+    if (!usuarioId) return listarClientes();
+    if (!podeAcessarUsuario(sessao, usuarioId)) throw new Error("Sem permissão para acessar este recurso.");
+    return buscarClientePorUsuarioId(usuarioId);
+  }, 200, usuarioId ? undefined : PERFIS_STAFF);
 }
 
 export async function POST(request: NextRequest) {

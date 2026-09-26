@@ -1,10 +1,11 @@
 import type { NextRequest } from "next/server";
 import { enviarPagamentoParcialMulta } from "@/lib/server/pagamentos-parciais-multa.service";
-import { handleRoute } from "@/lib/server/route-helpers";
+import { handleRoute, podeAcessarMulta } from "@/lib/server/route-helpers";
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  return handleRoute(async () => {
+  return handleRoute(async (sessao) => {
+    if (!(await podeAcessarMulta(sessao, id))) throw new Error("Sem permissão para acessar este recurso.");
     const formData = await request.formData();
     const valor = Number(formData.get("valor"));
     const formaPagamento = String(formData.get("formaPagamento") ?? "pix") as

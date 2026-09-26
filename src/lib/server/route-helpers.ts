@@ -1,7 +1,10 @@
 import "server-only";
 import { NextResponse } from "next/server";
-import { createSessionClient } from "@/lib/supabase/server";
+import { createSessionClient, createAdminClient } from "@/lib/supabase/server";
 import { RateLimitError } from "./rate-limit.service";
+import { buscarClientePorUsuarioId } from "./clientes.service";
+import { buscarContratoPorId, listarContratosPorCliente } from "./contratos.service";
+import { buscarChamadoPorId } from "./chamados.service";
 import type { PerfilUsuario } from "@/lib/types";
 
 /** Perfis internos (não-cliente) — atalho para restringir rotas administrativas. */
@@ -19,6 +22,91 @@ export const PERFIS_ADMIN: PerfilUsuario[] = ["administrador"];
 export interface SessaoRota {
   userId: string;
   perfil: PerfilUsuario | undefined;
+}
+
+/** Confirma que quem está chamando é da equipe OU é o próprio dono desse `clienteId` — usado nas
+ * rotas que aceitam um `clienteId` (ou algo que leva até um) como filtro de consulta, pra um
+ * cliente autenticado não conseguir ler/agir sobre o registro de OUTRO cliente só trocando o id
+ * na URL (a mesma proteção que as rotas `GET /recurso/[id]` já faziam comparando o dono, agora
+ * também para as rotas que filtram "por cliente" em vez de buscar por id direto). */
+export async function podeAcessarCliente(sessao: SessaoRota, clienteId: string): Promise<boolean> {
+  if (sessao.perfil && PERFIS_STAFF.includes(sessao.perfil)) return true;
+  const cliente = await buscarClientePorUsuarioId(sessao.userId);
+  return !!cliente && cliente.id === clienteId;
+}
+
+/** Mesma ideia de `podeAcessarCliente`, mas quando o recurso está identificado por
+ * `usuarioId` (ex.: notificações) em vez de `clienteId`. */
+export function podeAcessarUsuario(sessao: SessaoRota, usuarioId: string): boolean {
+  return (!!sessao.perfil && PERFIS_STAFF.includes(sessao.perfil)) || sessao.userId === usuarioId;
+}
+
+/** Mesma ideia de `podeAcessarCliente`, mas quando a rota recebe um `contratoId` em vez do
+ * `clienteId` direto (parcelas, extrato, multas por contrato) — busca o contrato e confere se o
+ * `clienteId` dele é o da própria sessão. Contrato inexistente também nega acesso (o service que
+ * de fato lista os dados vai devolver vazio de qualquer forma). */
+export async function podeAcessarContrato(sessao: SessaoRota, contratoId: string): Promise<boolean> {
+  if (sessao.perfil && PERFIS_STAFF.includes(sessao.perfil)) return true;
+  const contrato = await buscarContratoPorId(contratoId);
+  if (!contrato) return false;
+  return podeAcessarCliente(sessao, contrato.clienteId);
+}
+
+/** Mesma ideia, mas a partir de uma parcela de contrato (financeiro normal) — resolve o
+ * `contrato_id` dela primeiro. */
+export async function podeAcessarParcela(sessao: SessaoRota, parcelaId: string): Promise<boolean> {
+  if (sessao.perfil && PERFIS_STAFF.includes(sessao.perfil)) return true;
+  const supabase = createAdminClient();
+  const { data } = await supabase.from("parcelas").select("contrato_id").eq("id", parcelaId).maybeSingle();
+  if (!data) return false;
+  return podeAcessarContrato(sessao, data.contrato_id as string);
+}
+
+/** Mesma ideia, mas a partir de uma parcela de ACORDO — resolve parcela → acordo → contrato_id. */
+export async function podeAcessarParcelaAcordo(sessao: SessaoRota, parcelaAcordoId: string): Promise<boolean> {
+  if (sessao.perfil && PERFIS_STAFF.includes(sessao.perfil)) return true;
+  const supabase = createAdminClient();
+  const { data: parcela } = await supabase
+    .from("parcelas_acordo")
+    .select("acordo_id")
+    .eq("id", parcelaAcordoId)
+    .maybeSingle();
+  if (!parcela) return false;
+  const { data: acordo } = await supabase
+    .from("acordos")
+    .select("contrato_id")
+    .eq("id", parcela.acordo_id as string)
+    .maybeSingle();
+  if (!acordo) return false;
+  return podeAcessarContrato(sessao, acordo.contrato_id as string);
+}
+
+/** Mesma ideia, mas a partir de uma multa — resolve o `contrato_id` dela. */
+export async function podeAcessarMulta(sessao: SessaoRota, multaId: string): Promise<boolean> {
+  if (sessao.perfil && PERFIS_STAFF.includes(sessao.perfil)) return true;
+  const supabase = createAdminClient();
+  const { data } = await supabase.from("multas").select("contrato_id").eq("id", multaId).maybeSingle();
+  if (!data) return false;
+  return podeAcessarContrato(sessao, data.contrato_id as string);
+}
+
+/** Confirma que quem está chamando é da equipe OU é o dono do chamado (comparando
+ * `chamado.clienteId` com o cliente da própria sessão). */
+export async function podeAcessarChamado(sessao: SessaoRota, chamadoId: string): Promise<boolean> {
+  if (sessao.perfil && PERFIS_STAFF.includes(sessao.perfil)) return true;
+  const chamado = await buscarChamadoPorId(chamadoId);
+  if (!chamado) return false;
+  return podeAcessarCliente(sessao, chamado.clienteId);
+}
+
+/** Um veículo não pertence a um cliente diretamente — pertence via contrato. Um cliente só pode
+ * acessar um veículo que já esteve (ou está) vinculado a algum contrato seu. */
+export async function podeAcessarVeiculo(sessao: SessaoRota, veiculoId: string): Promise<boolean> {
+  if (sessao.perfil && PERFIS_STAFF.includes(sessao.perfil)) return true;
+  const cliente = await buscarClientePorUsuarioId(sessao.userId);
+  if (!cliente) return false;
+  const contratos = await listarContratosPorCliente(cliente.id);
+  return contratos.some((c) => c.veiculoId === veiculoId);
 }
 
 /** Roda a lógica de um Route Handler, devolvendo JSON de sucesso ou `{ error }` em caso de

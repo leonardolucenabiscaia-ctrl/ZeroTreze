@@ -5,7 +5,7 @@ import {
   listarMultasPendentesDeCienciaPorCliente,
   listarMultasPorContrato,
 } from "@/lib/server/multas.service";
-import { handleRoute, PERFIS_STAFF } from "@/lib/server/route-helpers";
+import { handleRoute, podeAcessarCliente, podeAcessarContrato, PERFIS_STAFF } from "@/lib/server/route-helpers";
 
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
@@ -14,9 +14,19 @@ export async function GET(request: NextRequest) {
   const semFiltro = !contratoId && !clientePendentesCienciaId;
 
   return handleRoute(
-    async () => {
-      if (contratoId) return await listarMultasPorContrato(contratoId);
-      if (clientePendentesCienciaId) return await listarMultasPendentesDeCienciaPorCliente(clientePendentesCienciaId);
+    async (sessao) => {
+      if (contratoId) {
+        if (!(await podeAcessarContrato(sessao, contratoId))) {
+          throw new Error("Sem permissão para acessar este recurso.");
+        }
+        return await listarMultasPorContrato(contratoId);
+      }
+      if (clientePendentesCienciaId) {
+        if (!(await podeAcessarCliente(sessao, clientePendentesCienciaId))) {
+          throw new Error("Sem permissão para acessar este recurso.");
+        }
+        return await listarMultasPendentesDeCienciaPorCliente(clientePendentesCienciaId);
+      }
       return await listarMultas();
     },
     200,

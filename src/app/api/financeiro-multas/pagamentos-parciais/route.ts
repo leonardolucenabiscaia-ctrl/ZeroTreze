@@ -3,7 +3,7 @@ import {
   listarPagamentosParciaisMultaPendentes,
   listarPagamentosParciaisMultaPorMulta,
 } from "@/lib/server/pagamentos-parciais-multa.service";
-import { handleRoute, PERFIS_STAFF } from "@/lib/server/route-helpers";
+import { handleRoute, podeAcessarMulta, PERFIS_STAFF } from "@/lib/server/route-helpers";
 
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
@@ -11,9 +11,14 @@ export async function GET(request: NextRequest) {
   const pendentes = params.get("pendentes") === "true";
 
   return handleRoute(
-    () => {
+    async (sessao) => {
       if (pendentes) return listarPagamentosParciaisMultaPendentes();
-      if (multaId) return listarPagamentosParciaisMultaPorMulta(multaId);
+      if (multaId) {
+        if (!(await podeAcessarMulta(sessao, multaId))) {
+          throw new Error("Sem permissão para acessar este recurso.");
+        }
+        return listarPagamentosParciaisMultaPorMulta(multaId);
+      }
       return Promise.resolve([]);
     },
     200,

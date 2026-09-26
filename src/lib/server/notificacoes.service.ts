@@ -67,12 +67,16 @@ export async function listarNotificacoesPorUsuario(usuarioId: string): Promise<N
   return (data ?? []).map(mapNotificacao);
 }
 
-export async function marcarComoLida(notificacaoId: string): Promise<Notificacao> {
+/** `usuarioId` é sempre o dono da sessão que está chamando (nunca um id vindo do corpo da
+ * requisição) — o filtro `.eq("usuario_id", ...)` no update garante que ninguém marca como lida
+ * uma notificação de OUTRO usuário, mesmo acertando o id dela. */
+export async function marcarComoLida(notificacaoId: string, usuarioId: string): Promise<Notificacao> {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("notificacoes")
     .update({ lida: true })
     .eq("id", notificacaoId)
+    .eq("usuario_id", usuarioId)
     .select()
     .single();
   if (error || !data) throw new Error(error?.message ?? "Notificação não encontrada");

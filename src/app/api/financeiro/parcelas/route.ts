@@ -7,7 +7,7 @@ import {
   listarTodasAsParcelas,
   somaValorPago,
 } from "@/lib/server/financeiro.service";
-import { handleRoute, PERFIS_STAFF } from "@/lib/server/route-helpers";
+import { handleRoute, podeAcessarContrato, PERFIS_STAFF } from "@/lib/server/route-helpers";
 
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
@@ -20,12 +20,17 @@ export async function GET(request: NextRequest) {
   const rotaAdmin = ativas || pagas || somaPaga || todas;
 
   return handleRoute(
-    (): Promise<Parcela[] | number> => {
+    async (sessao): Promise<Parcela[] | number> => {
       if (ativas) return listarParcelasAtivas();
       if (pagas) return listarParcelasPagas();
       if (somaPaga) return somaValorPago();
       if (todas) return listarTodasAsParcelas();
-      if (contratoId) return listarParcelasPorContrato(contratoId);
+      if (contratoId) {
+        if (!(await podeAcessarContrato(sessao, contratoId))) {
+          throw new Error("Sem permissão para acessar este recurso.");
+        }
+        return listarParcelasPorContrato(contratoId);
+      }
       return Promise.resolve([]);
     },
     200,

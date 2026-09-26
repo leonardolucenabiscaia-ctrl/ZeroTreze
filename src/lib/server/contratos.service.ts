@@ -337,11 +337,14 @@ export async function excluirContrato(
     throw new Error("Só é possível excluir contratos já encerrados.");
   }
 
+  // `.or()` cobre tanto a parcela já totalmente paga (status "pago") quanto a parcela ainda
+  // "em_aberto"/"vencido" mas com um pagamento PARCIAL já confirmado (valor_pago > 0) — só olhar
+  // o status deixaria passar dinheiro real já recebido só porque o saldo não fechou de vez.
   const { count: parcelasPagas } = await supabase
     .from("parcelas")
     .select("id", { count: "exact", head: true })
     .eq("contrato_id", contratoId)
-    .eq("status", "pago");
+    .or("status.eq.pago,valor_pago.gt.0");
   if (parcelasPagas && parcelasPagas > 0) {
     throw new Error(
       "Este contrato tem parcelas pagas — há atividade financeira real registrada, então não pode ser excluído."
@@ -352,7 +355,7 @@ export async function excluirContrato(
     .from("multas")
     .select("id", { count: "exact", head: true })
     .eq("contrato_id", contratoId)
-    .eq("situacao", "paga");
+    .or("situacao.eq.paga,valor_pago.gt.0");
   if (multasPagas && multasPagas > 0) {
     throw new Error("Este contrato tem multas pagas — não pode ser excluído.");
   }

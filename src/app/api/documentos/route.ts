@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { listarDocumentos, listarDocumentosPorCliente, listarDocumentosPorVeiculo } from "@/lib/server/documentos.service";
-import { handleRoute, PERFIS_STAFF } from "@/lib/server/route-helpers";
+import { handleRoute, podeAcessarCliente, PERFIS_STAFF } from "@/lib/server/route-helpers";
 import type { CategoriaDocumento } from "@/lib/types";
 
 export async function GET(request: NextRequest) {
@@ -11,8 +11,13 @@ export async function GET(request: NextRequest) {
   // Só o portal do cliente filtra por `clienteId` (documentos do próprio cliente); as outras
   // variantes (por veículo, ou a lista completa) são exclusivas do backoffice.
   return handleRoute(
-    async () => {
-      if (clienteId) return listarDocumentosPorCliente(clienteId, categoria ?? undefined);
+    async (sessao) => {
+      if (clienteId) {
+        if (!(await podeAcessarCliente(sessao, clienteId))) {
+          throw new Error("Sem permissão para acessar este recurso.");
+        }
+        return listarDocumentosPorCliente(clienteId, categoria ?? undefined);
+      }
       if (veiculoId) return listarDocumentosPorVeiculo(veiculoId);
       return listarDocumentos();
     },

@@ -5,7 +5,7 @@ import {
   listarSolicitacoesPorCliente,
   solicitarAssistencia,
 } from "@/lib/server/assistencia.service";
-import { handleRoute, PERFIS_STAFF } from "@/lib/server/route-helpers";
+import { handleRoute, podeAcessarCliente, PERFIS_STAFF } from "@/lib/server/route-helpers";
 
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
@@ -14,9 +14,14 @@ export async function GET(request: NextRequest) {
   const semFiltro = !protocolo && !clienteId;
 
   return handleRoute(
-    async () => {
+    async (sessao) => {
       if (protocolo) return await buscarSolicitacaoPorProtocolo(protocolo);
-      if (clienteId) return await listarSolicitacoesPorCliente(clienteId);
+      if (clienteId) {
+        if (!(await podeAcessarCliente(sessao, clienteId))) {
+          throw new Error("Sem permissão para acessar este recurso.");
+        }
+        return await listarSolicitacoesPorCliente(clienteId);
+      }
       return await listarSolicitacoes();
     },
     200,

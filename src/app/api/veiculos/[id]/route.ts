@@ -1,10 +1,13 @@
 import type { NextRequest } from "next/server";
 import { atualizarVeiculo, buscarVeiculoPorId, excluirVeiculo } from "@/lib/server/veiculos.service";
-import { handleRoute, PERFIS_ADMIN } from "@/lib/server/route-helpers";
+import { handleRoute, podeAcessarVeiculo, PERFIS_ADMIN } from "@/lib/server/route-helpers";
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  return handleRoute(() => buscarVeiculoPorId(id));
+  return handleRoute(async (sessao) => {
+    if (!(await podeAcessarVeiculo(sessao, id))) throw new Error("Sem permissão para acessar este recurso.");
+    return buscarVeiculoPorId(id);
+  });
 }
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
