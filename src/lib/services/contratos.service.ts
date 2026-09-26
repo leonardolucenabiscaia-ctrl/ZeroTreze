@@ -45,7 +45,14 @@ export async function encerrarContrato(contratoId: string): Promise<Contrato> {
 
 /** Exclusão definitiva do contrato e de tudo vinculado a ele (parcelas, extrato, multas, acordo,
  * documentos) — só pensada pra contratos criados errados. O servidor recusa se o contrato não
- * estiver encerrado ou se houver qualquer sinal de atividade financeira real. */
-export async function excluirContrato(contratoId: string): Promise<void> {
-  await apiFetch<null>(`/api/contratos/${contratoId}`, { method: "DELETE" });
+ * estiver encerrado ou se houver qualquer sinal de atividade financeira real. Se houver um acordo
+ * vinculado mas sem nenhum pagamento nele, a primeira chamada lança um erro com prefixo
+ * `ACORDO_SEM_ATIVIDADE:` — a tela pede confirmação extra e chama de novo com
+ * `ignorarAcordoSemAtividade: true`. */
+export async function excluirContrato(
+  contratoId: string,
+  opts: { ignorarAcordoSemAtividade?: boolean } = {}
+): Promise<void> {
+  const query = opts.ignorarAcordoSemAtividade ? "?ignorarAcordo=true" : "";
+  await apiFetch<null>(`/api/contratos/${contratoId}${query}`, { method: "DELETE" });
 }

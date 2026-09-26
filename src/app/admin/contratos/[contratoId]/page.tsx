@@ -24,6 +24,7 @@ import {
 import { registrarAcao } from "@/lib/services/auditoria.service";
 import { formatDateTime } from "@/lib/utils/formatters";
 import { assinaturaConcluida } from "@/lib/utils/assinatura";
+import { AVISO_ACORDO_SEM_ATIVIDADE } from "@/lib/types";
 import type { Cliente, Contrato, ParametrosFinanceiros, Parcela, Veiculo } from "@/lib/types";
 
 import { VehicleCard } from "@/components/shared/vehicle-card";
@@ -63,6 +64,7 @@ export default function AdminContratoDetalhePage() {
   const [confirmandoExclusao, setConfirmandoExclusao] = React.useState(false);
   const [numeroDigitado, setNumeroDigitado] = React.useState("");
   const [excluindo, setExcluindo] = React.useState(false);
+  const [avisoAcordoExclusao, setAvisoAcordoExclusao] = React.useState<string | null>(null);
   const [confirmandoBloqueio, setConfirmandoBloqueio] = React.useState(false);
   const [alternandoBloqueio, setAlternandoBloqueio] = React.useState(false);
   const [editandoContrato, setEditandoContrato] = React.useState(false);
@@ -121,7 +123,7 @@ export default function AdminContratoDetalhePage() {
     if (!contrato) return;
     setExcluindo(true);
     try {
-      await excluirContrato(contrato.id);
+      await excluirContrato(contrato.id, { ignorarAcordoSemAtividade: avisoAcordoExclusao !== null });
       if (usuario) {
         await registrarAcao({
           usuarioId: usuario.id,
@@ -134,7 +136,12 @@ export default function AdminContratoDetalhePage() {
       toast.success("Contrato excluído com sucesso.");
       router.push("/admin/contratos");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Não foi possível excluir o contrato.");
+      const mensagem = error instanceof Error ? error.message : "Não foi possível excluir o contrato.";
+      if (mensagem.startsWith(`${AVISO_ACORDO_SEM_ATIVIDADE}:`)) {
+        setAvisoAcordoExclusao(mensagem.slice(AVISO_ACORDO_SEM_ATIVIDADE.length + 1).trim());
+      } else {
+        toast.error(mensagem);
+      }
       setExcluindo(false);
     }
   }
@@ -449,42 +456,68 @@ export default function AdminContratoDetalhePage() {
         open={confirmandoExclusao}
         onOpenChange={(open) => {
           setConfirmandoExclusao(open);
-          if (!open) setNumeroDigitado("");
+          if (!open) {
+            setNumeroDigitado("");
+            setAvisoAcordoExclusao(null);
+          }
         }}
       >
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirme digitando o número do contrato</DialogTitle>
-            <DialogDescription>
-              Essa ação é definitiva e não pode ser desfeita: apaga o contrato e tudo vinculado a
-              ele (parcelas, extrato, multas, acordo, documentos). Use só para contratos criados
-              errados — o servidor recusa se houver qualquer parcela ou multa já paga, ou um
-              acordo vinculado. Para confirmar, digite{" "}
-              <strong className="text-foreground">{contrato.numero}</strong> abaixo.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="confirmacaoNumero">Número do contrato</Label>
-            <Input
-              id="confirmacaoNumero"
-              value={numeroDigitado}
-              onChange={(e) => setNumeroDigitado(e.target.value)}
-              placeholder={contrato.numero}
-              autoComplete="off"
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmandoExclusao(false)} disabled={excluindo}>
-              Cancelar
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleConfirmarExclusao}
-              disabled={excluindo || numeroDigitado.trim() !== contrato.numero}
-            >
-              {excluindo ? "Excluindo…" : "Excluir definitivamente"}
-            </Button>
-          </DialogFooter>
+          {avisoAcordoExclusao ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>Este contrato tem um acordo vinculado</DialogTitle>
+                <DialogDescription>{avisoAcordoExclusao}</DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setConfirmandoExclusao(false)}
+                  disabled={excluindo}
+                >
+                  Cancelar
+                </Button>
+                <Button variant="destructive" onClick={handleConfirmarExclusao} disabled={excluindo}>
+                  {excluindo ? "Excluindo…" : "Sim, excluir mesmo assim"}
+                </Button>
+              </DialogFooter>
+            </>
+          ) : (
+            <>
+              <DialogHeader>
+                <DialogTitle>Confirme digitando o número do contrato</DialogTitle>
+                <DialogDescription>
+                  Essa ação é definitiva e não pode ser desfeita: apaga o contrato e tudo vinculado a
+                  ele (parcelas, extrato, multas, acordo, documentos). Use só para contratos criados
+                  errados — o servidor recusa se houver qualquer parcela ou multa já paga, ou um
+                  acordo com pagamentos registrados. Para confirmar, digite{" "}
+                  <strong className="text-foreground">{contrato.numero}</strong> abaixo.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="confirmacaoNumero">Número do contrato</Label>
+                <Input
+                  id="confirmacaoNumero"
+                  value={numeroDigitado}
+                  onChange={(e) => setNumeroDigitado(e.target.value)}
+                  placeholder={contrato.numero}
+                  autoComplete="off"
+                />
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setConfirmandoExclusao(false)} disabled={excluindo}>
+                  Cancelar
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={handleConfirmarExclusao}
+                  disabled={excluindo || numeroDigitado.trim() !== contrato.numero}
+                >
+                  {excluindo ? "Excluindo…" : "Excluir definitivamente"}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
         </DialogContent>
       </Dialog>
 

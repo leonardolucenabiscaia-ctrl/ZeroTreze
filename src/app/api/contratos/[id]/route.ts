@@ -31,11 +31,12 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
 // Exclusão definitiva — restrita a administrador, igual à exclusão de veículo. As guardas de
 // negócio (só encerrado, sem atividade financeira real) ficam em `excluirContrato`.
-export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const ignorarAcordoSemAtividade = request.nextUrl.searchParams.get("ignorarAcordo") === "true";
   return handleRoute(
     async () => {
-      await excluirContrato(id);
+      await excluirContrato(id, { ignorarAcordoSemAtividade });
       return null;
     },
     200,

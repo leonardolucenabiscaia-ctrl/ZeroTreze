@@ -8,6 +8,7 @@ import { enviarDocumentoParaAssinatura } from "./clicksign.service";
 import { mapCliente, mapContrato, mapVeiculo } from "./mappers";
 import { paginarTodasAsLinhas } from "./pagination";
 import { parseData } from "@/lib/utils/formatters";
+import { AVISO_ACORDO_SEM_ATIVIDADE } from "@/lib/types";
 import type { Contrato } from "@/lib/types";
 
 const PRAZO_MINIMO_MESES = 6;
@@ -325,7 +326,10 @@ export async function encerrarContrato(contratoId: string): Promise<Contrato> {
  * cadeia de acordo (parcelas_acordo, pagamentos_parciais_acordo) cascadeia por baixo dele também.
  * `chamados` é a única exceção (`on delete set null`) — o histórico de atendimento sobrevive, só
  * perde o vínculo com o contrato apagado. */
-export async function excluirContrato(contratoId: string): Promise<void> {
+export async function excluirContrato(
+  contratoId: string,
+  opts: { ignorarAcordoSemAtividade?: boolean } = {}
+): Promise<void> {
   const supabase = createAdminClient();
   const { data: contrato } = await supabase.from("contratos").select("*").eq("id", contratoId).maybeSingle();
   if (!contrato) throw new Error("Contrato não encontrado");
@@ -353,14 +357,27 @@ export async function excluirContrato(contratoId: string): Promise<void> {
     throw new Error("Este contrato tem multas pagas — não pode ser excluído.");
   }
 
-  const { count: acordos } = await supabase
-    .from("acordos")
-    .select("id", { count: "exact", head: true })
-    .eq("contrato_id", contratoId);
-  if (acordos && acordos > 0) {
-    throw new Error(
-      "Este contrato tem um acordo de renegociação vinculado — isso é sinal de histórico real, então não pode ser excluído."
-    );
+  const { data: acordos } = await supabase.from("acordos").select("id").eq("contrato_id", contratoId);
+  if (acordos && acordos.length > 0) {
+    const acordoIds = acordos.map((a) => a.id as string);
+    // Diferente de parcela/multa: um acordo recém-criado, sem nenhum pagamento nele, não é
+    // "atividade financeira real" — é só a renegociação em si, que pode ter sido criada errada
+    // junto com o contrato. Só bloqueia de vez se algum dinheiro já entrou nele.
+    const { count: parcelasAcordoPagas } = await supabase
+      .from("parcelas_acordo")
+      .select("id", { count: "exact", head: true })
+      .in("acordo_id", acordoIds)
+      .or("status.eq.pago,valor_pago.gt.0");
+    if (parcelasAcordoPagas && parcelasAcordoPagas > 0) {
+      throw new Error(
+        "Este contrato tem um acordo de renegociação com pagamentos já registrados — não pode ser excluído."
+      );
+    }
+    if (!opts.ignorarAcordoSemAtividade) {
+      throw new Error(
+        `${AVISO_ACORDO_SEM_ATIVIDADE}: Este contrato tem um acordo de renegociação vinculado (sem nenhum pagamento registrado nele). Excluir o contrato também apaga esse acordo. Confirme de novo se quiser continuar mesmo assim.`
+      );
+    }
   }
 
   // Melhor esforço: apaga o PDF assinado do Storage antes de apagar a linha (não bloqueia a

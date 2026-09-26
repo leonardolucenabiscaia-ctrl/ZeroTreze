@@ -1,5 +1,10 @@
 export type StatusContrato = "em_dia" | "vence_em_breve" | "atraso" | "encerrado";
 
+/** Prefixo do erro que `excluirContrato` lança quando há um acordo vinculado sem nenhum
+ * pagamento nele — a tela de exclusão reconhece esse prefixo pra pedir uma segunda confirmação em
+ * vez de só recusar a ação (diferente de parcela/multa paga, que é recusa definitiva). */
+export const AVISO_ACORDO_SEM_ATIVIDADE = "ACORDO_SEM_ATIVIDADE";
+
 export interface AditivoContrato {
   id: string;
   tipo: "aditivo" | "renovacao";
