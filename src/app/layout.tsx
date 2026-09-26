@@ -33,7 +33,17 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" className={`${inter.variable} h-full scroll-smooth antialiased`} suppressHydrationWarning>
       <body className="min-h-full flex flex-col">
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} value={{ light: "light", dark: "" }}>
+        {/* "dark" mapeia pra uma classe própria (mesmo não tendo nenhuma regra de CSS pra ela) —
+        de propósito, nunca string vazia: o next-themes faz `classList.remove(...valores)` ao
+        trocar de tema, e o navegador lança exceção se algum valor for "" (quebrava a hidratação
+        da página inteira). O tema escuro já é o :root padrão, então uma classe "dark" inerte não
+        muda nada visualmente. */}
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem={false}
+          value={{ light: "light", dark: "dark" }}
+        >
           <AuthProvider>
             {children}
             <Toaster />
