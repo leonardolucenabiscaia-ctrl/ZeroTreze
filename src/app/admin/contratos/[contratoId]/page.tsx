@@ -2,12 +2,17 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { AlertTriangle, FileCheck2, FileDown, Lock, Pencil, Printer, Unlock } from "lucide-react";
+import { useParams, useRouter } from "next/navigation";
+import { AlertTriangle, FileCheck2, FileDown, Lock, Pencil, Printer, Trash2, Unlock } from "lucide-react";
 import { toast } from "sonner";
 
 import { useAuth } from "@/lib/auth/auth-context";
-import { atualizarContrato, buscarContratoPorId, encerrarContrato } from "@/lib/services/contratos.service";
+import {
+  atualizarContrato,
+  buscarContratoPorId,
+  encerrarContrato,
+  excluirContrato,
+} from "@/lib/services/contratos.service";
 import { buscarClientePorId } from "@/lib/services/clientes.service";
 import { bloquearVeiculo, buscarVeiculoPorId, desbloquearVeiculo } from "@/lib/services/veiculos.service";
 import {
@@ -45,6 +50,7 @@ import {
 
 export default function AdminContratoDetalhePage() {
   const params = useParams<{ contratoId: string }>();
+  const router = useRouter();
   const { usuario } = useAuth();
   const [contrato, setContrato] = React.useState<Contrato | null>(null);
   const [cliente, setCliente] = React.useState<Cliente | null>(null);
@@ -54,6 +60,9 @@ export default function AdminContratoDetalhePage() {
   const [parcelaDetalhe, setParcelaDetalhe] = React.useState<Parcela | null>(null);
   const [confirmandoEncerramento, setConfirmandoEncerramento] = React.useState(false);
   const [encerrando, setEncerrando] = React.useState(false);
+  const [confirmandoExclusao, setConfirmandoExclusao] = React.useState(false);
+  const [numeroDigitado, setNumeroDigitado] = React.useState("");
+  const [excluindo, setExcluindo] = React.useState(false);
   const [confirmandoBloqueio, setConfirmandoBloqueio] = React.useState(false);
   const [alternandoBloqueio, setAlternandoBloqueio] = React.useState(false);
   const [editandoContrato, setEditandoContrato] = React.useState(false);
@@ -105,6 +114,28 @@ export default function AdminContratoDetalhePage() {
       toast.error(error instanceof Error ? error.message : "Não foi possível encerrar o contrato.");
     } finally {
       setEncerrando(false);
+    }
+  }
+
+  async function handleConfirmarExclusao() {
+    if (!contrato) return;
+    setExcluindo(true);
+    try {
+      await excluirContrato(contrato.id);
+      if (usuario) {
+        await registrarAcao({
+          usuarioId: usuario.id,
+          usuarioNome: usuario.nome,
+          acao: "Excluiu o contrato (criado errado)",
+          entidade: "Contrato",
+          entidadeId: contrato.numero,
+        });
+      }
+      toast.success("Contrato excluído com sucesso.");
+      router.push("/admin/contratos");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível excluir o contrato.");
+      setExcluindo(false);
     }
   }
 
@@ -283,6 +314,12 @@ export default function AdminContratoDetalhePage() {
               Encerrar contrato
             </Button>
           )}
+          {contrato.status === "encerrado" && usuario?.perfil === "administrador" && (
+            <Button size="sm" variant="destructive" onClick={() => setConfirmandoExclusao(true)}>
+              <Trash2 className="size-4" />
+              Excluir contrato
+            </Button>
+          )}
         </div>
       </Card>
 
@@ -403,6 +440,49 @@ export default function AdminContratoDetalhePage() {
             </Button>
             <Button variant="destructive" onClick={handleConfirmarEncerramento} disabled={encerrando}>
               {encerrando ? "Encerrando…" : "Sim, encerrar contrato"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={confirmandoExclusao}
+        onOpenChange={(open) => {
+          setConfirmandoExclusao(open);
+          if (!open) setNumeroDigitado("");
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirme digitando o número do contrato</DialogTitle>
+            <DialogDescription>
+              Essa ação é definitiva e não pode ser desfeita: apaga o contrato e tudo vinculado a
+              ele (parcelas, extrato, multas, acordo, documentos). Use só para contratos criados
+              errados — o servidor recusa se houver qualquer parcela ou multa já paga, ou um
+              acordo vinculado. Para confirmar, digite{" "}
+              <strong className="text-foreground">{contrato.numero}</strong> abaixo.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="confirmacaoNumero">Número do contrato</Label>
+            <Input
+              id="confirmacaoNumero"
+              value={numeroDigitado}
+              onChange={(e) => setNumeroDigitado(e.target.value)}
+              placeholder={contrato.numero}
+              autoComplete="off"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmandoExclusao(false)} disabled={excluindo}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmarExclusao}
+              disabled={excluindo || numeroDigitado.trim() !== contrato.numero}
+            >
+              {excluindo ? "Excluindo…" : "Excluir definitivamente"}
             </Button>
           </DialogFooter>
         </DialogContent>

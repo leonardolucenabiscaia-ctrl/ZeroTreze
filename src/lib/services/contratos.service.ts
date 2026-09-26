@@ -28,6 +28,7 @@ export interface NovoContratoInput {
   valorSemanal: number;
   dataInicio: string;
   caucao: number;
+  observacao?: string;
 }
 
 export async function criarContrato(dados: NovoContratoInput): Promise<Contrato> {
@@ -40,4 +41,11 @@ export async function atualizarContrato(id: string, dados: Partial<Contrato>): P
 
 export async function encerrarContrato(contratoId: string): Promise<Contrato> {
   return apiFetch<Contrato>(`/api/contratos/${contratoId}/encerrar`, { method: "POST" });
+}
+
+/** Exclusão definitiva do contrato e de tudo vinculado a ele (parcelas, extrato, multas, acordo,
+ * documentos) — só pensada pra contratos criados errados. O servidor recusa se o contrato não
+ * estiver encerrado ou se houver qualquer sinal de atividade financeira real. */
+export async function excluirContrato(contratoId: string): Promise<void> {
+  await apiFetch<null>(`/api/contratos/${contratoId}`, { method: "DELETE" });
 }

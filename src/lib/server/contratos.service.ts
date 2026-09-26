@@ -66,6 +66,7 @@ export async function atualizarContrato(id: string, dados: Partial<Contrato>): P
   if (dados.valorParcela !== undefined) patch.valor_parcela = dados.valorParcela;
   if (dados.valorCaucao !== undefined) patch.valor_caucao = dados.valorCaucao;
   if (dados.limiteRenovacao !== undefined) patch.limite_renovacao = dados.limiteRenovacao;
+  if (dados.observacao !== undefined) patch.observacao = dados.observacao || null;
 
   const { data, error } = await supabase.from("contratos").update(patch).eq("id", id).select().single();
   if (error || !data) throw new Error("Contrato não encontrado");
@@ -103,6 +104,7 @@ export interface NovoContratoInput {
   valorSemanal: number;
   dataInicio: string;
   caucao: number;
+  observacao?: string;
 }
 
 export async function criarContrato(dados: NovoContratoInput): Promise<Contrato> {
@@ -148,6 +150,7 @@ export async function criarContrato(dados: NovoContratoInput): Promise<Contrato>
     limiteRenovacao: dados.valorSemanal * 12,
     arquivoUrl: "/mock/documentos/contrato-principal.pdf",
     aditivos: [],
+    observacao: dados.observacao?.trim() || undefined,
   };
 
   const { data: contratoRow, error } = await supabase
@@ -164,6 +167,7 @@ export async function criarContrato(dados: NovoContratoInput): Promise<Contrato>
       valor_caucao: contratoTmp.valorCaucao,
       limite_renovacao: contratoTmp.limiteRenovacao,
       arquivo_url: contratoTmp.arquivoUrl,
+      observacao: contratoTmp.observacao ?? null,
     })
     .select()
     .single();
@@ -309,4 +313,67 @@ export async function encerrarContrato(contratoId: string): Promise<Contrato> {
 
   const [contratoMapeado] = await anexarAditivos(supabase, [atualizado]);
   return contratoMapeado;
+}
+
+/** Apaga um contrato inteiro — só pensado pra contratos criados errados (cliente/veículo/valor
+ * trocado etc.), nunca pra "limpar" um contrato que já rodou de verdade. Por isso as guardas
+ * abaixo: só aceita contrato já encerrado, e recusa se houver qualquer sinal de atividade
+ * financeira real (parcela paga, multa paga, ou um acordo — renegociação já é, por si só, prova
+ * de histórico real). Se passar nas guardas, o delete em `contratos` já é suficiente: todas as
+ * tabelas com `contrato_id` (parcelas, movimentos_extrato, multas, acordos, aditivos_contrato,
+ * documentos, solicitacoes_assistencia) têm `on delete cascade` desde a migração inicial — e a
+ * cadeia de acordo (parcelas_acordo, pagamentos_parciais_acordo) cascadeia por baixo dele também.
+ * `chamados` é a única exceção (`on delete set null`) — o histórico de atendimento sobrevive, só
+ * perde o vínculo com o contrato apagado. */
+export async function excluirContrato(contratoId: string): Promise<void> {
+  const supabase = createAdminClient();
+  const { data: contrato } = await supabase.from("contratos").select("*").eq("id", contratoId).maybeSingle();
+  if (!contrato) throw new Error("Contrato não encontrado");
+  if (contrato.status !== "encerrado") {
+    throw new Error("Só é possível excluir contratos já encerrados.");
+  }
+
+  const { count: parcelasPagas } = await supabase
+    .from("parcelas")
+    .select("id", { count: "exact", head: true })
+    .eq("contrato_id", contratoId)
+    .eq("status", "pago");
+  if (parcelasPagas && parcelasPagas > 0) {
+    throw new Error(
+      "Este contrato tem parcelas pagas — há atividade financeira real registrada, então não pode ser excluído."
+    );
+  }
+
+  const { count: multasPagas } = await supabase
+    .from("multas")
+    .select("id", { count: "exact", head: true })
+    .eq("contrato_id", contratoId)
+    .eq("situacao", "paga");
+  if (multasPagas && multasPagas > 0) {
+    throw new Error("Este contrato tem multas pagas — não pode ser excluído.");
+  }
+
+  const { count: acordos } = await supabase
+    .from("acordos")
+    .select("id", { count: "exact", head: true })
+    .eq("contrato_id", contratoId);
+  if (acordos && acordos > 0) {
+    throw new Error(
+      "Este contrato tem um acordo de renegociação vinculado — isso é sinal de histórico real, então não pode ser excluído."
+    );
+  }
+
+  // Melhor esforço: apaga o PDF assinado do Storage antes de apagar a linha (não bloqueia a
+  // exclusão se falhar — o arquivo só ficaria órfão, sem nenhuma linha referenciando ele).
+  if (contrato.arquivo_url && !String(contrato.arquivo_url).startsWith("/mock/")) {
+    try {
+      const caminho = String(contrato.arquivo_url).split("/contratos-assinados/")[1]?.split("?")[0];
+      if (caminho) await supabase.storage.from("contratos-assinados").remove([caminho]);
+    } catch (error) {
+      console.error("[contratos] Falha ao apagar o PDF assinado do Storage:", error);
+    }
+  }
+
+  const { error } = await supabase.from("contratos").delete().eq("id", contratoId);
+  if (error) throw new Error(error.message);
 }
