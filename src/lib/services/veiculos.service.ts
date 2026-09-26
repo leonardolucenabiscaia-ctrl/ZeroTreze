@@ -74,6 +74,13 @@ export async function atualizarQuilometragem(veiculoId: string, quilometragem: n
   });
 }
 
+/** Troca a foto de perfil do veículo — mesmo upload usado no cadastro. */
+export async function atualizarFotoVeiculo(veiculoId: string, foto: File): Promise<Veiculo> {
+  const formData = new FormData();
+  formData.append("foto", foto);
+  return apiFetch<Veiculo>(`/api/veiculos/${veiculoId}/foto`, { method: "POST", body: formData });
+}
+
 export interface NovoVeiculoInput {
   marca: string;
   modelo: string;

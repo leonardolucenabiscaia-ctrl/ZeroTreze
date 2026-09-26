@@ -311,6 +311,29 @@ export async function atualizarVeiculo(veiculoId: string, dados: Partial<Veiculo
 
 /** A quilometragem só pode subir (odômetro real não anda pra trás) — rejeita valores menores que
  * o atual. */
+/** Troca a foto de perfil do veículo — mesmo upload usado no cadastro (`enviarFotoVeiculo`), mas
+ * como ação dedicada (mesmo esquema de `atualizarQuilometragem`), já que sobrescrever a foto tem
+ * efeito colateral próprio (upload pro Storage) fora do PATCH genérico de `atualizarVeiculo`. */
+export async function atualizarFotoVeiculo(veiculoId: string, foto: File): Promise<Veiculo> {
+  const supabase = createAdminClient();
+
+  const { data: atual } = await supabase.from("veiculos").select("id").eq("id", veiculoId).maybeSingle();
+  if (!atual) throw new Error("Veículo não encontrado");
+
+  const urlFoto = await enviarFotoVeiculo(supabase, veiculoId, foto);
+  if (!urlFoto) throw new Error("Não foi possível enviar a foto — tente novamente.");
+
+  const { data, error } = await supabase
+    .from("veiculos")
+    .update({ foto_url: urlFoto })
+    .eq("id", veiculoId)
+    .select()
+    .single();
+  if (error || !data) throw new Error("Veículo não encontrado");
+  const [veiculo] = await anexarHistorico(supabase, [data]);
+  return veiculo;
+}
+
 export async function atualizarQuilometragem(veiculoId: string, quilometragem: number): Promise<Veiculo> {
   const supabase = createAdminClient();
 

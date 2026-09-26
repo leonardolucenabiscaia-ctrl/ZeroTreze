@@ -10,15 +10,20 @@ export function ImageUploader({
   onChange,
   label,
   hint = "JPG, PNG ou WEBP — arraste ou clique para selecionar",
+  previewAtual,
 }: {
   arquivo: File | null;
   onChange: (arquivo: File | null) => void;
   label?: string;
   hint?: string;
+  /** URL de uma imagem já existente (ex.: foto atual do veículo) — mostrada como pré-visualização
+   * enquanto nenhum arquivo novo foi escolhido, pra deixar claro o que será substituído. */
+  previewAtual?: string;
 }) {
   const inputRef = React.useRef<HTMLInputElement>(null);
   const [arrastando, setArrastando] = React.useState(false);
   const preview = React.useMemo(() => (arquivo ? URL.createObjectURL(arquivo) : null), [arquivo]);
+  const previewExibido = preview ?? previewAtual ?? null;
 
   React.useEffect(() => {
     return () => {
@@ -52,9 +57,9 @@ export function ImageUploader({
           arrastando ? "border-gold bg-gold-muted" : "border-border hover:border-gold/40"
         )}
       >
-        {preview ? (
+        {previewExibido ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={preview} alt="Pré-visualização da foto do veículo" className="h-full w-full object-cover" />
+          <img src={previewExibido} alt="Pré-visualização da foto do veículo" className="h-full w-full object-cover" />
         ) : (
           <>
             <ImagePlus className="size-5 text-muted-foreground" />

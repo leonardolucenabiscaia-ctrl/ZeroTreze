@@ -9,12 +9,14 @@ import {
   buscarVeiculoPorId,
   atualizarQuilometragem,
   atualizarVeiculo,
+  atualizarFotoVeiculo,
   marcarVeiculoIndisponivel,
   marcarVeiculoDisponivel,
   bloquearVeiculo,
   desbloquearVeiculo,
   excluirVeiculo,
 } from "@/lib/services/veiculos.service";
+import { ImageUploader } from "@/components/shared/image-uploader";
 import { listarDocumentosPorVeiculo } from "@/lib/services/documentos.service";
 import { registrarAcao } from "@/lib/services/auditoria.service";
 import { useAuth } from "@/lib/auth/auth-context";
@@ -102,6 +104,7 @@ export default function AdminVeiculoDetalhePage() {
   const [salvandoKm, setSalvandoKm] = React.useState(false);
   const [editandoDados, setEditandoDados] = React.useState(false);
   const [dadosEdicao, setDadosEdicao] = React.useState<DadosVeiculoEdicaveis>(DADOS_VEICULO_VAZIOS);
+  const [novaFoto, setNovaFoto] = React.useState<File | null>(null);
   const [salvandoDados, setSalvandoDados] = React.useState(false);
   const [confirmandoIndisponibilidade, setConfirmandoIndisponibilidade] = React.useState(false);
   const [alternandoIndisponibilidade, setAlternandoIndisponibilidade] = React.useState(false);
@@ -167,6 +170,7 @@ export default function AdminVeiculoDetalhePage() {
       garantiaAte: paraDataInput(veiculo.garantiaAte),
       assistencia247: veiculo.assistencia247,
     });
+    setNovaFoto(null);
     setEditandoDados(true);
   }
 
@@ -201,14 +205,15 @@ export default function AdminVeiculoDetalhePage() {
         garantiaAte: dadosEdicao.garantiaAte,
         assistencia247: dadosEdicao.assistencia247,
       });
-      setVeiculo(atualizado);
+      const final = novaFoto ? await atualizarFotoVeiculo(veiculo.id, novaFoto) : atualizado;
+      setVeiculo(final);
       if (usuario) {
         await registrarAcao({
           usuarioId: usuario.id,
           usuarioNome: usuario.nome,
-          acao: "Editou os dados do veículo",
+          acao: novaFoto ? "Editou os dados e a foto do veículo" : "Editou os dados do veículo",
           entidade: "Veículo",
-          entidadeId: `${atualizado.marca} ${atualizado.modelo} — ${atualizado.placa}`,
+          entidadeId: `${final.marca} ${final.modelo} — ${final.placa}`,
         });
       }
       toast.success("Dados do veículo atualizados com sucesso!");
@@ -415,6 +420,10 @@ export default function AdminVeiculoDetalhePage() {
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSalvarDados} className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <Label>Foto de perfil</Label>
+              <ImageUploader arquivo={novaFoto} onChange={setNovaFoto} previewAtual={veiculo.fotoUrl} />
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="veiculo-marca">Marca</Label>
