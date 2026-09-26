@@ -30,6 +30,7 @@ export async function enviarPagamentoParcial(
     throw new Error("Esta parcela foi renegociada em um acordo — pague-a por lá, em Financeiro Acordos.");
   }
   if (!(dados.valor > 0)) throw new Error("O valor deve ser maior que zero.");
+  if (anexos.length === 0) throw new Error("Anexe o comprovante de pagamento.");
 
   const parametros = await obterParametrosFinanceiros();
   const atualizado = calcularValorAtualizado(mapParcela(parcela), parametros);

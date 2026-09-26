@@ -60,6 +60,9 @@ export interface Acordo {
   situacao: StatusAcordo;
   cronograma: ParcelaAcordo[];
   descricao?: string;
+  /** Data em que o acordo passa a valer de fato — pode ser posterior à criação, quando o acordo
+   * demora pra entrar em vigor. Independente do vencimento da 1ª parcela do cronograma. */
+  dataInicio: string;
   criadoEm: string;
   /** Ausente se o envio para assinatura ainda não foi feito ou falhou (não bloqueia o acordo). */
   assinatura?: AssinaturaContrato;

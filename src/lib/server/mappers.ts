@@ -15,6 +15,7 @@ import type {
   PagamentoParcial,
   ParcelaAcordo,
   PagamentoParcialAcordo,
+  PagamentoParcialMulta,
   ParametrosFinanceiros,
   RegraCobranca,
   ScoreLocatario,
@@ -136,6 +137,7 @@ export function mapContrato(
       data: a.data as string,
       arquivoUrl: (a.arquivo_url as string | null) ?? "",
     })),
+    observacao: (row.observacao as string | null) ?? undefined,
     assinatura: row.assinatura_document_key
       ? {
           status: row.assinatura_status as string,
@@ -247,6 +249,7 @@ export function mapMulta(row: Record<string, unknown>): Multa {
     valor: row.valor as number,
     vencimento: row.vencimento as string,
     situacao: row.situacao as Multa["situacao"],
+    valorPago: (row.valor_pago as number | null) ?? 0,
     pontos: row.pontos as number,
     dataRegistro: row.data_registro as string,
     anexoUrl: (row.anexo_url as string | null) ?? undefined,
@@ -270,6 +273,18 @@ export function mapMulta(row: Record<string, unknown>): Multa {
           motivo: row.baixa_manual_motivo as string,
         }
       : undefined,
+  };
+}
+
+export function mapPagamentoParcialMulta(row: Record<string, unknown>): PagamentoParcialMulta {
+  return {
+    id: row.id as string,
+    multaId: row.multa_id as string,
+    valor: row.valor as number,
+    formaPagamento: (row.forma_pagamento as PagamentoParcialMulta["formaPagamento"] | null) ?? undefined,
+    status: row.status as PagamentoParcialMulta["status"],
+    enviadoEm: row.enviado_em as string,
+    confirmadoEm: (row.confirmado_em as string | null) ?? undefined,
   };
 }
 
@@ -336,6 +351,7 @@ export function mapAcordo(
       .sort((a, b) => (a.numero as number) - (b.numero as number))
       .map(mapParcelaAcordo),
     descricao: (row.descricao as string | null) ?? undefined,
+    dataInicio: (row.data_inicio as string | null) ?? (row.criado_em as string).slice(0, 10),
     criadoEm: row.criado_em as string,
     assinatura: row.assinatura_document_key
       ? {

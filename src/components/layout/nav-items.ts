@@ -45,7 +45,10 @@ export const CLIENT_NAV_ITEMS: NavItem[] = [
   { href: "/atendimento", label: "Atendimento", icon: Headset },
   { href: "/assistencia-24h", label: "Assistência 24h", icon: Siren },
   { href: "/documentos", label: "Documentos", icon: FolderOpen },
-  { href: "/score", label: "Score", icon: Award },
+  // Aba "Score" desativada temporariamente a pedido do dono do sistema (2026-09-25) — pra
+  // reativar, basta descomentar a linha abaixo (a página /score e o cálculo de score em si
+  // continuam funcionando normalmente em outros lugares, ex.: dashboard e painel admin).
+  // { href: "/score", label: "Score", icon: Award },
   { href: "/perfil", label: "Perfil", icon: User },
 ];
 

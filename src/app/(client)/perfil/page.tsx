@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AparenciaCard } from "@/components/shared/aparencia-card";
 
 const CANAIS: { value: CanalNotificacao; label: string }[] = [
   { value: "sms", label: "SMS" },
@@ -70,6 +71,8 @@ export default function PerfilPage() {
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-xl font-semibold text-foreground">Perfil</h1>
+
+      <AparenciaCard />
 
       <Card>
         <CardHeader>

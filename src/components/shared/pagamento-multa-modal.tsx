@@ -17,49 +17,42 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FileUploader } from "@/components/shared/file-uploader";
 import {
-  enviarPagamentoParcial,
-  listarPagamentosParciaisPorParcela,
-} from "@/lib/services/pagamentos-parciais.service";
-import { obterParametrosFinanceiros } from "@/lib/services/financeiro.service";
-import { calcularValorAtualizado } from "@/lib/calculations/juros-multa-correcao";
+  enviarPagamentoParcialMulta,
+  listarPagamentosParciaisMultaPorMulta,
+} from "@/lib/services/pagamentos-parciais-multa.service";
+import { calcularValorAtualizadoMulta } from "@/lib/calculations/multa";
 import { EMPRESA } from "@/lib/constants/empresa";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils/formatters";
-import type { PagamentoParcial, ParametrosFinanceiros, Parcela } from "@/lib/types";
+import type { Multa, PagamentoParcialMulta } from "@/lib/types";
 
-const ROTULO_STATUS_ENVIO: Record<PagamentoParcial["status"], string> = {
+const ROTULO_STATUS_ENVIO: Record<PagamentoParcialMulta["status"], string> = {
   aguardando_confirmacao: "Aguardando confirmação",
   confirmado: "Confirmado",
   recusado: "Recusado",
 };
 
-export function PagamentoModal({
-  parcela,
+/** Mesmo fluxo do `PagamentoAcordoModal` das parcelas de acordo — inclusive o pagamento parcial
+ * (dá pra ir completando aos poucos). */
+export function PagamentoMultaModal({
+  multa,
   open,
   onOpenChange,
   onPago,
 }: {
-  parcela: Parcela | null;
+  multa: Multa | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onPago: (pagamento: PagamentoParcial) => void;
+  onPago: (pagamento: PagamentoParcialMulta) => void;
 }) {
   const [valor, setValor] = React.useState("");
   const [enviando, setEnviando] = React.useState(false);
   const [anexos, setAnexos] = React.useState<File[]>([]);
-  const [parametros, setParametros] = React.useState<ParametrosFinanceiros | null>(null);
-  const [envios, setEnvios] = React.useState<PagamentoParcial[]>([]);
-
-  const valorAtualizado = parcela && parametros ? calcularValorAtualizado(parcela, parametros) : null;
+  const [envios, setEnvios] = React.useState<PagamentoParcialMulta[]>([]);
 
   React.useEffect(() => {
-    if (!open) return;
-    obterParametrosFinanceiros().then(setParametros);
-  }, [open]);
-
-  React.useEffect(() => {
-    if (!open || !parcela) return;
-    listarPagamentosParciaisPorParcela(parcela.id).then(setEnvios);
-  }, [open, parcela]);
+    if (!open || !multa) return;
+    listarPagamentosParciaisMultaPorMulta(multa.id).then(setEnvios);
+  }, [open, multa]);
 
   React.useEffect(() => {
     if (!open) return;
@@ -68,25 +61,29 @@ export function PagamentoModal({
   }, [open]);
 
   React.useEffect(() => {
-    if (!valorAtualizado) return;
+    if (!multa) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setValor(String(valorAtualizado.valorFinal));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [parcela?.id, valorAtualizado?.valorFinal]);
+    setValor(String(calcularValorAtualizadoMulta(multa)));
+  }, [multa]);
 
-  if (!parcela || !valorAtualizado) return null;
+  if (!multa) return null;
 
+  const saldoTotal = calcularValorAtualizadoMulta(multa);
   const totalPendente = envios
     .filter((e) => e.status === "aguardando_confirmacao")
     .reduce((soma, e) => soma + e.valor, 0);
-  const saldoDisponivel = Math.max(0, valorAtualizado.valorFinal - totalPendente);
+  const saldoDisponivel = Math.max(0, saldoTotal - totalPendente);
   const valorNumero = Number(valor) || 0;
   const valorValido = valorNumero > 0 && valorNumero <= saldoDisponivel + 0.01 && anexos.length > 0;
 
   async function enviarPagamento() {
     setEnviando(true);
     try {
-      const pagamento = await enviarPagamentoParcial(parcela!.id, { valor: valorNumero, formaPagamento: "pix" }, anexos);
+      const pagamento = await enviarPagamentoParcialMulta(
+        multa!.id,
+        { valor: valorNumero, formaPagamento: "pix" },
+        anexos
+      );
       toast.success("Pagamento enviado! Aguarde a confirmação do administrador.");
       onPago(pagamento);
       setEnvios((atuais) => [pagamento, ...atuais]);
@@ -107,10 +104,10 @@ export function PagamentoModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Pagar parcela {parcela.numero}</DialogTitle>
+          <DialogTitle>Pagar multa {multa.numeroAuto}</DialogTitle>
           <DialogDescription>
-            Vencimento em {formatDate(parcela.dataVencimento)} — saldo em aberto{" "}
-            <span className="font-medium text-gold">{formatCurrency(valorAtualizado.valorFinal)}</span>
+            Vencimento em {formatDate(multa.vencimento)} — saldo em aberto{" "}
+            <span className="font-medium text-gold">{formatCurrency(saldoTotal)}</span>
           </DialogDescription>
         </DialogHeader>
 
@@ -125,14 +122,14 @@ export function PagamentoModal({
         </div>
 
         <p className="text-xs text-muted-foreground">
-          Pode pagar aos poucos ao longo da semana — cada valor enviado é conferido separadamente. Diga
-          abaixo quanto você está pagando agora.
+          Pode pagar aos poucos — cada valor enviado é conferido separadamente. Diga abaixo quanto
+          você está pagando agora.
         </p>
 
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="valor-pago">Valor que você está pagando agora (R$)</Label>
+          <Label htmlFor="valor-pago-multa">Valor que você está pagando agora (R$)</Label>
           <Input
-            id="valor-pago"
+            id="valor-pago-multa"
             type="number"
             min={0}
             max={saldoDisponivel}
@@ -159,7 +156,7 @@ export function PagamentoModal({
 
         {envios.length > 0 && (
           <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium text-foreground">Pagamentos enviados desta parcela</span>
+            <span className="text-sm font-medium text-foreground">Pagamentos enviados desta multa</span>
             <ul className="flex flex-col gap-1.5">
               {envios.map((envio) => (
                 <li

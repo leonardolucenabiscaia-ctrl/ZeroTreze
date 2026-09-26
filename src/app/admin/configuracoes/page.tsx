@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AparenciaCard } from "@/components/shared/aparencia-card";
 
 export default function ConfiguracoesPage() {
   const { usuario } = useAuth();
@@ -49,6 +50,8 @@ export default function ConfiguracoesPage() {
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-xl font-semibold text-foreground">Configurações</h1>
+
+      <AparenciaCard />
 
       <Card>
         <CardHeader>

@@ -35,6 +35,7 @@ const acordoSchema = z.object({
   valorEntrada: z.number().min(0, "Informe um valor de entrada válido"),
   valorParcela: z.number().positive("Informe um valor de parcela válido"),
   quantidadeParcelas: z.number().int().min(1, "Informe ao menos 1 parcela"),
+  dataInicio: z.string().min(1, "Informe a data de início do acordo"),
   dataPrimeiraParcela: z.string().min(1, "Informe a data da primeira parcela"),
   valorDividaOriginal: z.number().min(0, "Informe um valor válido").optional(),
   periodicidade: z.enum(["semanal", "mensal"], { message: "Selecione a periodicidade" }),
@@ -72,7 +73,7 @@ export default function NovoAcordoPage() {
     formState: { errors },
   } = useForm<AcordoFormValues>({
     resolver: zodResolver(acordoSchema),
-    defaultValues: { dataPrimeiraParcela: hoje, quantidadeParcelas: 3, periodicidade: "mensal" },
+    defaultValues: { dataInicio: hoje, dataPrimeiraParcela: hoje, quantidadeParcelas: 3, periodicidade: "mensal" },
   });
 
   const clienteId = watch("clienteId");
@@ -232,6 +233,14 @@ export default function NovoAcordoPage() {
               </div>
             )}
 
+            <Campo label="Data de início do acordo" erro={errors.dataInicio?.message}>
+              <Input {...register("dataInicio")} type="date" />
+              <p className="text-xs text-muted-foreground">
+                Data em que o acordo passa a valer de fato — pode ser diferente de hoje quando ele
+                demora pra entrar em vigor.
+              </p>
+            </Campo>
+
             <div className="grid grid-cols-2 gap-4">
               <Campo label="Valor de entrada" erro={errors.valorEntrada?.message}>
                 <Input
@@ -336,6 +345,18 @@ export default function NovoAcordoPage() {
                 <span className="text-muted-foreground">Valor total do acordo: </span>
                 <span className="font-medium text-gold">{formatCurrency(valorTotal)}</span>
               </div>
+              {!!valorDividaOriginal && (
+                <div>
+                  <span className="text-muted-foreground">Acréscimo sobre a dívida original: </span>
+                  <span className="font-medium text-gold">
+                    {(((valorTotal - valorDividaOriginal) / valorDividaOriginal) * 100).toLocaleString(
+                      "pt-BR",
+                      { minimumFractionDigits: 1, maximumFractionDigits: 1 }
+                    )}
+                    %
+                  </span>
+                </div>
+              )}
             </div>
 
             <div className="flex justify-end gap-2 pt-2">

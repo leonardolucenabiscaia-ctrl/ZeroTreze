@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { Award, CheckCircle2 } from "lucide-react";
 import {
   CartesianGrid,
@@ -28,7 +29,15 @@ const CATEGORIAS: CategoriaScore[] = ["bronze", "prata", "ouro", "platina", "dia
 
 export default function ScorePage() {
   const { cliente } = useAuth();
+  const router = useRouter();
   const [score, setScore] = React.useState<ScoreLocatario | null>(null);
+
+  // Aba desativada temporariamente a pedido do dono do sistema (2026-09-25) — bloqueia acesso
+  // direto pela URL. Pra reativar: remova este efeito e descomente a entrada de nav em
+  // `nav-items.ts`.
+  React.useEffect(() => {
+    router.replace("/dashboard");
+  }, [router]);
 
   React.useEffect(() => {
     if (!cliente) return;

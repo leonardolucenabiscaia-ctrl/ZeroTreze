@@ -87,6 +87,7 @@ export interface NovoAcordoInput {
   valorEntrada: number;
   valorParcela: number;
   quantidadeParcelas: number;
+  dataInicio: string;
   dataPrimeiraParcela: string;
   valorDividaOriginal?: number;
   periodicidade: "semanal" | "mensal";
@@ -130,6 +131,7 @@ export async function criarAcordo(dados: NovoAcordoInput): Promise<Acordo> {
       periodicidade: dados.periodicidade,
       situacao: "ativo",
       descricao: dados.descricao?.trim() || null,
+      data_inicio: dados.dataInicio,
       criado_em: agora,
     })
     .select()

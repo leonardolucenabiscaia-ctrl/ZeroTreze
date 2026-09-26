@@ -29,6 +29,7 @@ export async function enviarPagamentoParcialAcordo(
   if (!parcela) throw new Error("Parcela do acordo não encontrada");
   if (parcela.status === "pago") throw new Error("Esta parcela já está paga.");
   if (!(dados.valor > 0)) throw new Error("O valor deve ser maior que zero.");
+  if (anexos.length === 0) throw new Error("Anexe o comprovante de pagamento.");
 
   const saldo = calcularSaldoAcordo(mapParcelaAcordo(parcela));
 

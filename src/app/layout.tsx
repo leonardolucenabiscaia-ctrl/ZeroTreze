@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { ThemeProvider } from "next-themes";
 import { AuthProvider } from "@/lib/auth/auth-context";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -30,12 +31,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pt-BR" className={`${inter.variable} h-full scroll-smooth antialiased`}>
+    <html lang="pt-BR" className={`${inter.variable} h-full scroll-smooth antialiased`} suppressHydrationWarning>
       <body className="min-h-full flex flex-col">
-        <AuthProvider>
-          {children}
-          <Toaster />
-        </AuthProvider>
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} value={{ light: "light", dark: "" }}>
+          <AuthProvider>
+            {children}
+            <Toaster />
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

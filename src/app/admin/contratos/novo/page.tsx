@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SelectBusca } from "@/components/ui/select-busca";
+import { Textarea } from "@/components/ui/textarea";
 
 const contratoSchema = z.object({
   clienteId: z.string().min(1, "Selecione o cliente"),
@@ -28,6 +29,7 @@ const contratoSchema = z.object({
   valorSemanal: z.number().positive("Informe um valor semanal válido"),
   dataInicio: z.string().min(1, "Informe a data de início"),
   caucao: z.number().min(0, "Informe um valor de caução válido"),
+  observacao: z.string().max(1000, "A observação pode ter no máximo 1000 caracteres").optional(),
 });
 
 type ContratoFormValues = z.infer<typeof contratoSchema>;
@@ -169,6 +171,14 @@ export default function NovoContratoPage() {
 
             <Campo label="Data de início" erro={errors.dataInicio?.message}>
               <Input {...register("dataInicio")} type="date" />
+            </Campo>
+
+            <Campo label="Observação (opcional)" erro={errors.observacao?.message}>
+              <Textarea
+                {...register("observacao")}
+                placeholder="Aparece também no PDF do contrato, na seção de observações."
+                rows={4}
+              />
             </Campo>
 
             <div className="flex justify-end gap-2 pt-2">

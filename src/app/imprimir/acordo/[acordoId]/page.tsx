@@ -238,7 +238,7 @@ export default function ImprimirAcordoPage() {
           </p>
         </Secao>
 
-        <p className="mb-10">{EMPRESA.foro}, {formatDate(acordo.criadoEm, "dd 'de' MMMM 'de' yyyy")}.</p>
+        <p className="mb-10">{EMPRESA.foro}, {formatDate(acordo.dataInicio, "dd 'de' MMMM 'de' yyyy")}.</p>
 
         <div className="grid grid-cols-2 gap-8 text-center text-xs">
           <div>

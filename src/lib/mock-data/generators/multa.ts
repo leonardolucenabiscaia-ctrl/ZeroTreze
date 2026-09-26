@@ -38,6 +38,7 @@ export function gerarMulta(contratoId: string): Multa {
     valor: faker.number.float({ min: 130, max: 880, fractionDigits: 2 }),
     vencimento: vencimento.toISOString(),
     situacao,
+    valorPago: 0,
     pontos: infracao.pontos,
     dataRegistro: dataRegistro.toISOString(),
     cienciaEm: cienciaEm.toISOString(),

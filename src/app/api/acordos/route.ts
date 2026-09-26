@@ -21,6 +21,7 @@ export async function POST(request: NextRequest) {
       valorEntrada: Number(formData.get("valorEntrada") ?? 0),
       valorParcela: Number(formData.get("valorParcela") ?? 0),
       quantidadeParcelas: Number(formData.get("quantidadeParcelas") ?? 0),
+      dataInicio: String(formData.get("dataInicio") ?? ""),
       dataPrimeiraParcela: String(formData.get("dataPrimeiraParcela") ?? ""),
       valorDividaOriginal: formData.get("valorDividaOriginal")
         ? Number(formData.get("valorDividaOriginal"))

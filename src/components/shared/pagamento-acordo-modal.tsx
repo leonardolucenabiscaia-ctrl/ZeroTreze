@@ -16,7 +16,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FileUploader } from "@/components/shared/file-uploader";
-import { gerarPixEstatico } from "@/lib/integrations/pix";
 import {
   enviarPagamentoParcialAcordo,
   listarPagamentosParciaisAcordoPorParcela,
@@ -25,9 +24,6 @@ import { calcularSaldoAcordo } from "@/lib/calculations/parcela-acordo";
 import { EMPRESA } from "@/lib/constants/empresa";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils/formatters";
 import type { PagamentoParcialAcordo, ParcelaAcordo } from "@/lib/types";
-
-// Chave Pix estática da empresa — sempre a mesma, sem valor definido, sem depender de nenhum PSP.
-const PIX_ESTATICO = gerarPixEstatico();
 
 const ROTULO_STATUS_ENVIO: Record<PagamentoParcialAcordo["status"], string> = {
   aguardando_confirmacao: "Aguardando confirmação",
@@ -78,7 +74,7 @@ export function PagamentoAcordoModal({
     .reduce((soma, e) => soma + e.valor, 0);
   const saldoDisponivel = Math.max(0, saldoTotal - totalPendente);
   const valorNumero = Number(valor) || 0;
-  const valorValido = valorNumero > 0 && valorNumero <= saldoDisponivel + 0.01;
+  const valorValido = valorNumero > 0 && valorNumero <= saldoDisponivel + 0.01 && anexos.length > 0;
 
   async function enviarPagamento() {
     setEnviando(true);
@@ -100,7 +96,7 @@ export function PagamentoAcordoModal({
   }
 
   function copiarChave() {
-    navigator.clipboard.writeText(PIX_ESTATICO);
+    navigator.clipboard.writeText(EMPRESA.chavePix);
     toast.success("Chave Pix copiada.");
   }
 
@@ -150,8 +146,8 @@ export function PagamentoAcordoModal({
         <FileUploader
           arquivos={anexos}
           onChange={setAnexos}
-          label="Comprovante de pagamento (opcional)"
-          hint="Anexe o print ou PDF do comprovante — ajuda a agilizar a confirmação"
+          label="Comprovante de pagamento (obrigatório)"
+          hint="Anexe o print ou PDF do comprovante — obrigatório para o administrador confirmar o recebimento"
         />
 
         <Button className="w-full" onClick={enviarPagamento} disabled={!valorValido || enviando}>

@@ -33,6 +33,7 @@ export function gerarAcordo(clienteId: string, contratoId: string, valorParcela:
     periodicidade: "mensal",
     situacao: cronograma.every((p) => p.status === "pago") ? "quitado" : "ativo",
     cronograma,
+    dataInicio: inicio.toISOString().slice(0, 10),
     criadoEm: inicio.toISOString(),
   };
 }

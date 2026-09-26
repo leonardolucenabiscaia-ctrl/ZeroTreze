@@ -180,7 +180,7 @@ function AcordoDocument({ acordo, contrato, cliente, veiculo }: DadosAcordoPdf) 
         </Secao>
 
         <Text style={[styles.paragrafo, { marginTop: 8, marginBottom: 20 }]}>
-          {EMPRESA.foro}, {formatDate(acordo.criadoEm)}.
+          {EMPRESA.foro}, {formatDate(acordo.dataInicio)}.
         </Text>
 
         <View style={styles.assinaturas}>

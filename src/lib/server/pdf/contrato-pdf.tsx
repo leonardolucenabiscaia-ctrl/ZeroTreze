@@ -476,6 +476,12 @@ function ContratoDocument({ contrato, cliente, veiculo }: DadosContratoPdf) {
           </Text>
         </Secao>
 
+        {contrato.observacao && (
+          <Secao titulo="Das Observações">
+            <Text style={styles.paragrafo}>{contrato.observacao}</Text>
+          </Secao>
+        )}
+
         <Secao titulo="Das Disposições Finais e do Foro">
           <Text style={styles.paragrafo}>
             11.1. O presente foi lido pelo(a) CONTRATANTE, pelo qual declara que o mesmo é assinado sem

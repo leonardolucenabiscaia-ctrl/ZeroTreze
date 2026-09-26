@@ -21,6 +21,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
 import { StatusPill } from "@/components/shared/status-pill";
 import { SelectBusca } from "@/components/ui/select-busca";
+import { Button } from "@/components/ui/button";
+import { PagamentoMultaModal } from "@/components/shared/pagamento-multa-modal";
 
 type Filtro = "todas" | StatusMulta;
 
@@ -28,11 +30,20 @@ export default function MultasPage() {
   const { contrato, loading } = useContratoAtivo();
   const [multas, setMultas] = React.useState<Multa[]>([]);
   const [filtro, setFiltro] = React.useState<Filtro>("todas");
+  const [multaPagamento, setMultaPagamento] = React.useState<Multa | null>(null);
 
-  React.useEffect(() => {
+  const carregar = React.useCallback(() => {
     if (!contrato) return;
     listarMultasPorContrato(contrato.id).then(setMultas);
   }, [contrato]);
+
+  React.useEffect(() => {
+    carregar();
+  }, [carregar]);
+
+  function handlePago() {
+    carregar();
+  }
 
   if (loading) return <Skeleton className="h-96 w-full" />;
   if (!contrato) return <EmptyState icon={AlertTriangle} title="Nenhum contrato ativo" />;
@@ -59,11 +70,6 @@ export default function MultasPage() {
         />
       </div>
 
-      <p className="text-xs text-muted-foreground">
-        O pagamento de multas é confirmado diretamente pela nossa equipe — entre em contato pelo
-        Atendimento para combinar a forma de pagamento.
-      </p>
-
       {filtradas.length === 0 ? (
         <EmptyState icon={AlertTriangle} title="Nenhuma multa encontrada" description="Ótimo, seu histórico está limpo por aqui." />
       ) : (
@@ -79,11 +85,13 @@ export default function MultasPage() {
               <TableHead>Vencimento</TableHead>
               <TableHead>Situação</TableHead>
               <TableHead>Ciência</TableHead>
+              <TableHead className="text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filtradas.map((multa) => {
               const valorAtual = calcularValorAtualizadoMulta(multa);
+              const podePagar = multa.situacao !== "paga" && valorAtual > 0;
               return (
                 <TableRow key={multa.id}>
                   <TableCell className="font-mono text-xs">{multa.numeroAuto}</TableCell>
@@ -110,12 +118,26 @@ export default function MultasPage() {
                   <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
                     {multa.cienciaEm ? formatDateTime(multa.cienciaEm) : "—"}
                   </TableCell>
+                  <TableCell className="text-right">
+                    {podePagar && (
+                      <Button size="sm" onClick={() => setMultaPagamento(multa)}>
+                        Pagar
+                      </Button>
+                    )}
+                  </TableCell>
                 </TableRow>
               );
             })}
           </TableBody>
         </Table>
       )}
+
+      <PagamentoMultaModal
+        multa={multaPagamento}
+        open={multaPagamento !== null}
+        onOpenChange={(open) => !open && setMultaPagamento(null)}
+        onPago={handlePago}
+      />
     </div>
   );
 }

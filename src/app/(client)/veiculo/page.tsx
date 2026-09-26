@@ -1,11 +1,11 @@
 "use client";
 
-import { Car, ShieldCheck, Wrench } from "lucide-react";
+import { Car } from "lucide-react";
 
 import { useContratoAtivo } from "@/hooks/use-contrato-ativo";
 import { formatDate } from "@/lib/utils/formatters";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
 
@@ -52,58 +52,6 @@ export default function VeiculoPage() {
           ))}
         </dl>
       </Card>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-foreground">
-              <ShieldCheck className="size-4 text-gold" />
-              Seguro e assistência
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="grid grid-cols-2 gap-3 text-sm">
-            <div>
-              <p className="text-[11px] uppercase text-muted-foreground">Seguradora</p>
-              <p className="font-medium text-foreground">{veiculo.seguradora}</p>
-            </div>
-            <div>
-              <p className="text-[11px] uppercase text-muted-foreground">Apólice</p>
-              <p className="font-medium text-foreground">{veiculo.numeroApolice}</p>
-            </div>
-            <div>
-              <p className="text-[11px] uppercase text-muted-foreground">Assistência 24h</p>
-              <p className="font-medium text-success">{veiculo.assistencia247 ? "Ativa" : "Inativa"}</p>
-            </div>
-            <div>
-              <p className="text-[11px] uppercase text-muted-foreground">Garantia até</p>
-              <p className="font-medium text-foreground">{formatDate(veiculo.garantiaAte)}</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-foreground">
-              <Wrench className="size-4 text-gold" />
-              Histórico de manutenção
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col divide-y divide-border">
-            {veiculo.historicoManutencao.map((item) => (
-              <div key={item.id} className="flex items-center justify-between py-2 text-sm">
-                <div>
-                  <p className="font-medium text-foreground">{item.descricao}</p>
-                  <p className="text-xs text-muted-foreground">{item.oficina}</p>
-                </div>
-                <div className="text-right text-xs text-muted-foreground">
-                  <p>{formatDate(item.data)}</p>
-                  <p>{item.km.toLocaleString("pt-BR")} km</p>
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      </div>
     </div>
   );
 }

@@ -34,6 +34,8 @@ export interface Contrato {
   limiteRenovacao: number;
   arquivoUrl: string;
   aditivos: AditivoContrato[];
+  /** Observação livre do administrador na criação do contrato — aparece também no PDF gerado. */
+  observacao?: string;
   /** Ausente se o envio para assinatura ainda não foi feito ou falhou (não bloqueia o contrato). */
   assinatura?: AssinaturaContrato;
 }
