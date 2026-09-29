@@ -2,7 +2,18 @@
 
 import * as React from "react";
 import { useParams, useRouter } from "next/navigation";
-import { FileText, FolderOpen, Lock, Pencil, ShieldCheck, ShieldOff, Trash2, Unlock } from "lucide-react";
+import {
+  CheckCircle2,
+  FileText,
+  FolderOpen,
+  Lock,
+  Pencil,
+  ShieldCheck,
+  ShieldOff,
+  Trash2,
+  Unlock,
+  Wrench,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -14,6 +25,8 @@ import {
   marcarVeiculoDisponivel,
   bloquearVeiculo,
   desbloquearVeiculo,
+  colocarVeiculoEmManutencao,
+  retirarVeiculoDeManutencao,
   excluirVeiculo,
 } from "@/lib/services/veiculos.service";
 import { ImageUploader } from "@/components/shared/image-uploader";
@@ -113,6 +126,10 @@ export default function AdminVeiculoDetalhePage() {
   const [confirmandoExclusao, setConfirmandoExclusao] = React.useState(false);
   const [placaDigitada, setPlacaDigitada] = React.useState("");
   const [excluindo, setExcluindo] = React.useState(false);
+  const [abrindoManutencao, setAbrindoManutencao] = React.useState(false);
+  const [tipoManutencao, setTipoManutencao] = React.useState<"mecanica" | "funilaria">("mecanica");
+  const [confirmandoConcluirManutencao, setConfirmandoConcluirManutencao] = React.useState(false);
+  const [alternandoManutencao, setAlternandoManutencao] = React.useState(false);
 
   React.useEffect(() => {
     buscarVeiculoPorId(params.veiculoId).then((v) => setVeiculo(v ?? null));
@@ -277,6 +294,55 @@ export default function AdminVeiculoDetalhePage() {
     }
   }
 
+  async function handleColocarEmManutencao() {
+    if (!veiculo) return;
+    setAlternandoManutencao(true);
+    try {
+      const atualizado = await colocarVeiculoEmManutencao(veiculo.id, tipoManutencao);
+      setVeiculo(atualizado);
+      if (usuario) {
+        const rotuloTipo = tipoManutencao === "mecanica" ? "Mecânica" : "Funilaria";
+        await registrarAcao({
+          usuarioId: usuario.id,
+          usuarioNome: usuario.nome,
+          acao: `Colocou o veículo em manutenção (${rotuloTipo})`,
+          entidade: "Veículo",
+          entidadeId: `${atualizado.marca} ${atualizado.modelo} — ${atualizado.placa}`,
+        });
+      }
+      toast.success("Veículo movido para manutenção.");
+      setAbrindoManutencao(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível registrar a manutenção.");
+    } finally {
+      setAlternandoManutencao(false);
+    }
+  }
+
+  async function handleConcluirManutencao() {
+    if (!veiculo) return;
+    setAlternandoManutencao(true);
+    try {
+      const atualizado = await retirarVeiculoDeManutencao(veiculo.id);
+      setVeiculo(atualizado);
+      if (usuario) {
+        await registrarAcao({
+          usuarioId: usuario.id,
+          usuarioNome: usuario.nome,
+          acao: "Concluiu a manutenção do veículo",
+          entidade: "Veículo",
+          entidadeId: `${atualizado.marca} ${atualizado.modelo} — ${atualizado.placa}`,
+        });
+      }
+      toast.success("Manutenção concluída — veículo disponível novamente.");
+      setConfirmandoConcluirManutencao(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível concluir a manutenção.");
+    } finally {
+      setAlternandoManutencao(false);
+    }
+  }
+
   async function handleConfirmarExclusao() {
     if (!veiculo) return;
     setExcluindo(true);
@@ -325,6 +391,11 @@ export default function AdminVeiculoDetalhePage() {
             </h1>
             {veiculo.bloqueado && <Badge variant="destructive">Bloqueado</Badge>}
             {veiculo.indisponivel && <Badge variant="warning">Indisponível</Badge>}
+            {veiculo.manutencaoTipo && (
+              <Badge variant="warning">
+                Em manutenção ({veiculo.manutencaoTipo === "mecanica" ? "Mecânica" : "Funilaria"})
+              </Badge>
+            )}
             {usuario?.perfil === "administrador" && (
               <Button size="sm" variant="outline" onClick={abrirEdicaoDados}>
                 <Pencil className="size-3.5" />
@@ -347,6 +418,24 @@ export default function AdminVeiculoDetalhePage() {
               {veiculo.indisponivel ? <Unlock className="size-3.5" /> : <Lock className="size-3.5" />}
               {veiculo.indisponivel ? "Marcar disponível" : "Marcar indisponível"}
             </Button>
+            {veiculo.manutencaoTipo ? (
+              <Button size="sm" variant="outline" onClick={() => setConfirmandoConcluirManutencao(true)}>
+                <CheckCircle2 className="size-3.5" />
+                Concluir manutenção
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setTipoManutencao("mecanica");
+                  setAbrindoManutencao(true);
+                }}
+              >
+                <Wrench className="size-3.5" />
+                Colocar em manutenção
+              </Button>
+            )}
             {usuario?.perfil === "administrador" && (
               <Button size="sm" variant="destructive" onClick={() => setConfirmandoExclusao(true)}>
                 <Trash2 className="size-3.5" />
@@ -545,6 +634,66 @@ export default function AdminVeiculoDetalhePage() {
                 : veiculo.bloqueado
                   ? "Sim, desbloquear"
                   : "Sim, bloquear veículo"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={abrindoManutencao} onOpenChange={setAbrindoManutencao}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Colocar {veiculo.placa} em manutenção?</DialogTitle>
+            <DialogDescription>
+              O veículo sai da lista de disponíveis até você marcar a manutenção como concluída.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-1.5">
+            <Label>Tipo</Label>
+            <div className="flex flex-wrap gap-2">
+              {(["mecanica", "funilaria"] as const).map((valor) => (
+                <Button
+                  key={valor}
+                  type="button"
+                  size="sm"
+                  variant={tipoManutencao === valor ? "default" : "outline"}
+                  onClick={() => setTipoManutencao(valor)}
+                >
+                  {valor === "mecanica" ? "Mecânica" : "Funilaria"}
+                </Button>
+              ))}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setAbrindoManutencao(false)}
+              disabled={alternandoManutencao}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={handleColocarEmManutencao} disabled={alternandoManutencao}>
+              {alternandoManutencao ? "Salvando…" : "Colocar em manutenção"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={confirmandoConcluirManutencao} onOpenChange={setConfirmandoConcluirManutencao}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Concluir a manutenção de {veiculo.placa}?</DialogTitle>
+            <DialogDescription>O veículo volta a aparecer como disponível.</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setConfirmandoConcluirManutencao(false)}
+              disabled={alternandoManutencao}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={handleConcluirManutencao} disabled={alternandoManutencao}>
+              {alternandoManutencao ? "Salvando…" : "Sim, concluir manutenção"}
             </Button>
           </DialogFooter>
         </DialogContent>
