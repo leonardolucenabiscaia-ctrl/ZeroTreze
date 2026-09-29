@@ -43,6 +43,9 @@ function SelectContent({
       <SelectPrimitive.Content
         data-slot="select-content"
         position={position}
+        // Mesmo caso do Popover (ver select-busca.tsx/popover.tsx): dentro de um Dialog, o
+        // conteúdo herda `pointer-events: none` do <body> e fica clicável só visualmente.
+        style={{ pointerEvents: "auto" }}
         className={cn(
           "z-50 max-h-72 min-w-[8rem] overflow-y-auto rounded-lg border border-border bg-popover text-popover-foreground shadow-xl shadow-black/40 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
           position === "popper" &&
