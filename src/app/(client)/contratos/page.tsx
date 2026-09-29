@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import { Download, FileText, Printer, Share2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -69,10 +68,10 @@ export default function ContratosPage() {
 
             <div className="flex flex-wrap gap-2">
               <Button size="sm" variant="secondary" asChild>
-                <Link href={`/imprimir/contrato/${contrato.id}`}>
+                <a href={`/api/contratos/${contrato.id}/pdf`} target="_blank" rel="noreferrer">
                   <Printer className="size-4" />
                   Imprimir contrato
-                </Link>
+                </a>
               </Button>
               <Button size="sm" variant="outline" onClick={() => acao("Download iniciado.")}>
                 <Download className="size-4" />

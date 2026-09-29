@@ -7,9 +7,9 @@ import { inteiroPorExtenso, valorPorExtenso } from "@/lib/utils/numero-por-exten
 import type { Acordo, Cliente, Contrato, Veiculo } from "@/lib/types";
 
 /**
- * Gera o PDF real do "Instrumento Particular de Acordo Extrajudicial" — mesmo texto jurídico da
- * tela `/imprimir/acordo/[acordoId]`, renderizado no servidor com `@react-pdf/renderer` (sem
- * depender de navegador), pra poder ser enviado à ClickSign. Mesmo padrão de `contrato-pdf.tsx`.
+ * Gera o PDF real do "Instrumento Particular de Acordo Extrajudicial", renderizado no servidor com
+ * `@react-pdf/renderer` (sem depender de navegador) — usado tanto pro envio à ClickSign quanto
+ * pelo botão "Imprimir acordo" (`/api/acordos/[id]/pdf`). Mesmo padrão de `contrato-pdf.tsx`.
  */
 
 const styles = StyleSheet.create({

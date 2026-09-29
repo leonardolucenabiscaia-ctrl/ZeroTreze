@@ -142,6 +142,9 @@ export async function handleRoute<T>(
 
   try {
     const data = await fn({ userId: user.id, perfil });
+    // Rota que já monta sua própria resposta (ex.: um PDF binário, com Content-Type próprio) —
+    // devolve direto, sem tentar envelopar em JSON.
+    if (data instanceof NextResponse) return data;
     return NextResponse.json(data ?? null, { status: successStatus });
   } catch (error) {
     if (error instanceof RateLimitError) {

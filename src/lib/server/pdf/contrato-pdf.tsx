@@ -7,9 +7,9 @@ import { valorPorExtenso } from "@/lib/utils/numero-por-extenso";
 import type { Cliente, Contrato, Veiculo } from "@/lib/types";
 
 /**
- * Gera o PDF real do "Instrumento Particular de Locação de Veículo Automotor" — mesmo texto
- * jurídico da tela `/imprimir/contrato/[contratoId]`, mas renderizado no servidor com
- * `@react-pdf/renderer` (sem depender de navegador), para poder ser enviado à AssinaDoc.
+ * Gera o PDF real do "Instrumento Particular de Locação de Veículo Automotor", renderizado no
+ * servidor com `@react-pdf/renderer` (sem depender de navegador) — usado tanto pro envio à
+ * assinatura eletrônica quanto pelo botão "Imprimir contrato" (`/api/contratos/[id]/pdf`).
  */
 
 const styles = StyleSheet.create({

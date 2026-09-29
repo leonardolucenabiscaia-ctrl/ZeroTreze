@@ -296,10 +296,10 @@ export default function AdminContratoDetalhePage() {
             </Button>
           )}
           <Button asChild size="sm" variant="outline">
-            <Link href={`/imprimir/contrato/${contrato.id}`}>
+            <a href={`/api/contratos/${contrato.id}/pdf`} target="_blank" rel="noreferrer">
               <Printer className="size-4" />
               Imprimir contrato
-            </Link>
+            </a>
           </Button>
           {usuario?.perfil === "administrador" && (
             <Button size="sm" variant="outline" onClick={abrirEdicaoContrato}>
