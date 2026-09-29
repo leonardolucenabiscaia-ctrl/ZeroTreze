@@ -40,7 +40,7 @@ const TIPO_LABEL: Record<"mecanica" | "funilaria", string> = {
 export default function ManutencaoPage() {
   const { usuario } = useAuth();
   const [emManutencao, setEmManutencao] = React.useState<Veiculo[] | null>(null);
-  const [todosOsVeiculos, setTodosOsVeiculos] = React.useState<Veiculo[]>([]);
+  const [todosOsVeiculos, setTodosOsVeiculos] = React.useState<Veiculo[] | null>(null);
   const [abrirDialog, setAbrirDialog] = React.useState(false);
   const [veiculoId, setVeiculoId] = React.useState("");
   const [tipo, setTipo] = React.useState<"mecanica" | "funilaria" | "">("");
@@ -57,7 +57,7 @@ export default function ManutencaoPage() {
   }, [carregar]);
 
   const idsEmManutencao = new Set((emManutencao ?? []).map((v) => v.id));
-  const veiculosDisponiveisParaAdicionar = todosOsVeiculos.filter((v) => !idsEmManutencao.has(v.id));
+  const veiculosDisponiveisParaAdicionar = (todosOsVeiculos ?? []).filter((v) => !idsEmManutencao.has(v.id));
 
   function abrirNovoDialog() {
     setVeiculoId("");
@@ -112,7 +112,7 @@ export default function ManutencaoPage() {
     }
   }
 
-  if (!emManutencao) return <Skeleton className="h-96 w-full" />;
+  if (!emManutencao || !todosOsVeiculos) return <Skeleton className="h-96 w-full" />;
 
   return (
     <div className="flex flex-col gap-4">
