@@ -33,6 +33,7 @@ const acordoSchema = z.object({
   clienteId: z.string().min(1, "Selecione o cliente"),
   contratoId: z.string().min(1, "Selecione o contrato"),
   valorEntrada: z.number().min(0, "Informe um valor de entrada válido"),
+  dataEntrada: z.string().min(1, "Informe a data da entrada"),
   valorParcela: z.number().positive("Informe um valor de parcela válido"),
   quantidadeParcelas: z.number().int().min(1, "Informe ao menos 1 parcela"),
   dataInicio: z.string().min(1, "Informe a data de início do acordo"),
@@ -73,7 +74,13 @@ export default function NovoAcordoPage() {
     formState: { errors },
   } = useForm<AcordoFormValues>({
     resolver: zodResolver(acordoSchema),
-    defaultValues: { dataInicio: hoje, dataPrimeiraParcela: hoje, quantidadeParcelas: 3, periodicidade: "mensal" },
+    defaultValues: {
+      dataInicio: hoje,
+      dataEntrada: hoje,
+      dataPrimeiraParcela: hoje,
+      quantidadeParcelas: 3,
+      periodicidade: "mensal",
+    },
   });
 
   const clienteId = watch("clienteId");
@@ -252,6 +259,12 @@ export default function NovoAcordoPage() {
                 />
               </Campo>
 
+              <Campo label="Data da entrada" erro={errors.dataEntrada?.message}>
+                <Input {...register("dataEntrada")} type="date" />
+              </Campo>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
               <Campo label="Valor de cada parcela" erro={errors.valorParcela?.message}>
                 <Input
                   {...register("valorParcela", { valueAsNumber: true })}
@@ -261,9 +274,7 @@ export default function NovoAcordoPage() {
                   placeholder="300,00"
                 />
               </Campo>
-            </div>
 
-            <div className="grid grid-cols-2 gap-4">
               <Campo label="Quantidade de parcelas" erro={errors.quantidadeParcelas?.message}>
                 <Input
                   {...register("quantidadeParcelas", { valueAsNumber: true })}
@@ -272,11 +283,11 @@ export default function NovoAcordoPage() {
                   min={1}
                 />
               </Campo>
-
-              <Campo label="Vencimento da 1ª parcela" erro={errors.dataPrimeiraParcela?.message}>
-                <Input {...register("dataPrimeiraParcela")} type="date" />
-              </Campo>
             </div>
+
+            <Campo label="Vencimento da 1ª parcela" erro={errors.dataPrimeiraParcela?.message}>
+              <Input {...register("dataPrimeiraParcela")} type="date" />
+            </Campo>
 
             <Campo label="Periodicidade das parcelas" erro={errors.periodicidade?.message}>
               <Controller
@@ -346,16 +357,22 @@ export default function NovoAcordoPage() {
                 <span className="font-medium text-gold">{formatCurrency(valorTotal)}</span>
               </div>
               {!!valorDividaOriginal && (
-                <div>
-                  <span className="text-muted-foreground">Acréscimo sobre a dívida original: </span>
-                  <span className="font-medium text-gold">
-                    {(((valorTotal - valorDividaOriginal) / valorDividaOriginal) * 100).toLocaleString(
-                      "pt-BR",
-                      { minimumFractionDigits: 1, maximumFractionDigits: 1 }
-                    )}
-                    %
-                  </span>
-                </div>
+                <>
+                  <div>
+                    <span className="text-muted-foreground">Valor dos juros (valor financiado − valor original): </span>
+                    <span className="font-medium text-gold">{formatCurrency(valorTotal - valorDividaOriginal)}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Taxa de juros: </span>
+                    <span className="font-medium text-gold">
+                      {(((valorTotal - valorDividaOriginal) / valorDividaOriginal) * 100).toLocaleString(
+                        "pt-BR",
+                        { minimumFractionDigits: 1, maximumFractionDigits: 1 }
+                      )}
+                      %
+                    </span>
+                  </div>
+                </>
               )}
             </div>
 

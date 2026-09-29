@@ -153,6 +153,7 @@ export interface NovoAcordoInput {
   clienteId: string;
   contratoId: string;
   valorEntrada: number;
+  dataEntrada: string;
   valorParcela: number;
   quantidadeParcelas: number;
   dataInicio: string;
@@ -195,6 +196,7 @@ export async function criarAcordo(dados: NovoAcordoInput): Promise<Acordo> {
       contrato_id: dados.contratoId,
       valor_total: valorTotal,
       valor_entrada: dados.valorEntrada,
+      data_entrada: dados.dataEntrada,
       valor_divida_original: dados.valorDividaOriginal ?? null,
       periodicidade: dados.periodicidade,
       situacao: "ativo",

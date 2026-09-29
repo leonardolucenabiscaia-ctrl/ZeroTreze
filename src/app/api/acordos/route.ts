@@ -23,6 +23,7 @@ export async function POST(request: NextRequest) {
       clienteId: String(formData.get("clienteId") ?? ""),
       contratoId: String(formData.get("contratoId") ?? ""),
       valorEntrada: Number(formData.get("valorEntrada") ?? 0),
+      dataEntrada: String(formData.get("dataEntrada") ?? ""),
       valorParcela: Number(formData.get("valorParcela") ?? 0),
       quantidadeParcelas: Number(formData.get("quantidadeParcelas") ?? 0),
       dataInicio: String(formData.get("dataInicio") ?? ""),

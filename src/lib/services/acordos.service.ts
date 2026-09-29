@@ -39,6 +39,7 @@ export interface NovoAcordoInput {
   clienteId: string;
   contratoId: string;
   valorEntrada: number;
+  dataEntrada: string;
   valorParcela: number;
   quantidadeParcelas: number;
   dataInicio: string;
@@ -55,6 +56,7 @@ export async function criarAcordo(dados: NovoAcordoInput): Promise<Acordo> {
   formData.append("clienteId", dados.clienteId);
   formData.append("contratoId", dados.contratoId);
   formData.append("valorEntrada", String(dados.valorEntrada));
+  formData.append("dataEntrada", dados.dataEntrada);
   formData.append("valorParcela", String(dados.valorParcela));
   formData.append("quantidadeParcelas", String(dados.quantidadeParcelas));
   formData.append("dataInicio", dados.dataInicio);

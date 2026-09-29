@@ -54,6 +54,9 @@ export interface Acordo {
   contratoId: string;
   valorTotal: number;
   valorEntrada: number;
+  /** Data de vencimento da entrada — tratada como uma "parcela" própria, com data independente do
+   * início do acordo e da 1ª parcela do cronograma. */
+  dataEntrada: string;
   /** Valor cheio da dívida original antes da renegociação — opcional, informativo. */
   valorDividaOriginal?: number;
   periodicidade: PeriodicidadeAcordo;

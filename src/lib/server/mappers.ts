@@ -352,6 +352,10 @@ export function mapAcordo(
       .map(mapParcelaAcordo),
     descricao: (row.descricao as string | null) ?? undefined,
     dataInicio: (row.data_inicio as string | null) ?? (row.criado_em as string).slice(0, 10),
+    dataEntrada:
+      (row.data_entrada as string | null) ??
+      (row.data_inicio as string | null) ??
+      (row.criado_em as string).slice(0, 10),
     criadoEm: row.criado_em as string,
     assinatura: row.assinatura_document_key
       ? {

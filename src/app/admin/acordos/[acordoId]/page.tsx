@@ -345,6 +345,10 @@ export default function AdminAcordoDetalhePage() {
             <dd className="font-medium text-foreground">{formatCurrency(acordo.valorEntrada)}</dd>
           </div>
           <div>
+            <dt className="text-[11px] uppercase text-muted-foreground">Data da entrada</dt>
+            <dd className="font-medium text-foreground">{formatDate(acordo.dataEntrada)}</dd>
+          </div>
+          <div>
             <dt className="text-[11px] uppercase text-muted-foreground">Valor total</dt>
             <dd className="font-medium text-gold">{formatCurrency(acordo.valorTotal)}</dd>
           </div>
@@ -354,9 +358,17 @@ export default function AdminAcordoDetalhePage() {
               <dd className="font-medium text-foreground">{formatCurrency(acordo.valorDividaOriginal)}</dd>
             </div>
           )}
+          {acordo.valorDividaOriginal !== undefined && (
+            <div>
+              <dt className="text-[11px] uppercase text-muted-foreground">Valor dos juros</dt>
+              <dd className="font-medium text-foreground">
+                {formatCurrency(acordo.valorTotal - acordo.valorDividaOriginal)}
+              </dd>
+            </div>
+          )}
           {percentualJuros !== null && (
             <div>
-              <dt className="text-[11px] uppercase text-muted-foreground">Acréscimo</dt>
+              <dt className="text-[11px] uppercase text-muted-foreground">Taxa de juros</dt>
               <dd className="font-medium text-foreground">
                 {percentualJuros.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%
               </dd>

@@ -30,6 +30,7 @@ export function gerarAcordo(clienteId: string, contratoId: string, valorParcela:
     contratoId,
     valorTotal,
     valorEntrada,
+    dataEntrada: inicio.toISOString().slice(0, 10),
     periodicidade: "mensal",
     situacao: cronograma.every((p) => p.status === "pago") ? "quitado" : "ativo",
     cronograma,
