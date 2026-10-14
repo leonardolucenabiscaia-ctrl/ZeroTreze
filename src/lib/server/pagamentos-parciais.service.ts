@@ -4,6 +4,7 @@ import { calcularValorAtualizado } from "@/lib/calculations/juros-multa-correcao
 import { mapDocumento, mapPagamentoParcial, mapParcela } from "./mappers";
 import { criarNotificacao } from "./notificacoes.service";
 import { obterParametrosFinanceiros, usuarioIdDoContrato } from "./financeiro.service";
+import { enviarDocumentoParaStorage } from "./storage";
 import type { Documento, PagamentoParcial } from "@/lib/types";
 
 type SupabaseAdmin = ReturnType<typeof createAdminClient>;
@@ -57,17 +58,23 @@ export async function enviarPagamentoParcial(
   if (error || !pagamento) throw new Error(error?.message ?? "Não foi possível enviar o pagamento.");
 
   if (anexos.length > 0) {
-    await supabase.from("documentos").insert(
-      anexos.map((arquivo) => ({
-        contrato_id: parcela.contrato_id,
-        parcela_id: parcelaId,
-        pagamento_parcial_id: pagamento.id,
-        categoria: "comprovante",
-        nome: arquivo.name,
-        url: "#",
-        tamanho_kb: Math.max(1, Math.round(arquivo.size / 1024)),
-      }))
+    const linhas = await Promise.all(
+      anexos.map(async (arquivo) => {
+        const id = crypto.randomUUID();
+        const caminho = await enviarDocumentoParaStorage(supabase, id, arquivo);
+        return {
+          id,
+          contrato_id: parcela.contrato_id,
+          parcela_id: parcelaId,
+          pagamento_parcial_id: pagamento.id,
+          categoria: "comprovante",
+          nome: arquivo.name,
+          url: caminho,
+          tamanho_kb: Math.max(1, Math.round(arquivo.size / 1024)),
+        };
+      })
     );
+    await supabase.from("documentos").insert(linhas);
   }
 
   return mapPagamentoParcial(pagamento);

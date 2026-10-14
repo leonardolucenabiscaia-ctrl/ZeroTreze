@@ -5,7 +5,7 @@ import { Download, FileText, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
 
 import { useAuth } from "@/lib/auth/auth-context";
-import { listarDocumentosPorCliente } from "@/lib/services/documentos.service";
+import { abrirDocumento, listarDocumentosPorCliente } from "@/lib/services/documentos.service";
 import type { CategoriaDocumento, Documento } from "@/lib/types";
 import { formatDate } from "@/lib/utils/formatters";
 
@@ -83,8 +83,12 @@ export default function DocumentosPage() {
               <Button
                 size="icon"
                 variant="ghost"
-                onClick={() => toast.success("Download iniciado.")}
-                aria-label="Baixar documento"
+                onClick={() =>
+                  abrirDocumento(doc.id).catch((error) =>
+                    toast.error(error instanceof Error ? error.message : "Não foi possível abrir o documento.")
+                  )
+                }
+                aria-label="Abrir documento"
               >
                 <Download className="size-4" />
               </Button>

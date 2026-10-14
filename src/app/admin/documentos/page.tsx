@@ -1,9 +1,10 @@
 "use client";
 
 import * as React from "react";
-import { FileText, FolderOpen } from "lucide-react";
+import { Download, FileText, FolderOpen } from "lucide-react";
+import { toast } from "sonner";
 
-import { listarDocumentos } from "@/lib/services/documentos.service";
+import { abrirDocumento, listarDocumentos } from "@/lib/services/documentos.service";
 import { listarClientes } from "@/lib/services/clientes.service";
 import { listarVeiculos } from "@/lib/services/veiculos.service";
 import { listarContratos } from "@/lib/services/contratos.service";
@@ -22,6 +23,7 @@ import { SelectBusca } from "@/components/ui/select-busca";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 const TODOS = "todos";
 
@@ -165,6 +167,7 @@ export default function AdminDocumentosPage() {
               <TableHead>Veículo</TableHead>
               <TableHead>Categoria</TableHead>
               <TableHead>Data</TableHead>
+              <TableHead className="text-right">Ação</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -180,6 +183,20 @@ export default function AdminDocumentosPage() {
                   <Badge variant="outline">{CATEGORIA_LABEL[doc.categoria] ?? doc.categoria}</Badge>
                 </TableCell>
                 <TableCell>{formatDate(doc.criadoEm)}</TableCell>
+                <TableCell className="text-right">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    aria-label="Abrir documento"
+                    onClick={() =>
+                      abrirDocumento(doc.id).catch((error) =>
+                        toast.error(error instanceof Error ? error.message : "Não foi possível abrir o documento.")
+                      )
+                    }
+                  >
+                    <Download className="size-4" />
+                  </Button>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>

@@ -4,6 +4,7 @@ import * as React from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   CheckCircle2,
+  Download,
   FileText,
   FolderOpen,
   Lock,
@@ -30,7 +31,7 @@ import {
   excluirVeiculo,
 } from "@/lib/services/veiculos.service";
 import { ImageUploader } from "@/components/shared/image-uploader";
-import { listarDocumentosPorVeiculo } from "@/lib/services/documentos.service";
+import { abrirDocumento, listarDocumentosPorVeiculo } from "@/lib/services/documentos.service";
 import { registrarAcao } from "@/lib/services/auditoria.service";
 import { useAuth } from "@/lib/auth/auth-context";
 import { formatDate, formatDateInput } from "@/lib/utils/formatters";
@@ -792,7 +793,21 @@ export default function AdminVeiculoDetalhePage() {
                     <span className="font-medium text-foreground">{doc.nome}</span>
                     <Badge variant="outline">{CATEGORIA_LABEL[doc.categoria] ?? doc.categoria}</Badge>
                   </div>
-                  <p className="shrink-0 text-xs text-muted-foreground">{formatDate(doc.criadoEm)}</p>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <p className="text-xs text-muted-foreground">{formatDate(doc.criadoEm)}</p>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      aria-label="Abrir documento"
+                      onClick={() =>
+                        abrirDocumento(doc.id).catch((error) =>
+                          toast.error(error instanceof Error ? error.message : "Não foi possível abrir o documento.")
+                        )
+                      }
+                    >
+                      <Download className="size-4" />
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>

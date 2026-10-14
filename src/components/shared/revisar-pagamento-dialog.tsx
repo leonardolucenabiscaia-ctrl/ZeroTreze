@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { listarComprovantesPorPagamentoParcial } from "@/lib/services/pagamentos-parciais.service";
+import { abrirDocumento } from "@/lib/services/documentos.service";
 import { formatCurrency, formatDateTime } from "@/lib/utils/formatters";
 import type { Documento, PagamentoParcial } from "@/lib/types";
 
@@ -109,12 +110,17 @@ export function RevisarPagamentoDialog({
           ) : (
             <ul className="flex flex-col gap-1.5">
               {comprovantes.map((doc) => (
-                <li
-                  key={doc.id}
-                  className="flex items-center gap-2 rounded-lg bg-secondary/40 px-3 py-2 text-sm"
-                >
-                  <FileIcon className="size-4 shrink-0 text-gold" />
-                  <span className="truncate text-foreground">{doc.nome}</span>
+                <li key={doc.id}>
+                  <button
+                    type="button"
+                    onClick={() => abrirDocumento(doc.id)}
+                    className="flex w-full items-center gap-2 rounded-lg bg-secondary/40 px-3 py-2 text-sm hover:bg-secondary/70"
+                  >
+                    <FileIcon className="size-4 shrink-0 text-gold" />
+                    <span className="truncate text-foreground underline-offset-2 hover:underline">
+                      {doc.nome}
+                    </span>
+                  </button>
                 </li>
               ))}
             </ul>

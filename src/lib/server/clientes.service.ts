@@ -4,6 +4,7 @@ import { categoriaPorPontuacao } from "@/lib/calculations/score";
 import { convidarUsuario, reenviarCodigoAcesso } from "./auth-invite";
 import { mapCliente } from "./mappers";
 import { paginarTodasAsLinhas } from "./pagination";
+import { enviarDocumentoParaStorage } from "./storage";
 import type { Cliente } from "@/lib/types";
 
 export async function listarClientes(): Promise<Cliente[]> {
@@ -217,16 +218,22 @@ export async function criarCliente(dados: NovoClienteInput): Promise<Cliente> {
   }
 
   if (dados.anexos.length > 0) {
-    await supabase.from("documentos").insert(
-      dados.anexos.map((arquivo) => ({
-        cliente_id: clienteRow.id,
-        categoria: "cadastro",
-        nome: arquivo.name,
-        url: "#",
-        tamanho_kb: Math.max(1, Math.round(arquivo.size / 1024)),
-        criado_em: agora,
-      }))
+    const linhas = await Promise.all(
+      dados.anexos.map(async (arquivo) => {
+        const id = crypto.randomUUID();
+        const caminho = await enviarDocumentoParaStorage(supabase, id, arquivo);
+        return {
+          id,
+          cliente_id: clienteRow.id,
+          categoria: "cadastro",
+          nome: arquivo.name,
+          url: caminho,
+          tamanho_kb: Math.max(1, Math.round(arquivo.size / 1024)),
+          criado_em: agora,
+        };
+      })
     );
+    await supabase.from("documentos").insert(linhas);
   }
 
   return mapCliente(clienteRow);

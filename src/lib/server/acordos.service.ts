@@ -7,6 +7,7 @@ import { mapAcordo, mapCliente, mapContrato, mapVeiculo } from "./mappers";
 import { paginarTodasAsLinhas } from "./pagination";
 import { gerarPdfAcordo } from "./pdf/acordo-pdf";
 import { enviarDocumentoParaAssinatura } from "./clicksign.service";
+import { enviarDocumentoParaStorage } from "./storage";
 import type { Acordo } from "@/lib/types";
 
 /** Nenhuma parcela de acordo pode continuar "em_aberto" depois que o vencimento já passou — como
@@ -230,18 +231,24 @@ export async function criarAcordo(dados: NovoAcordoInput): Promise<Acordo> {
   }
 
   if (dados.anexos.length > 0) {
-    await supabase.from("documentos").insert(
-      dados.anexos.map((arquivo) => ({
-        cliente_id: dados.clienteId,
-        contrato_id: dados.contratoId,
-        acordo_id: acordoRow.id,
-        categoria: "acordo",
-        nome: arquivo.name,
-        url: "#",
-        tamanho_kb: Math.max(1, Math.round(arquivo.size / 1024)),
-        criado_em: agora,
-      }))
+    const linhas = await Promise.all(
+      dados.anexos.map(async (arquivo) => {
+        const id = crypto.randomUUID();
+        const caminho = await enviarDocumentoParaStorage(supabase, id, arquivo);
+        return {
+          id,
+          cliente_id: dados.clienteId,
+          contrato_id: dados.contratoId,
+          acordo_id: acordoRow.id,
+          categoria: "acordo",
+          nome: arquivo.name,
+          url: caminho,
+          tamanho_kb: Math.max(1, Math.round(arquivo.size / 1024)),
+          criado_em: agora,
+        };
+      })
     );
+    await supabase.from("documentos").insert(linhas);
   }
 
   await criarNotificacao({

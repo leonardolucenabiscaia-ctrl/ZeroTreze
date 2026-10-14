@@ -4,6 +4,7 @@ import { calcularSaldoAcordo } from "@/lib/calculations/parcela-acordo";
 import { mapDocumento, mapPagamentoParcialAcordo, mapParcelaAcordo } from "./mappers";
 import { criarNotificacao } from "./notificacoes.service";
 import { atualizarSituacaoDoAcordoSeQuitado, usuarioIdDoCliente, type SupabaseAdmin } from "./financeiro-acordos.service";
+import { enviarDocumentoParaStorage } from "./storage";
 import type { Documento, PagamentoParcialAcordo } from "@/lib/types";
 
 export interface PagamentoParcialAcordoInput {
@@ -60,19 +61,25 @@ export async function enviarPagamentoParcialAcordo(
       .select("cliente_id, contrato_id")
       .eq("id", parcela.acordo_id as string)
       .maybeSingle();
-    await supabase.from("documentos").insert(
-      anexos.map((arquivo) => ({
-        cliente_id: acordo?.cliente_id ?? null,
-        contrato_id: acordo?.contrato_id ?? null,
-        acordo_id: parcela.acordo_id,
-        parcela_acordo_id: parcelaAcordoId,
-        pagamento_parcial_acordo_id: pagamento.id,
-        categoria: "comprovante",
-        nome: arquivo.name,
-        url: "#",
-        tamanho_kb: Math.max(1, Math.round(arquivo.size / 1024)),
-      }))
+    const linhas = await Promise.all(
+      anexos.map(async (arquivo) => {
+        const id = crypto.randomUUID();
+        const caminho = await enviarDocumentoParaStorage(supabase, id, arquivo);
+        return {
+          id,
+          cliente_id: acordo?.cliente_id ?? null,
+          contrato_id: acordo?.contrato_id ?? null,
+          acordo_id: parcela.acordo_id,
+          parcela_acordo_id: parcelaAcordoId,
+          pagamento_parcial_acordo_id: pagamento.id,
+          categoria: "comprovante",
+          nome: arquivo.name,
+          url: caminho,
+          tamanho_kb: Math.max(1, Math.round(arquivo.size / 1024)),
+        };
+      })
     );
+    await supabase.from("documentos").insert(linhas);
   }
 
   return mapPagamentoParcialAcordo(pagamento);

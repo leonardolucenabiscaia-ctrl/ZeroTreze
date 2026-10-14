@@ -1,7 +1,24 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/server";
 import { mapDocumento } from "./mappers";
+import { gerarLinkTemporarioDocumento } from "./storage";
 import type { CategoriaDocumento, Documento } from "@/lib/types";
+
+export async function buscarDocumentoPorId(id: string): Promise<Documento | undefined> {
+  const supabase = createAdminClient();
+  const { data } = await supabase.from("documentos").select("*").eq("id", id).maybeSingle();
+  return data ? mapDocumento(data) : undefined;
+}
+
+/** `documento.url` guarda o CAMINHO no bucket privado `comprovantes`, não uma URL aberta — essa
+ * função devolve um link assinado válido por poucos minutos, gerado só quando alguém de fato
+ * pede pra abrir o arquivo (ver `GET /api/documentos/[id]/abrir`), nunca guardado de antemão. */
+export async function gerarLinkParaAbrirDocumento(documentoId: string): Promise<string> {
+  const supabase = createAdminClient();
+  const { data } = await supabase.from("documentos").select("url").eq("id", documentoId).maybeSingle();
+  if (!data) throw new Error("Documento não encontrado.");
+  return gerarLinkTemporarioDocumento(supabase, data.url as string);
+}
 
 export async function listarDocumentosPorCliente(
   clienteId: string,

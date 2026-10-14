@@ -5,6 +5,7 @@ import { RateLimitError } from "./rate-limit.service";
 import { buscarClientePorUsuarioId } from "./clientes.service";
 import { buscarContratoPorId, listarContratosPorCliente } from "./contratos.service";
 import { buscarChamadoPorId } from "./chamados.service";
+import { buscarDocumentoPorId } from "./documentos.service";
 import type { PerfilUsuario } from "@/lib/types";
 
 /** Perfis internos (não-cliente) — atalho para restringir rotas administrativas. */
@@ -107,6 +108,19 @@ export async function podeAcessarVeiculo(sessao: SessaoRota, veiculoId: string):
   if (!cliente) return false;
   const contratos = await listarContratosPorCliente(cliente.id);
   return contratos.some((c) => c.veiculoId === veiculoId);
+}
+
+/** Um `documento` pode estar vinculado de vários jeitos diferentes (direto num `clienteId`, ou só
+ * através do `contratoId`, ou só do `veiculoId`) — tenta nessa ordem de prioridade. Documento sem
+ * nenhum vínculo que leve a um cliente (ex.: cadastro de veículo, que não pertence a cliente
+ * nenhum) só é acessível pela equipe. */
+export async function podeAcessarDocumento(sessao: SessaoRota, documentoId: string): Promise<boolean> {
+  if (sessao.perfil && PERFIS_STAFF.includes(sessao.perfil)) return true;
+  const documento = await buscarDocumentoPorId(documentoId);
+  if (!documento) return false;
+  if (documento.clienteId) return podeAcessarCliente(sessao, documento.clienteId);
+  if (documento.contratoId) return podeAcessarContrato(sessao, documento.contratoId);
+  return false;
 }
 
 /** Roda a lógica de um Route Handler, devolvendo JSON de sucesso ou `{ error }` em caso de
