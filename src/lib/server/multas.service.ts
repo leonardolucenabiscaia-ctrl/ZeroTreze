@@ -207,6 +207,16 @@ export async function darBaixaManualMulta(
   if (error) throw new Error(error.message);
   if (!atualizada) throw new Error("Esta multa já foi paga por outra ação — recarregue a página.");
 
+  // Mesmo lançamento que `confirmarPagamentoParcialMulta` faz pro pagamento normal — a baixa
+  // manual tava pulando essa parte, então esses recebimentos não apareciam no extrato do contrato.
+  await supabase.rpc("inserir_movimento_extrato", {
+    p_contrato_id: multa.contrato_id as string,
+    p_descricao: `Baixa manual da multa ${atualizada.numero_auto}`,
+    p_data: agora,
+    p_tipo: "entrada",
+    p_valor: dados.valor,
+  });
+
   const { data: contrato } = await supabase
     .from("contratos")
     .select("cliente_id")

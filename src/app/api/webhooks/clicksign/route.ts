@@ -119,8 +119,7 @@ async function processarWebhookPara(
  * Recebe as notificações da ClickSign (configurado via API — ver `setup-clicksign-webhook.mjs`
  * no histórico do projeto — assinado pra `document_closed`, `close`, `sign`, `deadline`,
  * `cancel`, `refusal`). Assinatura verificada via HMAC-SHA256 no header `x-clicksign-signature`
- * (CLICKSIGN_WEBHOOK_SECRET) — se o segredo ainda não estiver configurado, não bloqueia
- * (melhor esforço, igual o resto das integrações deste app).
+ * (CLICKSIGN_WEBHOOK_SECRET) — falha fechada: sem o segredo configurado, rejeita toda requisição.
  *
  * Formato confirmado testando ao vivo (2026-08-14): `payload.document` é um **objeto único**, não
  * array — `document.key` é o identificador que precisa bater com `assinatura_document_key`
@@ -138,7 +137,11 @@ async function processarWebhookPara(
  */
 function assinaturaValida(corpoBruto: string, assinaturaRecebida: string | null): boolean {
   const segredo = process.env.CLICKSIGN_WEBHOOK_SECRET;
-  if (!segredo) return true;
+  // Antes caía em "aceita sem checar" se a variável não estivesse configurada — isso deixava essa
+  // rota pública aceitando qualquer payload (ex.: forjar "document_closed" pra liberar PDF de
+  // contrato sem assinatura de verdade) caso o segredo nunca tivesse sido configurado na Vercel,
+  // ou fosse removido por engano. Falha fechada: sem segredo configurado, rejeita.
+  if (!segredo) return false;
   if (!assinaturaRecebida) return false;
   const hmac = crypto.createHmac("sha256", segredo).update(corpoBruto).digest("hex");
   return assinaturaRecebida === `sha256=${hmac}` || assinaturaRecebida === hmac;

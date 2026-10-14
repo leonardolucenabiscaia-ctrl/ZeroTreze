@@ -40,9 +40,8 @@ function formatarDataNoNegocio(data: Date): string {
   return `${String(dia).padStart(2, "0")}/${String(mes).padStart(2, "0")}/${ano}`;
 }
 
-// Vercel Cron: roda 1x por dia (ver vercel.json) — não precisa Vercel Cron pra funcionar em dev,
-// mas em produção só a Vercel consegue chamar essa rota de verdade (confere o CRON_SECRET
-// abaixo).
+// Vercel Cron: roda 1x por dia (ver vercel.json) — exige CRON_SECRET tanto em dev quanto em
+// produção (ver .env.local), falha fechada se a variável não estiver definida.
 export const maxDuration = 60;
 
 interface RegraLembrete {
@@ -78,12 +77,12 @@ const REGRAS: RegraLembrete[] = [
 ];
 
 export async function GET(request: NextRequest) {
+  // Falha fechada: sem CRON_SECRET configurado, rejeita — antes, a ausência da variável liberava
+  // essa rota pública pra qualquer um disparar (ela manda WhatsApp real pros clientes).
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret) {
-    const autorizacao = request.headers.get("authorization");
-    if (autorizacao !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
-    }
+  const autorizacao = request.headers.get("authorization");
+  if (!cronSecret || autorizacao !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
   }
 
   const supabase = createAdminClient();

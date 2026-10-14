@@ -41,8 +41,8 @@ function DefinirSenhaForm() {
 
   async function handleDefinirSenha(event: React.FormEvent) {
     event.preventDefault();
-    if (senha.length < 6) {
-      toast.error("A senha precisa ter pelo menos 6 caracteres.");
+    if (senha.length < 8) {
+      toast.error("A senha precisa ter pelo menos 8 caracteres.");
       return;
     }
     if (senha !== confirmarSenha) {

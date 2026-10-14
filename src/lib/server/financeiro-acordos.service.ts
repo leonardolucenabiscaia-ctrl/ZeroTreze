@@ -168,12 +168,24 @@ export async function darBaixaManualAcordo(
 
   const { data: acordo } = await supabase
     .from("acordos")
-    .select("id, numero, cliente_id")
+    .select("id, numero, cliente_id, contrato_id")
     .eq("id", parcela.acordo_id as string)
     .maybeSingle();
 
   if (acordo) {
     await atualizarSituacaoDoAcordoSeQuitado(supabase, acordo.id as string);
+
+    // Mesmo lançamento que `confirmarPagamentoParcialAcordo` faz pro pagamento normal — a baixa
+    // manual tava pulando essa parte, então esses recebimentos não apareciam no extrato do
+    // contrato (RPC atômica — ver migração 0021 — evita perder incremento em lançamentos quase
+    // simultâneos do mesmo contrato).
+    await supabase.rpc("inserir_movimento_extrato", {
+      p_contrato_id: acordo.contrato_id as string,
+      p_descricao: `Baixa manual da parcela ${atualizada.numero} do acordo ${acordo.numero}`,
+      p_data: agora,
+      p_tipo: "entrada",
+      p_valor: dados.valor,
+    });
 
     const usuarioId = await usuarioIdDoCliente(supabase, acordo.cliente_id as string);
     if (usuarioId) {

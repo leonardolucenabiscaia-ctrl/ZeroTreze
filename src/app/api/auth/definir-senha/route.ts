@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
   const codigo = typeof body?.codigo === "string" ? body.codigo.trim() : "";
   const novaSenha = typeof body?.novaSenha === "string" ? body.novaSenha : "";
 
-  if (!email || !codigo || novaSenha.length < 6) {
+  if (!email || !codigo || novaSenha.length < 8) {
     return NextResponse.json({ error: MENSAGEM_INVALIDA }, { status: 400 });
   }
 
