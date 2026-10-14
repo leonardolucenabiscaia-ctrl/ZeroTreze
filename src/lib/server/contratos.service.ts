@@ -52,14 +52,18 @@ export async function buscarContratoPorId(id: string): Promise<Contrato | undefi
 }
 
 /** `numero`, `valorCaucao`, `limiteRenovacao` e `valorParcela` são editáveis diretamente —
- * `valorParcela` (renegociação de valor semanal) só vale pra parcelas geradas DAQUI PRA FRENTE:
- * as já existentes já ficaram congeladas em `parcelas.valor_original` na hora em que foram
- * criadas, editar o contrato não reescreve o histórico. De propósito fora da whitelist:
- * `clienteId`/`veiculoId` (trocar a FK desalinharia o PDF assinado e o envelope da ClickSign,
- * gerados para o par original), `dataInicio`/`dataFim` (o cronograma de parcelas já foi gerado a
- * partir de `dataInicio` na criação), `status` (segue exclusivamente o fluxo dedicado de
- * "Encerrar contrato", que tem efeitos colaterais próprios) e `arquivoUrl` (gerido
- * automaticamente pelo fluxo de assinatura). */
+ * `valorParcela` (renegociação de valor semanal) se aplica tanto às parcelas futuras (ainda não
+ * geradas) quanto às já existentes que ainda não foram pagas (`em_aberto`, `vencido` e
+ * `aguardando_confirmacao` — essa última já tem comprovante em análise, mas o pagamento em si
+ * ainda não foi confirmado). As únicas que ficam congeladas no valor antigo são `pago` (já
+ * liquidada — mudar o valor histórico de uma parcela paga reescreveria o passado) e `renegociado`
+ * (saiu do fluxo normal do contrato porque já entrou num acordo de dívida separado, com valor
+ * próprio — ver `acordos.service.ts`). De propósito fora da whitelist: `clienteId`/`veiculoId`
+ * (trocar a FK desalinharia o PDF assinado e o envelope da ClickSign, gerados para o par
+ * original), `dataInicio`/`dataFim` (o cronograma de parcelas já foi gerado a partir de
+ * `dataInicio` na criação), `status` (segue exclusivamente o fluxo dedicado de "Encerrar
+ * contrato", que tem efeitos colaterais próprios) e `arquivoUrl` (gerido automaticamente pelo
+ * fluxo de assinatura). */
 export async function atualizarContrato(id: string, dados: Partial<Contrato>): Promise<Contrato> {
   const supabase = createAdminClient();
   const patch: Record<string, unknown> = {};
@@ -71,6 +75,16 @@ export async function atualizarContrato(id: string, dados: Partial<Contrato>): P
 
   const { data, error } = await supabase.from("contratos").update(patch).eq("id", id).select().single();
   if (error || !data) throw new Error("Contrato não encontrado");
+
+  if (dados.valorParcela !== undefined) {
+    const { error: errorParcelas } = await supabase
+      .from("parcelas")
+      .update({ valor_original: dados.valorParcela })
+      .eq("contrato_id", id)
+      .in("status", ["em_aberto", "vencido", "aguardando_confirmacao"]);
+    if (errorParcelas) throw new Error(errorParcelas.message);
+  }
+
   const [contrato] = await anexarAditivos(supabase, [data]);
   return contrato;
 }
