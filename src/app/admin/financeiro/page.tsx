@@ -305,7 +305,9 @@ export default function AdminFinanceiroPage() {
 
   const linhasAtivas = montarLinhas(parcelasAtivas.map(comStatusEfetivo), mapaContratos, mapaClientes, mapaVeiculos);
   const linhasPagas = parcelasPagas ? montarLinhas(parcelasPagas, mapaContratos, mapaClientes, mapaVeiculos) : null;
-  const linhasTodas = parcelasTodas ? montarLinhas(parcelasTodas, mapaContratos, mapaClientes, mapaVeiculos) : null;
+  const linhasTodas = parcelasTodas
+    ? montarLinhas(parcelasTodas.map(comStatusEfetivo), mapaContratos, mapaClientes, mapaVeiculos)
+    : null;
   const linhasPendentes = montarLinhasPagamentos(pagamentosPendentes, mapaParcelas, mapaContratos, mapaClientes, mapaVeiculos);
 
   const linhasAtuais: LinhaParcela[] | null =
