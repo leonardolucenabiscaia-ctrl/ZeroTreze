@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { Eye, Wallet, Clock } from "lucide-react";
 import { toast } from "sonner";
 
@@ -82,6 +83,7 @@ interface LinhaPagamentoPendente {
   clienteNome: string;
   veiculoId: string;
   veiculoNome: string;
+  contratoId: string;
   contratoNumero: string;
   parcelaNumero: number;
   parcelaCompetencia: string;
@@ -141,6 +143,7 @@ function montarLinhasPagamentos(
       clienteNome: mapaClientes.get(contrato.clienteId)?.nome ?? "—",
       veiculoId: contrato.veiculoId,
       veiculoNome: veiculo ? `${veiculo.marca} ${veiculo.modelo} — ${veiculo.placa}` : "—",
+      contratoId: contrato.id,
       contratoNumero: contrato.numero,
       parcelaNumero: parcela.numero,
       parcelaCompetencia: parcela.competencia,
@@ -476,9 +479,21 @@ export default function AdminFinanceiroPage() {
             <TableBody>
               {linhasPendentesFiltradas.slice(0, 100).map((linha) => (
                 <TableRow key={linha.pagamento.id}>
-                  <TableCell>{linha.clienteNome}</TableCell>
-                  <TableCell>{linha.veiculoNome}</TableCell>
-                  <TableCell>{linha.contratoNumero}</TableCell>
+                  <TableCell>
+                    <Link href={`/admin/clientes/${linha.clienteId}`} className="hover:text-gold">
+                      {linha.clienteNome}
+                    </Link>
+                  </TableCell>
+                  <TableCell>
+                    <Link href={`/admin/veiculos/${linha.veiculoId}`} className="hover:text-gold">
+                      {linha.veiculoNome}
+                    </Link>
+                  </TableCell>
+                  <TableCell>
+                    <Link href={`/admin/contratos/${linha.contratoId}`} className="hover:text-gold">
+                      {linha.contratoNumero}
+                    </Link>
+                  </TableCell>
                   <TableCell>{linha.parcelaNumero}</TableCell>
                   <TableCell>{formatCurrency(linha.pagamento.valor)}</TableCell>
                   <TableCell>{formatDate(linha.pagamento.enviadoEm)}</TableCell>
@@ -517,9 +532,21 @@ export default function AdminFinanceiroPage() {
               const atualizado = calcularValorAtualizado(parcela, parametros);
               return (
                 <TableRow key={parcela.id}>
-                  <TableCell>{clienteNome}</TableCell>
-                  <TableCell>{veiculoNome}</TableCell>
-                  <TableCell>{contratoNumero}</TableCell>
+                  <TableCell>
+                    <Link href={`/admin/clientes/${linha.clienteId}`} className="hover:text-gold">
+                      {clienteNome}
+                    </Link>
+                  </TableCell>
+                  <TableCell>
+                    <Link href={`/admin/veiculos/${linha.veiculoId}`} className="hover:text-gold">
+                      {veiculoNome}
+                    </Link>
+                  </TableCell>
+                  <TableCell>
+                    <Link href={`/admin/contratos/${parcela.contratoId}`} className="hover:text-gold">
+                      {contratoNumero}
+                    </Link>
+                  </TableCell>
                   <TableCell>{parcela.numero}</TableCell>
                   <TableCell>{formatCurrency(atualizado.valorFinal)}</TableCell>
                   <TableCell>{formatDate(parcela.dataVencimento)}</TableCell>
