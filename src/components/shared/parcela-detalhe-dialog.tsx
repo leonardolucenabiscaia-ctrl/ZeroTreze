@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Banknote, MessageSquareText, Percent, Tag, Ticket } from "lucide-react";
+import { Banknote, MessageSquareText, PencilLine, Percent, Tag, Ticket } from "lucide-react";
 
 import {
   Dialog,
@@ -40,6 +40,11 @@ export interface BaixaManualInput {
   motivo: string;
 }
 
+export interface AlterarValorInput {
+  novoValor: number;
+  motivo: string;
+}
+
 /** Só faz sentido aplicar desconto ou dar baixa manual sobre parcelas ainda não quitadas, e que
  * não estejam num fluxo especial (aguardando comprovante ou renegociadas num acordo). */
 function podeReceberAcaoAdministrativa(parcela: Parcela): boolean {
@@ -69,6 +74,8 @@ export function ParcelaDetalheDialog({
   onAplicarDesconto,
   podeDarBaixa = false,
   onDarBaixa,
+  podeAlterarValor = false,
+  onAlterarValor,
 }: {
   parcela: Parcela | null;
   parametros: ParametrosFinanceiros;
@@ -78,6 +85,8 @@ export function ParcelaDetalheDialog({
   onAplicarDesconto?: (parcelaId: string, desconto: DescontoParcelaInput) => Promise<void>;
   podeDarBaixa?: boolean;
   onDarBaixa?: (parcelaId: string, dados: BaixaManualInput) => Promise<void>;
+  podeAlterarValor?: boolean;
+  onAlterarValor?: (parcelaId: string, dados: AlterarValorInput) => Promise<void>;
 }) {
   const [descontarMulta, setDescontarMulta] = React.useState(false);
   const [percentual, setPercentual] = React.useState("");
@@ -92,6 +101,10 @@ export function ParcelaDetalheDialog({
   const [motivoBaixa, setMotivoBaixa] = React.useState("");
   const [salvandoBaixa, setSalvandoBaixa] = React.useState(false);
 
+  const [novoValor, setNovoValor] = React.useState("");
+  const [motivoValor, setMotivoValor] = React.useState("");
+  const [salvandoValor, setSalvandoValor] = React.useState(false);
+
   React.useEffect(() => {
     if (!parcela) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -102,6 +115,8 @@ export function ParcelaDetalheDialog({
     setValorBaixa(String(calcularValorAtualizado(parcela, parametros).valorFinal));
     setFormaPagamentoBaixa("dinheiro");
     setMotivoBaixa("");
+    setNovoValor(String(parcela.valorOriginal));
+    setMotivoValor("");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [parcela]);
 
@@ -172,6 +187,20 @@ export function ParcelaDetalheDialog({
       });
     } finally {
       setSalvandoBaixa(false);
+    }
+  }
+
+  const novoValorNumero = Number(novoValor) || 0;
+  const valorMudou = novoValorNumero !== parcela.valorOriginal;
+  const valorValido = novoValorNumero > 0 && valorMudou && motivoValor.trim().length > 0;
+
+  async function handleSalvarValor() {
+    if (!parcela || !onAlterarValor || !valorValido) return;
+    setSalvandoValor(true);
+    try {
+      await onAlterarValor(parcela.id, { novoValor: novoValorNumero, motivo: motivoValor.trim() });
+    } finally {
+      setSalvandoValor(false);
     }
   }
 
@@ -368,6 +397,52 @@ export function ParcelaDetalheDialog({
 
               <Button onClick={handleSalvarBaixa} disabled={!baixaValida || salvandoBaixa}>
                 {salvandoBaixa ? "Salvando…" : "Dar baixa"}
+              </Button>
+            </div>
+          </>
+        )}
+
+        {podeAlterarValor && podeReceberAcaoAdministrativa(parcela) && (
+          <>
+            <Separator />
+            <div className="flex flex-col gap-3">
+              <p className="text-sm font-medium text-foreground">Alterar valor da parcela</p>
+              <p className="text-xs text-muted-foreground">
+                Muda o valor original desta parcela específica (pode subir ou cair) — diferente de um
+                desconto, não fica registrado como abatimento, o valor base dela é que muda.
+              </p>
+
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="novo-valor" className="flex items-center gap-1.5 text-xs">
+                  <PencilLine className="size-3.5 text-gold" />
+                  Novo valor original (R$)
+                </Label>
+                <Input
+                  id="novo-valor"
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={novoValor}
+                  onChange={(e) => setNovoValor(e.target.value)}
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="motivo-valor" className="flex items-center gap-1.5 text-xs">
+                  <MessageSquareText className="size-3.5 text-gold" />
+                  Motivo da alteração <span className="text-destructive">*</span>
+                </Label>
+                <Textarea
+                  id="motivo-valor"
+                  placeholder="Explique o motivo — o cliente também vai ver essa explicação."
+                  value={motivoValor}
+                  onChange={(e) => setMotivoValor(e.target.value)}
+                  rows={2}
+                />
+              </div>
+
+              <Button onClick={handleSalvarValor} disabled={!valorValido || salvandoValor}>
+                {salvandoValor ? "Salvando…" : "Salvar novo valor"}
               </Button>
             </div>
           </>

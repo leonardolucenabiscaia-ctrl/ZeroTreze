@@ -3,7 +3,7 @@ import { addWeeks } from "date-fns";
 import { createAdminClient } from "@/lib/supabase/server";
 import { calcularValorAtualizado } from "@/lib/calculations/juros-multa-correcao";
 import { competenciaDaSemana } from "@/lib/mock-data/generators/financeiro";
-import { dataDeHojeBrasil } from "@/lib/utils/formatters";
+import { dataDeHojeBrasil, formatCurrency } from "@/lib/utils/formatters";
 import { mapDocumento, mapMovimentoExtrato, mapParametrosFinanceiros, mapParcela } from "./mappers";
 import { criarNotificacao } from "./notificacoes.service";
 import { paginarTodasAsLinhas } from "./pagination";
@@ -244,6 +244,75 @@ export async function aplicarDescontoParcela(
         link: "/financeiro",
       });
     }
+  }
+
+  return mapParcela(atualizada);
+}
+
+export interface AlterarValorParcelaInput {
+  novoValor: number;
+  motivo: string;
+}
+
+/** Reescreve o `valorOriginal` de uma parcela específica — pode subir ou cair. Diferente de um
+ * desconto (um abatimento sobre o valor original, que fica preservado como referência), isso
+ * muda o próprio valor base da parcela; juros/multa/correção recalculam automaticamente em cima
+ * do novo valor na próxima leitura (`calcularValorAtualizado`), sem precisar de nada especial
+ * aqui. */
+export async function alterarValorParcela(
+  parcelaId: string,
+  dados: AlterarValorParcelaInput,
+  // Não gravado em lugar nenhum (ao contrário de desconto/baixa manual, que têm coluna própria
+  // "*_por_nome") — quem alterou já fica registrado no log de auditoria geral (`registrarAcao`,
+  // chamado por quem usa isso). Mantido no parâmetro só pra bater com a assinatura das funções
+  // irmãs (`aplicarDescontoParcela`, `darBaixaManual`).
+  _usuarioNome: string
+): Promise<Parcela> {
+  const supabase = createAdminClient();
+  const { data: parcela } = await supabase.from("parcelas").select("*").eq("id", parcelaId).maybeSingle();
+  if (!parcela) throw new Error("Parcela não encontrada");
+  if (parcela.status === "pago") throw new Error("Esta parcela já está paga.");
+  if (parcela.status === "aguardando_confirmacao") {
+    throw new Error("Esta parcela está aguardando confirmação de pagamento.");
+  }
+  if (parcela.status === "renegociado") {
+    throw new Error("Esta parcela foi renegociada em um acordo — altere o valor por lá.");
+  }
+  if (!(dados.novoValor > 0)) throw new Error("O novo valor deve ser maior que zero.");
+  const valorPago = (parcela.valor_pago as number | null) ?? 0;
+  if (dados.novoValor < valorPago) {
+    throw new Error(
+      `O novo valor não pode ser menor que o que já foi pago nessa parcela (${formatCurrency(valorPago)}).`
+    );
+  }
+  if (dados.novoValor === parcela.valor_original) throw new Error("Esse já é o valor atual da parcela.");
+  if (!dados.motivo.trim()) {
+    throw new Error("Explique o motivo da alteração — o cliente também vai ver essa explicação.");
+  }
+
+  const valorAntigo = parcela.valor_original as number;
+  const { data: atualizada, error } = await supabase
+    .from("parcelas")
+    .update({ valor_original: dados.novoValor })
+    .eq("id", parcelaId)
+    .select()
+    .single();
+  if (error || !atualizada) throw new Error(error?.message ?? "Não foi possível alterar o valor da parcela.");
+
+  const usuarioId = await usuarioIdDoContrato(supabase, parcela.contrato_id as string);
+  if (usuarioId) {
+    await criarNotificacao({
+      id: crypto.randomUUID(),
+      usuarioId,
+      tipo: "cobranca_manual",
+      titulo: "Valor de uma parcela foi alterado",
+      mensagem: `A parcela ${atualizada.numero} (${atualizada.competencia}) teve o valor alterado de ${formatCurrency(
+        valorAntigo
+      )} para ${formatCurrency(dados.novoValor)}. Motivo: ${dados.motivo.trim()}`,
+      lida: false,
+      criadoEm: new Date().toISOString(),
+      link: "/financeiro",
+    });
   }
 
   return mapParcela(atualizada);

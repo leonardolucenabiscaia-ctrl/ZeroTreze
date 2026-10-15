@@ -16,13 +16,14 @@ import {
 import { buscarClientePorId } from "@/lib/services/clientes.service";
 import { bloquearVeiculo, buscarVeiculoPorId, desbloquearVeiculo } from "@/lib/services/veiculos.service";
 import {
+  alterarValorParcela,
   aplicarDescontoParcela,
   darBaixaManual,
   listarParcelasPorContrato,
   obterParametrosFinanceiros,
 } from "@/lib/services/financeiro.service";
 import { registrarAcao } from "@/lib/services/auditoria.service";
-import { formatDateTime } from "@/lib/utils/formatters";
+import { formatCurrency, formatDateTime } from "@/lib/utils/formatters";
 import { assinaturaConcluida } from "@/lib/utils/assinatura";
 import { AVISO_ACORDO_SEM_ATIVIDADE } from "@/lib/types";
 import type { Cliente, Contrato, ParametrosFinanceiros, Parcela, Veiculo } from "@/lib/types";
@@ -31,6 +32,7 @@ import { VehicleCard } from "@/components/shared/vehicle-card";
 import { ParcelasTable } from "@/components/shared/parcelas-table";
 import {
   ParcelaDetalheDialog,
+  type AlterarValorInput,
   type BaixaManualInput,
   type DescontoParcelaInput,
 } from "@/components/shared/parcela-detalhe-dialog";
@@ -250,6 +252,27 @@ export default function AdminContratoDetalhePage() {
     }
   }
 
+  async function handleAlterarValor(parcelaId: string, dados: AlterarValorInput) {
+    try {
+      const valorAntigo = parcelaDetalhe?.valorOriginal;
+      const atualizada = await alterarValorParcela(parcelaId, dados, usuario?.nome ?? "Administrador");
+      setParcelas((atuais) => atuais.map((p) => (p.id === atualizada.id ? atualizada : p)));
+      setParcelaDetalhe(atualizada);
+      if (usuario && contrato) {
+        await registrarAcao({
+          usuarioId: usuario.id,
+          usuarioNome: usuario.nome,
+          acao: `Alterou o valor de uma parcela de ${formatCurrency(valorAntigo ?? 0)} para ${formatCurrency(dados.novoValor)}`,
+          entidade: "Parcela",
+          entidadeId: `${contrato.numero} — parcela ${atualizada.numero}`,
+        });
+      }
+      toast.success("Valor da parcela atualizado.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível alterar o valor da parcela.");
+    }
+  }
+
   if (!contrato || !veiculo || !parametros) return <Skeleton className="h-96 w-full" />;
 
   return (
@@ -351,6 +374,8 @@ export default function AdminContratoDetalhePage() {
         onAplicarDesconto={handleAplicarDesconto}
         podeDarBaixa
         onDarBaixa={handleDarBaixa}
+        podeAlterarValor
+        onAlterarValor={handleAlterarValor}
       />
 
       <Dialog open={editandoContrato} onOpenChange={setEditandoContrato}>

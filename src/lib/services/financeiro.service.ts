@@ -61,6 +61,24 @@ export async function aplicarDescontoParcela(
   });
 }
 
+export interface AlterarValorParcelaInput {
+  novoValor: number;
+  motivo: string;
+}
+
+/** Muda o valor original de uma parcela específica (pode subir ou cair) — diferente de um
+ * desconto, reescreve o próprio valor base dela. */
+export async function alterarValorParcela(
+  parcelaId: string,
+  dados: AlterarValorParcelaInput,
+  usuarioNome: string
+): Promise<Parcela> {
+  return apiFetch<Parcela>(`/api/financeiro/parcelas/${parcelaId}/alterar-valor`, {
+    method: "POST",
+    body: JSON.stringify({ dados, usuarioNome }),
+  });
+}
+
 export async function listarExtratoPorContrato(contratoId: string): Promise<MovimentoExtrato[]> {
   return apiFetch<MovimentoExtrato[]>(`/api/financeiro/extrato?contratoId=${contratoId}`);
 }

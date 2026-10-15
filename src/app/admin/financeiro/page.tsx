@@ -17,6 +17,7 @@ import {
   obterParametrosFinanceiros,
   aplicarDescontoParcela,
   darBaixaManual,
+  alterarValorParcela,
 } from "@/lib/services/financeiro.service";
 import {
   confirmarPagamentoParcial,
@@ -50,6 +51,7 @@ import { StatusPill } from "@/components/shared/status-pill";
 import { RevisarPagamentoDialog } from "@/components/shared/revisar-pagamento-dialog";
 import {
   ParcelaDetalheDialog,
+  type AlterarValorInput,
   type BaixaManualInput,
   type DescontoParcelaInput,
 } from "@/components/shared/parcela-detalhe-dialog";
@@ -291,6 +293,27 @@ export default function AdminFinanceiroPage() {
       await recarregarAtivas();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível dar baixa no pagamento.");
+    }
+  }
+
+  async function handleAlterarValor(parcelaId: string, dados: AlterarValorInput) {
+    try {
+      const valorAntigo = parcelaDetalhe?.parcela.valorOriginal;
+      const atualizada = await alterarValorParcela(parcelaId, dados, usuario?.nome ?? "Administrador");
+      if (parcelaDetalhe) setParcelaDetalhe({ ...parcelaDetalhe, parcela: atualizada });
+      if (usuario && parcelaDetalhe) {
+        await registrarAcao({
+          usuarioId: usuario.id,
+          usuarioNome: usuario.nome,
+          acao: `Alterou o valor de uma parcela de ${formatCurrency(valorAntigo ?? 0)} para ${formatCurrency(dados.novoValor)}`,
+          entidade: "Parcela",
+          entidadeId: `${parcelaDetalhe.contratoNumero} · parcela ${atualizada.numero}`,
+        });
+      }
+      toast.success("Valor da parcela atualizado.");
+      await recarregarAtivas();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível alterar o valor da parcela.");
     }
   }
 
@@ -593,6 +616,8 @@ export default function AdminFinanceiroPage() {
         onAplicarDesconto={handleAplicarDesconto}
         podeDarBaixa
         onDarBaixa={handleDarBaixa}
+        podeAlterarValor
+        onAlterarValor={handleAlterarValor}
       />
     </div>
   );
