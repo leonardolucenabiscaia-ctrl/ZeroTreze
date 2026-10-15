@@ -17,6 +17,15 @@ export async function gerarLinkParaAbrirDocumento(documentoId: string): Promise<
   const supabase = createAdminClient();
   const { data } = await supabase.from("documentos").select("url").eq("id", documentoId).maybeSingle();
   if (!data) throw new Error("Documento não encontrado.");
+  // "#" é o placeholder usado antes da correção do armazenamento (ver commit "Comprovantes e
+  // documentos são salvos de verdade no Storage") — esses arquivos nunca chegaram a ser salvos de
+  // verdade, então não têm como ser recuperados. Mensagem clara em vez do erro técnico que o
+  // Storage devolveria tentando assinar um caminho inválido.
+  if (data.url === "#") {
+    throw new Error(
+      "Esse arquivo foi enviado antes de uma correção no sistema e não foi salvo — infelizmente não é possível recuperá-lo. Peça para reenviar."
+    );
+  }
   return gerarLinkTemporarioDocumento(supabase, data.url as string);
 }
 

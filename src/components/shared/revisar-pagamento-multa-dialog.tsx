@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { File as FileIcon, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 import {
   Dialog,
@@ -109,7 +110,11 @@ export function RevisarPagamentoMultaDialog({
                 <li key={doc.id}>
                   <button
                     type="button"
-                    onClick={() => abrirDocumento(doc.id)}
+                    onClick={() =>
+                      abrirDocumento(doc.id).catch((error) =>
+                        toast.error(error instanceof Error ? error.message : "Não foi possível abrir o documento.")
+                      )
+                    }
                     className="flex w-full items-center gap-2 rounded-lg bg-secondary/40 px-3 py-2 text-sm hover:bg-secondary/70"
                   >
                     <FileIcon className="size-4 shrink-0 text-gold" />
