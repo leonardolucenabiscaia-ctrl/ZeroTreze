@@ -1,4 +1,4 @@
-import type { Contrato } from "@/lib/types";
+import type { Contrato, Documento } from "@/lib/types";
 import { apiFetch } from "./api-client";
 
 export async function listarContratos(): Promise<Contrato[]> {
@@ -41,6 +41,35 @@ export async function atualizarContrato(id: string, dados: Partial<Contrato>): P
 
 export async function encerrarContrato(contratoId: string): Promise<Contrato> {
   return apiFetch<Contrato>(`/api/contratos/${contratoId}/encerrar`, { method: "POST" });
+}
+
+export interface ChecklistContratoInput {
+  pneusOk: boolean;
+  odometroOk: boolean;
+  odometroKm: number;
+  latariaOk: boolean;
+  bateriaOk: boolean;
+  observacao?: string;
+}
+
+export async function atualizarChecklistContrato(
+  contratoId: string,
+  dados: ChecklistContratoInput,
+  anexos: File[]
+): Promise<Contrato> {
+  const formData = new FormData();
+  formData.append("pneusOk", String(dados.pneusOk));
+  formData.append("odometroOk", String(dados.odometroOk));
+  formData.append("odometroKm", String(dados.odometroKm));
+  formData.append("latariaOk", String(dados.latariaOk));
+  formData.append("bateriaOk", String(dados.bateriaOk));
+  formData.append("observacao", dados.observacao ?? "");
+  anexos.forEach((arquivo) => formData.append("anexos", arquivo));
+  return apiFetch<Contrato>(`/api/contratos/${contratoId}/checklist`, { method: "POST", body: formData });
+}
+
+export async function listarAnexosChecklistContrato(contratoId: string): Promise<Documento[]> {
+  return apiFetch<Documento[]>(`/api/contratos/${contratoId}/checklist/anexos`);
 }
 
 /** Exclusão definitiva do contrato e de tudo vinculado a ele (parcelas, extrato, multas, acordo,

@@ -29,6 +29,7 @@ import { AVISO_ACORDO_SEM_ATIVIDADE } from "@/lib/types";
 import type { Cliente, Contrato, ParametrosFinanceiros, Parcela, Veiculo } from "@/lib/types";
 
 import { VehicleCard } from "@/components/shared/vehicle-card";
+import { ChecklistContratoCard } from "@/components/shared/checklist-contrato-card";
 import { ParcelasTable } from "@/components/shared/parcelas-table";
 import {
   ParcelaDetalheDialog,
@@ -354,6 +355,12 @@ export default function AdminContratoDetalhePage() {
       </Card>
 
       <VehicleCard veiculo={veiculo} contrato={contrato} />
+
+      <ChecklistContratoCard
+        contratoId={contrato.id}
+        checklist={contrato.checklist}
+        onSalvo={(checklist) => setContrato({ ...contrato, checklist })}
+      />
 
       <div>
         <h2 className="mb-3 text-sm font-medium text-muted-foreground">Parcelas</h2>

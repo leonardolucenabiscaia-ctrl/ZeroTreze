@@ -8,7 +8,8 @@ export type CategoriaDocumento =
   | "nota_fiscal"
   | "recibo"
   | "cadastro"
-  | "acordo";
+  | "acordo"
+  | "checklist";
 
 export interface Documento {
   id: string;

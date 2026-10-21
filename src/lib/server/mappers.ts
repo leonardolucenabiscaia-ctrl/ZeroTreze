@@ -148,6 +148,18 @@ export function mapContrato(
           atualizadoEm: (row.assinatura_atualizado_em as string | null) ?? undefined,
         }
       : undefined,
+    checklist: row.checklist_atualizado_em
+      ? {
+          pneusOk: row.checklist_pneus_ok as boolean,
+          odometroOk: row.checklist_odometro_ok as boolean,
+          odometroKm: row.checklist_odometro_km as number,
+          latariaOk: row.checklist_lataria_ok as boolean,
+          bateriaOk: row.checklist_bateria_ok as boolean,
+          observacao: (row.checklist_observacao as string | null) ?? undefined,
+          atualizadoPorNome: row.checklist_atualizado_por_nome as string,
+          atualizadoEm: row.checklist_atualizado_em as string,
+        }
+      : undefined,
   };
 }
 

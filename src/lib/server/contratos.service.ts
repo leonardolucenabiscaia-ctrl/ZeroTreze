@@ -5,11 +5,12 @@ import { gerarParcelas, gerarExtrato } from "@/lib/mock-data/generators/financei
 import { formatarNumeroContrato } from "@/lib/mock-data/generators/contrato";
 import { gerarPdfContrato } from "./pdf/contrato-pdf";
 import { enviarDocumentoParaAssinatura } from "./clicksign.service";
-import { mapCliente, mapContrato, mapVeiculo } from "./mappers";
+import { mapCliente, mapContrato, mapDocumento, mapVeiculo } from "./mappers";
 import { paginarTodasAsLinhas } from "./pagination";
 import { parseData } from "@/lib/utils/formatters";
+import { enviarDocumentoParaStorage } from "./storage";
 import { AVISO_ACORDO_SEM_ATIVIDADE } from "@/lib/types";
-import type { Contrato } from "@/lib/types";
+import type { Contrato, Documento } from "@/lib/types";
 
 const PRAZO_MINIMO_MESES = 6;
 
@@ -87,6 +88,78 @@ export async function atualizarContrato(id: string, dados: Partial<Contrato>): P
 
   const [contrato] = await anexarAditivos(supabase, [data]);
   return contrato;
+}
+
+export interface ChecklistContratoInput {
+  pneusOk: boolean;
+  odometroOk: boolean;
+  odometroKm: number;
+  latariaOk: boolean;
+  bateriaOk: boolean;
+  observacao?: string;
+}
+
+/** Salva (ou sobrescreve, não há histórico de versões anteriores) o checklist de vistoria do
+ * contrato — os 4 itens são obrigatórios, cada um com uma resposta explícita, exatamente como a
+ * tela de edição exige antes de habilitar o botão de salvar. */
+export async function atualizarChecklistContrato(
+  contratoId: string,
+  dados: ChecklistContratoInput,
+  usuarioNome: string,
+  anexos: File[]
+): Promise<Contrato> {
+  const supabase = createAdminClient();
+  if (!(dados.odometroKm >= 0)) throw new Error("A quilometragem do odômetro não pode ser negativa.");
+
+  const { data, error } = await supabase
+    .from("contratos")
+    .update({
+      checklist_pneus_ok: dados.pneusOk,
+      checklist_odometro_ok: dados.odometroOk,
+      checklist_odometro_km: dados.odometroKm,
+      checklist_lataria_ok: dados.latariaOk,
+      checklist_bateria_ok: dados.bateriaOk,
+      checklist_observacao: dados.observacao?.trim() || null,
+      checklist_atualizado_por_nome: usuarioNome,
+      checklist_atualizado_em: new Date().toISOString(),
+    })
+    .eq("id", contratoId)
+    .select()
+    .single();
+  if (error || !data) throw new Error(error?.message ?? "Contrato não encontrado");
+
+  if (anexos.length > 0) {
+    const linhas = await Promise.all(
+      anexos.map(async (arquivo) => {
+        const id = crypto.randomUUID();
+        const caminho = await enviarDocumentoParaStorage(supabase, id, arquivo);
+        return {
+          id,
+          contrato_id: contratoId,
+          categoria: "checklist",
+          nome: arquivo.name,
+          url: caminho,
+          tamanho_kb: Math.max(1, Math.round(arquivo.size / 1024)),
+        };
+      })
+    );
+    const { error: errorAnexos } = await supabase.from("documentos").insert(linhas);
+    if (errorAnexos) throw new Error(errorAnexos.message);
+  }
+
+  const [contrato] = await anexarAditivos(supabase, [data]);
+  return contrato;
+}
+
+export async function listarAnexosChecklistContrato(contratoId: string): Promise<Documento[]> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("documentos")
+    .select("*")
+    .eq("contrato_id", contratoId)
+    .eq("categoria", "checklist");
+  if (error) throw new Error(error.message);
+  return (data ?? []).map(mapDocumento);
 }
 
 export async function contratoAtivoPorCliente(clienteId: string): Promise<Contrato | undefined> {

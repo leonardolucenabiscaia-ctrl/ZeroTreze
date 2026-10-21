@@ -26,6 +26,19 @@ export interface AssinaturaContrato {
   atualizadoEm?: string;
 }
 
+/** Vistoria do veículo vinculada ao contrato — um registro só, sem histórico de versões
+ * anteriores; salvar substitui o que havia antes. Ausente até a primeira vez que o admin salvar. */
+export interface ChecklistContrato {
+  pneusOk: boolean;
+  odometroOk: boolean;
+  odometroKm: number;
+  latariaOk: boolean;
+  bateriaOk: boolean;
+  observacao?: string;
+  atualizadoPorNome: string;
+  atualizadoEm: string;
+}
+
 export interface Contrato {
   id: string;
   numero: string;
@@ -43,4 +56,5 @@ export interface Contrato {
   observacao?: string;
   /** Ausente se o envio para assinatura ainda não foi feito ou falhou (não bloqueia o contrato). */
   assinatura?: AssinaturaContrato;
+  checklist?: ChecklistContrato;
 }
