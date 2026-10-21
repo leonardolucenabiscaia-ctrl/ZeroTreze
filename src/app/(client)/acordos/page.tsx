@@ -76,9 +76,10 @@ export default function AcordosPage() {
               <Progress value={progresso} />
 
               {acordo.descricao && (
-                <p className="rounded-lg bg-secondary/40 px-3 py-2 text-sm text-muted-foreground">
-                  {acordo.descricao}
-                </p>
+                <div className="flex flex-col gap-1">
+                  <p className="text-[11px] uppercase text-muted-foreground">Observações</p>
+                  <p className="rounded-lg bg-secondary/40 px-3 py-2 text-sm text-foreground">{acordo.descricao}</p>
+                </div>
               )}
 
               <div className="flex flex-col gap-1.5">

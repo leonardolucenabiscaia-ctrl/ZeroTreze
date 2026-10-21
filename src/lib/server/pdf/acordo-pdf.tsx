@@ -161,6 +161,12 @@ function AcordoDocument({ acordo, contrato, cliente, veiculo }: DadosAcordoPdf) 
           </Text>
         </Secao>
 
+        {acordo.descricao && (
+          <Secao titulo="Observações">
+            <Text style={styles.paragrafo}>{acordo.descricao}</Text>
+          </Secao>
+        )}
+
         <Secao titulo="Das Disposições Finais">
           <Text style={styles.paragrafo}>
             3. Com o recebimento integral da importância acordada, a CREDORA dará ao(a) DEVEDOR(A)
