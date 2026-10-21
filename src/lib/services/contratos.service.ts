@@ -9,6 +9,11 @@ export async function listarContratosPorCliente(clienteId: string): Promise<Cont
   return apiFetch<Contrato[]>(`/api/contratos?clienteId=${clienteId}`);
 }
 
+/** Todo contrato que esse veículo já teve (qualquer status) — histórico completo, não só o ativo. */
+export async function listarContratosPorVeiculo(veiculoId: string): Promise<Contrato[]> {
+  return apiFetch<Contrato[]>(`/api/contratos?veiculoId=${veiculoId}`);
+}
+
 export async function buscarContratoPorId(id: string): Promise<Contrato | undefined> {
   return apiFetch<Contrato | null>(`/api/contratos/${id}`).then((v) => v ?? undefined);
 }

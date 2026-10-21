@@ -44,6 +44,19 @@ export async function listarContratosPorCliente(clienteId: string): Promise<Cont
   return anexarAditivos(supabase, data ?? []);
 }
 
+/** Todo contrato que esse veículo já teve (qualquer status) — usado na página do veículo pra
+ * mostrar o histórico completo de clientes/contratos, não só o ativo no momento. */
+export async function listarContratosPorVeiculo(veiculoId: string): Promise<Contrato[]> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("contratos")
+    .select("*")
+    .eq("veiculo_id", veiculoId)
+    .order("data_inicio", { ascending: false });
+  if (error) throw new Error(error.message);
+  return anexarAditivos(supabase, data ?? []);
+}
+
 export async function buscarContratoPorId(id: string): Promise<Contrato | undefined> {
   const supabase = createAdminClient();
   const { data } = await supabase.from("contratos").select("*").eq("id", id).maybeSingle();

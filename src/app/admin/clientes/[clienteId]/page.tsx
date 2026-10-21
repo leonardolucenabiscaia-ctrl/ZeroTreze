@@ -21,7 +21,7 @@ import { atualizarUsuario, buscarUsuarioPorId } from "@/lib/services/usuarios.se
 import { registrarAcao } from "@/lib/services/auditoria.service";
 import { useAuth } from "@/lib/auth/auth-context";
 import { calcularValorAtualizado } from "@/lib/calculations/juros-multa-correcao";
-import { formatCurrency, formatDate, formatDocument } from "@/lib/utils/formatters";
+import { formatCurrency, formatDate, formatDocument, formatPhone } from "@/lib/utils/formatters";
 import type {
   Cliente,
   Contrato,
@@ -64,6 +64,7 @@ interface DadosEdicaveis {
   tipoDocumento: "cpf" | "cnpj";
   documento: string;
   email: string;
+  telefone: string;
   rg: string;
   nacionalidade: string;
   profissao: string;
@@ -87,6 +88,7 @@ const DADOS_EDICAO_VAZIOS: DadosEdicaveis = {
   tipoDocumento: "cpf",
   documento: "",
   email: "",
+  telefone: "",
   rg: "",
   nacionalidade: "",
   profissao: "",
@@ -161,6 +163,7 @@ export default function ClienteDetalhePage() {
       tipoDocumento: cliente.tipoDocumento,
       documento: cliente.documento,
       email: emailPendente(usuario?.email) ? "" : (usuario?.email ?? ""),
+      telefone: usuario?.telefone ?? "",
       rg: cliente.rg,
       nacionalidade: cliente.nacionalidade,
       profissao: cliente.profissao,
@@ -221,9 +224,20 @@ export default function ClienteDetalhePage() {
       });
       setCliente(atualizado);
 
+      const patchUsuario: Partial<Usuario> = {};
       const emailPreenchido = dadosEdicao.email.trim();
       if (emailPreenchido && emailPreenchido.toLowerCase() !== (usuario?.email ?? "").toLowerCase()) {
-        const usuarioAtualizado = await atualizarUsuario(cliente.usuarioId, { email: emailPreenchido });
+        patchUsuario.email = emailPreenchido;
+      }
+      const telefonePreenchido = dadosEdicao.telefone.trim();
+      if (telefonePreenchido && telefonePreenchido !== (usuario?.telefone ?? "")) {
+        // Mesmo campo usado tanto pro código de acesso via WhatsApp (login) quanto pras demais
+        // notificações (lembrete de parcela, cobrança etc.) — trocar aqui já vale pros dois,
+        // sem precisar sincronizar nada a mais.
+        patchUsuario.telefone = telefonePreenchido;
+      }
+      if (Object.keys(patchUsuario).length > 0) {
+        const usuarioAtualizado = await atualizarUsuario(cliente.usuarioId, patchUsuario);
         setUsuario(usuarioAtualizado);
       }
 
@@ -392,6 +406,20 @@ export default function ClienteDetalhePage() {
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="cliente-email">E-mail</Label>
               <Input type="email" {...campoEdicao("email")} placeholder="email@exemplo.com" />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="cliente-telefone">Telefone</Label>
+              <Input
+                {...campoEdicao("telefone")}
+                maxLength={15}
+                placeholder="(00) 00000-0000"
+                onChange={(e) =>
+                  setDadosEdicao((atual) => ({ ...atual, telefone: formatPhone(e.target.value) }))
+                }
+              />
+              <p className="text-xs text-muted-foreground">
+                Usado tanto pro código de acesso (login) quanto pras mensagens via WhatsApp.
+              </p>
             </div>
             <div className="flex flex-col gap-1.5">
               <Label>Tipo de documento</Label>

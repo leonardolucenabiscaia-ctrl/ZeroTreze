@@ -1,12 +1,14 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
   CheckCircle2,
   Download,
   FileText,
   FolderOpen,
+  Handshake,
   Lock,
   Pencil,
   ShieldCheck,
@@ -32,10 +34,12 @@ import {
 } from "@/lib/services/veiculos.service";
 import { ImageUploader } from "@/components/shared/image-uploader";
 import { abrirDocumento, listarDocumentosPorVeiculo } from "@/lib/services/documentos.service";
+import { listarContratosPorVeiculo } from "@/lib/services/contratos.service";
+import { listarClientes } from "@/lib/services/clientes.service";
 import { registrarAcao } from "@/lib/services/auditoria.service";
 import { useAuth } from "@/lib/auth/auth-context";
 import { formatDate, formatDateInput } from "@/lib/utils/formatters";
-import type { Documento, Veiculo } from "@/lib/types";
+import type { Cliente, Contrato, Documento, Veiculo } from "@/lib/types";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -43,6 +47,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { StatusPill } from "@/components/shared/status-pill";
 import { EmptyState } from "@/components/shared/empty-state";
 import {
   Dialog,
@@ -113,6 +118,8 @@ export default function AdminVeiculoDetalhePage() {
   const { usuario } = useAuth();
   const [veiculo, setVeiculo] = React.useState<Veiculo | null>(null);
   const [documentos, setDocumentos] = React.useState<Documento[]>([]);
+  const [contratos, setContratos] = React.useState<Contrato[]>([]);
+  const [clientes, setClientes] = React.useState<Cliente[]>([]);
   const [editandoKm, setEditandoKm] = React.useState(false);
   const [novaQuilometragem, setNovaQuilometragem] = React.useState("");
   const [salvandoKm, setSalvandoKm] = React.useState(false);
@@ -135,6 +142,8 @@ export default function AdminVeiculoDetalhePage() {
   React.useEffect(() => {
     buscarVeiculoPorId(params.veiculoId).then((v) => setVeiculo(v ?? null));
     listarDocumentosPorVeiculo(params.veiculoId).then(setDocumentos);
+    listarContratosPorVeiculo(params.veiculoId).then(setContratos);
+    listarClientes().then(setClientes);
   }, [params.veiculoId]);
 
   function abrirEdicaoKm() {
@@ -773,6 +782,52 @@ export default function AdminVeiculoDetalhePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-foreground">
+            <Handshake className="size-4 text-gold" />
+            Contratos e clientes
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {contratos.length === 0 ? (
+            <EmptyState icon={Handshake} title="Este veículo nunca esteve em nenhum contrato" />
+          ) : (
+            <div className="flex flex-col divide-y divide-border">
+              {contratos.map((contrato) => {
+                const clienteDoContrato = clientes.find((c) => c.id === contrato.clienteId);
+                const ativo = contrato.status !== "encerrado";
+                return (
+                  <div key={contrato.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                    <div className="flex items-center gap-2">
+                      {ativo && <Badge variant="success">Ativo atualmente</Badge>}
+                      <div>
+                        <Link
+                          href={`/admin/clientes/${contrato.clienteId}`}
+                          className="font-medium text-foreground hover:text-gold"
+                        >
+                          {clienteDoContrato?.nome ?? "—"}
+                        </Link>
+                        <p className="text-xs text-muted-foreground">
+                          <Link href={`/admin/contratos/${contrato.id}`} className="hover:text-gold">
+                            {contrato.numero}
+                          </Link>{" "}
+                          ·{" "}
+                          {ativo
+                            ? `Desde ${formatDate(contrato.dataInicio)}`
+                            : `${formatDate(contrato.dataInicio)} até ${formatDate(contrato.dataFim)}`}
+                        </p>
+                      </div>
+                    </div>
+                    <StatusPill status={contrato.status} />
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
