@@ -24,9 +24,18 @@ import {
   type DescontoParcelaAcordoInput,
 } from "@/lib/services/financeiro-acordos.service";
 import { registrarAcao } from "@/lib/services/auditoria.service";
+import { obterParametrosFinanceiros } from "@/lib/services/financeiro.service";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils/formatters";
 import { assinaturaConcluida } from "@/lib/utils/assinatura";
-import type { Acordo, Cliente, Contrato, ParcelaAcordo, StatusAcordo, Veiculo } from "@/lib/types";
+import type {
+  Acordo,
+  Cliente,
+  Contrato,
+  ParametrosFinanceiros,
+  ParcelaAcordo,
+  StatusAcordo,
+  Veiculo,
+} from "@/lib/types";
 
 import { VehicleCard } from "@/components/shared/vehicle-card";
 import { ParcelasAcordoTable } from "@/components/shared/parcelas-acordo-table";
@@ -61,6 +70,7 @@ export default function AdminAcordoDetalhePage() {
   const [cliente, setCliente] = React.useState<Cliente | null>(null);
   const [contrato, setContrato] = React.useState<Contrato | null>(null);
   const [veiculo, setVeiculo] = React.useState<Veiculo | null>(null);
+  const [parametros, setParametros] = React.useState<ParametrosFinanceiros | null>(null);
   const [parcelaDetalhe, setParcelaDetalhe] = React.useState<ParcelaAcordo | null>(null);
   const [editandoAcordo, setEditandoAcordo] = React.useState(false);
   const [descricaoEdicao, setDescricaoEdicao] = React.useState("");
@@ -88,6 +98,7 @@ export default function AdminAcordoDetalhePage() {
         setVeiculo(veiculoEncontrado ?? null);
       }
     });
+    obterParametrosFinanceiros().then(setParametros);
   }, [params.acordoId]);
 
   function abrirEdicao() {
@@ -242,7 +253,7 @@ export default function AdminAcordoDetalhePage() {
     }
   }
 
-  if (!acordo) return <Skeleton className="h-96 w-full" />;
+  if (!acordo || !parametros) return <Skeleton className="h-96 w-full" />;
 
   const percentualJuros = acordo.valorDividaOriginal
     ? ((acordo.valorTotal - acordo.valorDividaOriginal) / acordo.valorDividaOriginal) * 100
@@ -384,19 +395,21 @@ export default function AdminAcordoDetalhePage() {
           </div>
         </dl>
         {acordo.descricao && (
-          <p className="mt-3 rounded-lg bg-secondary/40 px-3 py-2 text-sm text-muted-foreground">
-            {acordo.descricao}
-          </p>
+          <div className="mt-3 flex flex-col gap-1">
+            <p className="text-[11px] uppercase text-muted-foreground">Observações</p>
+            <p className="rounded-lg bg-secondary/40 px-3 py-2 text-sm text-foreground">{acordo.descricao}</p>
+          </div>
         )}
       </Card>
 
       <div>
         <h2 className="mb-3 text-sm font-medium text-muted-foreground">Cronograma de parcelas</h2>
-        <ParcelasAcordoTable parcelas={acordo.cronograma} onVisualizar={setParcelaDetalhe} />
+        <ParcelasAcordoTable parcelas={acordo.cronograma} parametros={parametros} onVisualizar={setParcelaDetalhe} />
       </div>
 
       <ParcelaAcordoDetalheDialog
         parcela={parcelaDetalhe}
+        parametros={parametros}
         open={parcelaDetalhe !== null}
         onOpenChange={(open) => !open && setParcelaDetalhe(null)}
         podeAplicarDesconto

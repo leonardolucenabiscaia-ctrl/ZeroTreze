@@ -66,4 +66,5 @@ export const PARAMETROS_FINANCEIROS_PADRAO: ParametrosFinanceiros = {
   percentualMulta: EMPRESA.multaAtrasoPercentual,
   jurosMoraDiarioReais: EMPRESA.jurosMoraDiario,
   indiceCorrecaoMensal: 0.5,
+  percentualMultaAcordo: 0,
 };

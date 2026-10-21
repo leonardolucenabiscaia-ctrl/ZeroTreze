@@ -14,9 +14,17 @@ import {
   recusarPagamentoParcialAcordo,
 } from "@/lib/services/pagamentos-parciais-acordo.service";
 import { registrarAcao } from "@/lib/services/auditoria.service";
+import { obterParametrosFinanceiros } from "@/lib/services/financeiro.service";
 import { calcularSaldoAcordo } from "@/lib/calculations/parcela-acordo";
 import { formatCurrency, formatDate } from "@/lib/utils/formatters";
-import type { Acordo, Cliente, PagamentoParcialAcordo, ParcelaAcordo, StatusParcelaAcordo } from "@/lib/types";
+import type {
+  Acordo,
+  Cliente,
+  PagamentoParcialAcordo,
+  ParametrosFinanceiros,
+  ParcelaAcordo,
+  StatusParcelaAcordo,
+} from "@/lib/types";
 
 import {
   Table,
@@ -70,6 +78,7 @@ export default function AdminFinanceiroAcordosPage() {
   const [linhas, setLinhas] = React.useState<LinhaParcelaAcordo[] | null>(null);
   const [pagamentosPendentes, setPagamentosPendentes] = React.useState<PagamentoParcialAcordo[] | null>(null);
   const [clientes, setClientes] = React.useState<Cliente[]>([]);
+  const [parametros, setParametros] = React.useState<ParametrosFinanceiros | null>(null);
   const [filtro, setFiltro] = React.useState<Filtro>("todos");
   const [filtroClienteId, setFiltroClienteId] = React.useState(TODOS);
   const [revisando, setRevisando] = React.useState<LinhaPagamentoPendenteAcordo | null>(null);
@@ -77,6 +86,7 @@ export default function AdminFinanceiroAcordosPage() {
 
   React.useEffect(() => {
     carregar();
+    obterParametrosFinanceiros().then(setParametros);
   }, []);
 
   async function carregar() {
@@ -183,7 +193,7 @@ export default function AdminFinanceiroAcordosPage() {
     }
   }
 
-  if (!linhas || !pagamentosPendentes) return <Skeleton className="h-96 w-full" />;
+  if (!linhas || !pagamentosPendentes || !parametros) return <Skeleton className="h-96 w-full" />;
 
   const mapaParcelas = new Map<string, LinhaParcelaAcordo>(linhas.map((l) => [l.parcela.id, l]));
   const linhasPendentes: LinhaPagamentoPendenteAcordo[] = [];
@@ -213,7 +223,7 @@ export default function AdminFinanceiroAcordosPage() {
     .reduce((soma, l) => soma + l.parcela.valor, 0);
   const totalEmAberto = linhas
     .filter((l) => l.parcela.status === "em_aberto" || l.parcela.status === "vencido")
-    .reduce((soma, l) => soma + calcularSaldoAcordo(l.parcela), 0);
+    .reduce((soma, l) => soma + calcularSaldoAcordo(l.parcela, parametros), 0);
 
   const clientesDisponiveis = clientes.filter((c) => linhas.some((l) => l.clienteId === c.id));
 
@@ -318,7 +328,7 @@ export default function AdminFinanceiroAcordosPage() {
                   <TableCell>{clienteNome}</TableCell>
                   <TableCell>{acordoNumero}</TableCell>
                   <TableCell>{parcela.numero}</TableCell>
-                  <TableCell>{formatCurrency(calcularSaldoAcordo(parcela))}</TableCell>
+                  <TableCell>{formatCurrency(calcularSaldoAcordo(parcela, parametros))}</TableCell>
                   <TableCell>{formatDate(parcela.vencimento)}</TableCell>
                   <TableCell>
                     <StatusPill status={parcela.status} />
@@ -353,6 +363,7 @@ export default function AdminFinanceiroAcordosPage() {
 
       <ParcelaAcordoDetalheDialog
         parcela={parcelaDetalhe?.parcela ?? null}
+        parametros={parametros}
         open={parcelaDetalhe !== null}
         onOpenChange={(open) => !open && setParcelaDetalhe(null)}
         podeAplicarDesconto

@@ -23,7 +23,7 @@ import {
 import { calcularSaldoAcordo } from "@/lib/calculations/parcela-acordo";
 import { EMPRESA } from "@/lib/constants/empresa";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils/formatters";
-import type { PagamentoParcialAcordo, ParcelaAcordo } from "@/lib/types";
+import type { PagamentoParcialAcordo, ParametrosFinanceiros, ParcelaAcordo } from "@/lib/types";
 
 const ROTULO_STATUS_ENVIO: Record<PagamentoParcialAcordo["status"], string> = {
   aguardando_confirmacao: "Aguardando confirmação",
@@ -35,11 +35,13 @@ const ROTULO_STATUS_ENVIO: Record<PagamentoParcialAcordo["status"], string> = {
  * pra ir completando aos poucos ao longo da semana). */
 export function PagamentoAcordoModal({
   parcela,
+  parametros,
   open,
   onOpenChange,
   onPago,
 }: {
   parcela: ParcelaAcordo | null;
+  parametros: ParametrosFinanceiros;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onPago: (pagamento: PagamentoParcialAcordo) => void;
@@ -63,12 +65,13 @@ export function PagamentoAcordoModal({
   React.useEffect(() => {
     if (!parcela) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setValor(String(calcularSaldoAcordo(parcela)));
+    setValor(String(calcularSaldoAcordo(parcela, parametros)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [parcela]);
 
   if (!parcela) return null;
 
-  const saldoTotal = calcularSaldoAcordo(parcela);
+  const saldoTotal = calcularSaldoAcordo(parcela, parametros);
   const totalPendente = envios
     .filter((e) => e.status === "aguardando_confirmacao")
     .reduce((soma, e) => soma + e.valor, 0);

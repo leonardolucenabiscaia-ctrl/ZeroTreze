@@ -10,17 +10,21 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { StatusPill } from "./status-pill";
+import { calcularSaldoAcordo } from "@/lib/calculations/parcela-acordo";
 import { formatCurrency, formatDate } from "@/lib/utils/formatters";
-import type { ParcelaAcordo } from "@/lib/types";
+import type { ParametrosFinanceiros, ParcelaAcordo } from "@/lib/types";
 
-/** Mesmo padrão do `ParcelasTable` das parcelas de contrato, sem colunas de juros/multa/correção
- * (a parcela do acordo já é um valor fixo negociado) e sem "Competência". */
+/** Mesmo padrão do `ParcelasTable` das parcelas de contrato, sem colunas de juros/correção
+ * separadas (a parcela do acordo já é um valor fixo negociado) e sem "Competência" — a única
+ * penalidade por atraso é a multa de acordo, já embutida no valor exibido quando vencida. */
 export function ParcelasAcordoTable({
   parcelas,
+  parametros,
   onPagar,
   onVisualizar,
 }: {
   parcelas: ParcelaAcordo[];
+  parametros: ParametrosFinanceiros;
   onPagar?: (parcela: ParcelaAcordo) => void;
   onVisualizar?: (parcela: ParcelaAcordo) => void;
 }) {
@@ -41,7 +45,7 @@ export function ParcelasAcordoTable({
           return (
             <TableRow key={parcela.id}>
               <TableCell>{parcela.numero}</TableCell>
-              <TableCell>{formatCurrency(parcela.valor)}</TableCell>
+              <TableCell>{formatCurrency(calcularSaldoAcordo(parcela, parametros))}</TableCell>
               <TableCell>{formatDate(parcela.vencimento)}</TableCell>
               <TableCell>
                 <StatusPill status={parcela.status} />

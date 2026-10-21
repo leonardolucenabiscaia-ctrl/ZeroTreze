@@ -4,6 +4,7 @@ import { calcularSaldoAcordo } from "@/lib/calculations/parcela-acordo";
 import { mapDocumento, mapPagamentoParcialAcordo, mapParcelaAcordo } from "./mappers";
 import { criarNotificacao } from "./notificacoes.service";
 import { atualizarSituacaoDoAcordoSeQuitado, usuarioIdDoCliente, type SupabaseAdmin } from "./financeiro-acordos.service";
+import { obterParametrosFinanceiros } from "./financeiro.service";
 import { enviarDocumentoParaStorage } from "./storage";
 import type { Documento, PagamentoParcialAcordo } from "@/lib/types";
 
@@ -32,7 +33,8 @@ export async function enviarPagamentoParcialAcordo(
   if (!(dados.valor > 0)) throw new Error("O valor deve ser maior que zero.");
   if (anexos.length === 0) throw new Error("Anexe o comprovante de pagamento.");
 
-  const saldo = calcularSaldoAcordo(mapParcelaAcordo(parcela));
+  const parametros = await obterParametrosFinanceiros();
+  const saldo = calcularSaldoAcordo(mapParcelaAcordo(parcela), parametros);
 
   const { data: pendentes } = await supabase
     .from("pagamentos_parciais_acordo")
@@ -186,8 +188,9 @@ export async function confirmarPagamentoParcialAcordo(
     throw new Error(erroIncremento?.message ?? "Não foi possível atualizar o valor pago da parcela.");
   }
 
+  const parametros = await obterParametrosFinanceiros();
   const parcelaAtualizada = { ...mapParcelaAcordo(parcela), valorPago: novoValorPago as number };
-  const saldo = calcularSaldoAcordo(parcelaAtualizada);
+  const saldo = calcularSaldoAcordo(parcelaAtualizada, parametros);
   const quitada = saldo <= 0.01;
   if (quitada) {
     await supabase

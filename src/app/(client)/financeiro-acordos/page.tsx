@@ -5,7 +5,8 @@ import { Handshake } from "lucide-react";
 
 import { useAuth } from "@/lib/auth/auth-context";
 import { listarAcordosPorCliente } from "@/lib/services/acordos.service";
-import type { Acordo, ParcelaAcordo, StatusParcelaAcordo } from "@/lib/types";
+import { obterParametrosFinanceiros } from "@/lib/services/financeiro.service";
+import type { Acordo, ParametrosFinanceiros, ParcelaAcordo, StatusParcelaAcordo } from "@/lib/types";
 
 import { ParcelasAcordoTable } from "@/components/shared/parcelas-acordo-table";
 import { PagamentoAcordoModal } from "@/components/shared/pagamento-acordo-modal";
@@ -32,6 +33,7 @@ interface LinhaParcelaAcordo {
 export default function FinanceiroAcordosPage() {
   const { cliente } = useAuth();
   const [acordos, setAcordos] = React.useState<Acordo[] | null>(null);
+  const [parametros, setParametros] = React.useState<ParametrosFinanceiros | null>(null);
   const [filtro, setFiltro] = React.useState<Filtro>("todos");
   const [parcelaPagamento, setParcelaPagamento] = React.useState<ParcelaAcordo | null>(null);
 
@@ -42,9 +44,10 @@ export default function FinanceiroAcordosPage() {
 
   React.useEffect(() => {
     carregar();
+    obterParametrosFinanceiros().then(setParametros);
   }, [carregar]);
 
-  if (!acordos) return <Skeleton className="h-96 w-full" />;
+  if (!acordos || !parametros) return <Skeleton className="h-96 w-full" />;
 
   const linhas: LinhaParcelaAcordo[] = acordos.flatMap((acordo) =>
     acordo.cronograma.map((parcela) => ({ parcela, acordoNumero: acordo.numero }))
@@ -103,7 +106,11 @@ export default function FinanceiroAcordosPage() {
                     ({acordo.periodicidade === "semanal" ? "parcelas semanais" : "parcelas mensais"})
                   </span>
                 </p>
-                <ParcelasAcordoTable parcelas={parcelasDoAcordo} onPagar={setParcelaPagamento} />
+                <ParcelasAcordoTable
+                  parcelas={parcelasDoAcordo}
+                  parametros={parametros}
+                  onPagar={setParcelaPagamento}
+                />
               </div>
             );
           })}
@@ -112,6 +119,7 @@ export default function FinanceiroAcordosPage() {
 
       <PagamentoAcordoModal
         parcela={parcelaPagamento}
+        parametros={parametros}
         open={parcelaPagamento !== null}
         onOpenChange={(open) => !open && setParcelaPagamento(null)}
         onPago={carregar}

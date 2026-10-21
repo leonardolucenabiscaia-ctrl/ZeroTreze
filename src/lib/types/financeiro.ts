@@ -17,6 +17,9 @@ export interface ParametrosFinanceiros {
   jurosMoraDiarioReais: number;
   /** Correção monetária mensal com base no IPCA, em %. */
   indiceCorrecaoMensal: number;
+  /** Multa por atraso nas parcelas de ACORDO (independente de `percentualMulta`, que é só pra
+   * parcela de contrato normal) — sem juros/correção equivalentes, só a multa mesmo. */
+  percentualMultaAcordo: number;
 }
 
 export type CanalCobranca = "email" | "sms" | "whatsapp" | "push";

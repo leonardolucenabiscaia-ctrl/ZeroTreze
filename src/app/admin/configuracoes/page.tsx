@@ -106,6 +106,35 @@ export default function ConfiguracoesPage() {
           </form>
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-foreground">Multa para acordos</CardTitle>
+          <CardDescription>
+            Parcela de acordo é um valor fixo negociado (sem juros/correção acumulando) — essa multa é a
+            única penalidade por atraso que incide sobre ela, separada da multa normal de contrato acima.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-3">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="multa-acordo">Multa por atraso em acordo (%)</Label>
+              <Input
+                id="multa-acordo"
+                type="number"
+                step="0.01"
+                value={parametros.percentualMultaAcordo}
+                onChange={(e) =>
+                  setParametros({ ...parametros, percentualMultaAcordo: Number(e.target.value) })
+                }
+              />
+            </div>
+            <Button type="submit" disabled={salvando} className="w-fit sm:col-span-3">
+              {salvando ? "Salvando…" : "Salvar parâmetros"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 }

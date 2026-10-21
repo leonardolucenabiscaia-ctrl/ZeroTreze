@@ -228,6 +228,7 @@ export function mapParametrosFinanceiros(row: Record<string, unknown>): Parametr
     percentualMulta: row.percentual_multa as number,
     jurosMoraDiarioReais: row.juros_mora_diario_reais as number,
     indiceCorrecaoMensal: row.indice_correcao_mensal as number,
+    percentualMultaAcordo: row.percentual_multa_acordo as number,
   };
 }
 

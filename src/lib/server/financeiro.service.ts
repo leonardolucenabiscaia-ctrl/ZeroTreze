@@ -28,6 +28,7 @@ export async function atualizarParametrosFinanceiros(
       percentual_multa: novos.percentualMulta,
       juros_mora_diario_reais: novos.jurosMoraDiarioReais,
       indice_correcao_mensal: novos.indiceCorrecaoMensal,
+      percentual_multa_acordo: novos.percentualMultaAcordo,
     })
     .eq("id", 1)
     .select()
