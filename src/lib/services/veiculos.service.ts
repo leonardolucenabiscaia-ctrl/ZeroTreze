@@ -33,11 +33,12 @@ export async function listarVeiculosEmManutencao(): Promise<Veiculo[]> {
 
 export async function colocarVeiculoEmManutencao(
   veiculoId: string,
-  tipo: "mecanica" | "funilaria"
+  tipo: "mecanica" | "funilaria",
+  itens: string[]
 ): Promise<Veiculo> {
   return apiFetch<Veiculo>(`/api/veiculos/${veiculoId}/manutencao`, {
     method: "POST",
-    body: JSON.stringify({ tipo }),
+    body: JSON.stringify({ tipo, itens }),
   });
 }
 

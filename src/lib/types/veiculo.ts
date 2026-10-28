@@ -6,6 +6,16 @@ export interface HistoricoManutencao {
   oficina: string;
 }
 
+/** Catálogo crescente de itens de manutenção (ex.: "Pastilha de freio") — qualquer um da equipe
+ * pode criar um tipo novo na hora de colocar um veículo em manutenção (ver
+ * `colocarVeiculoEmManutencao`), disponível pra seleção nas próximas vezes. */
+export interface TipoManutencao {
+  id: string;
+  nome: string;
+  criadoPorNome?: string;
+  criadoEm: string;
+}
+
 export interface Veiculo {
   id: string;
   modelo: string;
@@ -33,6 +43,9 @@ export interface Veiculo {
   /** Estado de manutenção — separado do bloqueio manual. Ver `colocarVeiculoEmManutencao`. */
   manutencaoTipo?: "mecanica" | "funilaria";
   manutencaoDesde?: string;
+  /** Itens específicos selecionados nessa manutenção (ex.: ["Pastilha de freio", "Óleo"]) — nomes
+   * do catálogo `TipoManutencao`, congelados no momento da seleção. */
+  manutencaoItens?: string[];
   /** Pausa temporária decidida pela equipe (reservado, aguardando limpeza/documentação etc.) —
    * independente de bloqueio (geralmente por problema) e de manutenção. Ver
    * `marcarVeiculoIndisponivel`/`marcarVeiculoDisponivel` em `veiculos.service`. */

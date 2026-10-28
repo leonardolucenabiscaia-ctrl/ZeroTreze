@@ -20,6 +20,7 @@ import type {
   RegraCobranca,
   ScoreLocatario,
   SolicitacaoAssistencia,
+  TipoManutencao,
   Usuario,
   Veiculo,
 } from "@/lib/types";
@@ -102,6 +103,7 @@ export function mapVeiculo(
     bloqueadoEm: (row.bloqueado_em as string | null) ?? undefined,
     manutencaoTipo: (row.manutencao_tipo as "mecanica" | "funilaria" | null) ?? undefined,
     manutencaoDesde: (row.manutencao_desde as string | null) ?? undefined,
+    manutencaoItens: (row.manutencao_itens as string[] | null) ?? undefined,
     indisponivel: (row.indisponivel as boolean | null) ?? false,
     indisponivelDesde: (row.indisponivel_desde as string | null) ?? undefined,
     historicoManutencao: historico.map((h) => ({
@@ -111,6 +113,15 @@ export function mapVeiculo(
       descricao: h.descricao as string,
       oficina: h.oficina as string,
     })),
+  };
+}
+
+export function mapTipoManutencao(row: Record<string, unknown>): TipoManutencao {
+  return {
+    id: row.id as string,
+    nome: row.nome as string,
+    criadoPorNome: (row.criado_por_nome as string | null) ?? undefined,
+    criadoEm: row.criado_em as string,
   };
 }
 

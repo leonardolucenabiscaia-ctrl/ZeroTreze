@@ -102,12 +102,17 @@ export async function listarVeiculosEmManutencao(): Promise<Veiculo[]> {
 
 export async function colocarVeiculoEmManutencao(
   veiculoId: string,
-  tipo: "mecanica" | "funilaria"
+  tipo: "mecanica" | "funilaria",
+  itens: string[]
 ): Promise<Veiculo> {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("veiculos")
-    .update({ manutencao_tipo: tipo, manutencao_desde: new Date().toISOString() })
+    .update({
+      manutencao_tipo: tipo,
+      manutencao_desde: new Date().toISOString(),
+      manutencao_itens: itens.length > 0 ? itens : null,
+    })
     .eq("id", veiculoId)
     .select()
     .single();
@@ -116,11 +121,30 @@ export async function colocarVeiculoEmManutencao(
   return veiculo;
 }
 
+/** Além de liberar o veículo, grava um registro em `historico_manutencao` (data de hoje, km
+ * atual do veículo, e os itens selecionados na abertura) — só se a manutenção realmente tinha um
+ * tipo/itens registrados (evita linha vazia se o campo já estava limpo por algum outro motivo). */
 export async function retirarVeiculoDeManutencao(veiculoId: string): Promise<Veiculo> {
   const supabase = createAdminClient();
+  const { data: atual } = await supabase.from("veiculos").select("*").eq("id", veiculoId).maybeSingle();
+  if (!atual) throw new Error("Veículo não encontrado");
+
+  if (atual.manutencao_tipo) {
+    const itens = (atual.manutencao_itens as string[] | null) ?? [];
+    const rotuloTipo = atual.manutencao_tipo === "mecanica" ? "Mecânica" : "Funilaria";
+    const descricao = itens.length > 0 ? `${rotuloTipo} — ${itens.join(", ")}` : rotuloTipo;
+    const { error: errorHistorico } = await supabase.from("historico_manutencao").insert({
+      veiculo_id: veiculoId,
+      data: new Date().toISOString().slice(0, 10),
+      km: atual.quilometragem as number,
+      descricao,
+    });
+    if (errorHistorico) throw new Error(errorHistorico.message);
+  }
+
   const { data, error } = await supabase
     .from("veiculos")
-    .update({ manutencao_tipo: null, manutencao_desde: null })
+    .update({ manutencao_tipo: null, manutencao_desde: null, manutencao_itens: null })
     .eq("id", veiculoId)
     .select()
     .single();

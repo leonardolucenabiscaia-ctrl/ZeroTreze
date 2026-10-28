@@ -90,6 +90,9 @@ export default function ManutencaoPage() {
               <p className="text-xs text-muted-foreground">
                 Desde {veiculo.manutencaoDesde ? formatDateTime(veiculo.manutencaoDesde) : "—"}
               </p>
+              {veiculo.manutencaoItens && veiculo.manutencaoItens.length > 0 && (
+                <p className="text-xs text-foreground">{veiculo.manutencaoItens.join(", ")}</p>
+              )}
               <Button
                 size="sm"
                 variant="outline"

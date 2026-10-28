@@ -6,11 +6,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const { id } = await params;
   return handleRoute(
     async () => {
-      const { tipo } = await request.json();
+      const { tipo, itens } = await request.json();
       if (tipo !== "mecanica" && tipo !== "funilaria") {
         throw new Error('Tipo inválido — use "mecanica" ou "funilaria".');
       }
-      return colocarVeiculoEmManutencao(id, tipo);
+      const itensValidos = Array.isArray(itens) ? itens.filter((i): i is string => typeof i === "string") : [];
+      return colocarVeiculoEmManutencao(id, tipo, itensValidos);
     },
     200,
     PERFIS_STAFF

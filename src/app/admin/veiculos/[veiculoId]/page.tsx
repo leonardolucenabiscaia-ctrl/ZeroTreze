@@ -9,13 +9,16 @@ import {
   FileText,
   FolderOpen,
   Handshake,
+  History,
   Lock,
   Pencil,
+  Plus,
   ShieldCheck,
   ShieldOff,
   Trash2,
   Unlock,
   Wrench,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -36,10 +39,11 @@ import { ImageUploader } from "@/components/shared/image-uploader";
 import { abrirDocumento, listarDocumentosPorVeiculo } from "@/lib/services/documentos.service";
 import { listarContratosPorVeiculo } from "@/lib/services/contratos.service";
 import { listarClientes } from "@/lib/services/clientes.service";
+import { criarTipoManutencao, listarTiposManutencao } from "@/lib/services/tipos-manutencao.service";
 import { registrarAcao } from "@/lib/services/auditoria.service";
 import { useAuth } from "@/lib/auth/auth-context";
 import { formatDate, formatDateInput } from "@/lib/utils/formatters";
-import type { Cliente, Contrato, Documento, Veiculo } from "@/lib/types";
+import type { Cliente, Contrato, Documento, TipoManutencao, Veiculo } from "@/lib/types";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -120,6 +124,10 @@ export default function AdminVeiculoDetalhePage() {
   const [documentos, setDocumentos] = React.useState<Documento[]>([]);
   const [contratos, setContratos] = React.useState<Contrato[]>([]);
   const [clientes, setClientes] = React.useState<Cliente[]>([]);
+  const [tiposManutencao, setTiposManutencao] = React.useState<TipoManutencao[]>([]);
+  const [itensSelecionados, setItensSelecionados] = React.useState<string[]>([]);
+  const [novoTipoNome, setNovoTipoNome] = React.useState("");
+  const [criandoTipo, setCriandoTipo] = React.useState(false);
   const [editandoKm, setEditandoKm] = React.useState(false);
   const [novaQuilometragem, setNovaQuilometragem] = React.useState("");
   const [salvandoKm, setSalvandoKm] = React.useState(false);
@@ -144,6 +152,7 @@ export default function AdminVeiculoDetalhePage() {
     listarDocumentosPorVeiculo(params.veiculoId).then(setDocumentos);
     listarContratosPorVeiculo(params.veiculoId).then(setContratos);
     listarClientes().then(setClientes);
+    listarTiposManutencao().then(setTiposManutencao);
   }, [params.veiculoId]);
 
   function abrirEdicaoKm() {
@@ -308,14 +317,15 @@ export default function AdminVeiculoDetalhePage() {
     if (!veiculo) return;
     setAlternandoManutencao(true);
     try {
-      const atualizado = await colocarVeiculoEmManutencao(veiculo.id, tipoManutencao);
+      const atualizado = await colocarVeiculoEmManutencao(veiculo.id, tipoManutencao, itensSelecionados);
       setVeiculo(atualizado);
       if (usuario) {
         const rotuloTipo = tipoManutencao === "mecanica" ? "Mecânica" : "Funilaria";
+        const sufixoItens = itensSelecionados.length > 0 ? ` — ${itensSelecionados.join(", ")}` : "";
         await registrarAcao({
           usuarioId: usuario.id,
           usuarioNome: usuario.nome,
-          acao: `Colocou o veículo em manutenção (${rotuloTipo})`,
+          acao: `Colocou o veículo em manutenção (${rotuloTipo}${sufixoItens})`,
           entidade: "Veículo",
           entidadeId: `${atualizado.marca} ${atualizado.modelo} — ${atualizado.placa}`,
         });
@@ -326,6 +336,31 @@ export default function AdminVeiculoDetalhePage() {
       toast.error(error instanceof Error ? error.message : "Não foi possível registrar a manutenção.");
     } finally {
       setAlternandoManutencao(false);
+    }
+  }
+
+  function alternarItemSelecionado(nome: string) {
+    setItensSelecionados((atuais) =>
+      atuais.includes(nome) ? atuais.filter((i) => i !== nome) : [...atuais, nome]
+    );
+  }
+
+  async function handleCriarTipoManutencao() {
+    const nome = novoTipoNome.trim();
+    if (!nome) return;
+    setCriandoTipo(true);
+    try {
+      const tipoCriado = await criarTipoManutencao(nome);
+      setTiposManutencao((atuais) =>
+        atuais.some((t) => t.id === tipoCriado.id) ? atuais : [...atuais, tipoCriado].sort((a, b) => a.nome.localeCompare(b.nome))
+      );
+      setItensSelecionados((atuais) => (atuais.includes(tipoCriado.nome) ? atuais : [...atuais, tipoCriado.nome]));
+      setNovoTipoNome("");
+      toast.success(`"${tipoCriado.nome}" adicionado ao catálogo e selecionado.`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível criar o tipo de manutenção.");
+    } finally {
+      setCriandoTipo(false);
     }
   }
 
@@ -403,7 +438,11 @@ export default function AdminVeiculoDetalhePage() {
             {veiculo.indisponivel && <Badge variant="warning">Indisponível</Badge>}
             {veiculo.manutencaoTipo && (
               <Badge variant="warning">
-                Em manutenção ({veiculo.manutencaoTipo === "mecanica" ? "Mecânica" : "Funilaria"})
+                Em manutenção ({veiculo.manutencaoTipo === "mecanica" ? "Mecânica" : "Funilaria"}
+                {veiculo.manutencaoItens && veiculo.manutencaoItens.length > 0
+                  ? ` — ${veiculo.manutencaoItens.join(", ")}`
+                  : ""}
+                )
               </Badge>
             )}
             {usuario?.perfil === "administrador" && (
@@ -439,6 +478,8 @@ export default function AdminVeiculoDetalhePage() {
                 variant="outline"
                 onClick={() => {
                   setTipoManutencao("mecanica");
+                  setItensSelecionados([]);
+                  setNovoTipoNome("");
                   setAbrindoManutencao(true);
                 }}
               >
@@ -673,6 +714,68 @@ export default function AdminVeiculoDetalhePage() {
               ))}
             </div>
           </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label>O que foi trocado/feito (opcional, pode marcar mais de um)</Label>
+            <div className="flex flex-wrap gap-2">
+              {tiposManutencao.map((tipo) => (
+                <Button
+                  key={tipo.id}
+                  type="button"
+                  size="sm"
+                  variant={itensSelecionados.includes(tipo.nome) ? "default" : "outline"}
+                  onClick={() => alternarItemSelecionado(tipo.nome)}
+                >
+                  {tipo.nome}
+                </Button>
+              ))}
+              {tiposManutencao.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Nenhum tipo cadastrado ainda — crie o primeiro abaixo.
+                </p>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Input
+                placeholder="Criar novo tipo (ex.: Pastilha de freio)"
+                value={novoTipoNome}
+                onChange={(e) => setNovoTipoNome(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleCriarTipoManutencao();
+                  }
+                }}
+              />
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={handleCriarTipoManutencao}
+                disabled={!novoTipoNome.trim() || criandoTipo}
+              >
+                <Plus className="size-3.5" />
+                {criandoTipo ? "Criando…" : "Criar"}
+              </Button>
+            </div>
+            {itensSelecionados.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {itensSelecionados.map((nome) => (
+                  <Badge key={nome} variant="outline" className="gap-1">
+                    {nome}
+                    <button
+                      type="button"
+                      onClick={() => alternarItemSelecionado(nome)}
+                      aria-label={`Remover ${nome}`}
+                    >
+                      <X className="size-3" />
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </div>
+
           <DialogFooter>
             <Button
               variant="outline"
@@ -824,6 +927,36 @@ export default function AdminVeiculoDetalhePage() {
                   </div>
                 );
               })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-foreground">
+            <History className="size-4 text-gold" />
+            Histórico de manutenção
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {veiculo.historicoManutencao.length === 0 ? (
+            <EmptyState icon={History} title="Nenhuma manutenção concluída ainda" />
+          ) : (
+            <div className="flex flex-col divide-y divide-border">
+              {[...veiculo.historicoManutencao]
+                .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
+                .map((item) => (
+                  <div key={item.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                    <div>
+                      <p className="font-medium text-foreground">{item.descricao}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatDate(item.data)} · {item.km.toLocaleString("pt-BR")} km
+                        {item.oficina ? ` · ${item.oficina}` : ""}
+                      </p>
+                    </div>
+                  </div>
+                ))}
             </div>
           )}
         </CardContent>
