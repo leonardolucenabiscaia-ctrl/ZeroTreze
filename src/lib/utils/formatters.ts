@@ -38,9 +38,23 @@ export function formatDateTime(date: Date | string): string {
 /** Converte uma data/timestamp pro formato ("YYYY-MM-DD") de um `<input type="date">`, sempre no
  * fuso de Brasília. Não usar `new Date(iso).toISOString().slice(0, 10)` pra isso:
  * `toISOString()` sempre usa UTC, então nas últimas horas do dia em Brasília (21h-23h59, quando em
- * UTC já é o dia seguinte) o campo apareceria preenchido com o dia seguinte ao real. */
+ * UTC já é o dia seguinte) o campo apareceria preenchido com o dia seguinte ao real.
+ *
+ * Também não usar `Intl.DateTimeFormat` com `timeZone` explícito aqui — essa função roda no
+ * navegador do cliente (chamada por `/financeiro` e pela página inicial do locatário), e depende
+ * do motor JS ter a base de dados de fusos horários (ICU) completa. Alguns navegadores/WebViews
+ * Android (comum em aparelhos mais antigos ou com o WebView do sistema desatualizado) vêm com uma
+ * versão REDUZIDA dessa base, sem fusos completos — nesse caso `Intl.DateTimeFormat` não erra
+ * silenciosamente, ele lança `RangeError` e trava a página inteira pro cliente (sem nenhum aviso
+ * visível pra gente, só "a página não carrega"). Brasília é sempre UTC-3 fixo (sem horário de
+ * verão desde 2019), então dá pra calcular isso com aritmética pura, sem depender de ICU. */
 export function formatDateInput(date: Date | string): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(parseData(date));
+  const instante = parseData(date);
+  const brasilia = new Date(instante.getTime() - 3 * 60 * 60 * 1000);
+  const ano = brasilia.getUTCFullYear();
+  const mes = String(brasilia.getUTCMonth() + 1).padStart(2, "0");
+  const dia = String(brasilia.getUTCDate()).padStart(2, "0");
+  return `${ano}-${mes}-${dia}`;
 }
 
 /** Data de hoje ("YYYY-MM-DD") no fuso de Brasília — pra preencher o valor padrão de campos
