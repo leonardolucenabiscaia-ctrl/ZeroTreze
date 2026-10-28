@@ -68,7 +68,7 @@ export function Sidebar({
           <LogOut className="size-4" />
           Sair
         </button>
-        <p className="mt-2 px-3 text-[11px] text-muted-foreground">v0.9 · Desenvolvido por L.B</p>
+        <p className="mt-2 px-3 text-[11px] text-muted-foreground">v1.0 · Desenvolvido por L.B</p>
       </div>
     </aside>
   );
