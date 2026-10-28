@@ -1,5 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/server";
+import { calcularValorAtualizadoMulta } from "@/lib/calculations/multa";
 import { formatCurrency, formatDateTime } from "@/lib/utils/formatters";
 import { criarNotificacao, enviarWhatsAppNotificacao } from "./notificacoes.service";
 import { mapMulta } from "./mappers";
@@ -173,8 +174,15 @@ export interface BaixaManualMultaInput {
   motivo: string;
 }
 
-/** Administrador registra que recebeu o pagamento da multa fora do fluxo digital (dinheiro, ou
- * outro meio sem comprovante) e dá baixa direto nela. */
+/**
+ * Administrador registra que recebeu o pagamento da multa fora do fluxo digital (dinheiro, ou
+ * outro meio sem comprovante) e dá baixa direto nela.
+ *
+ * `dados.valor` é creditado em `valor_pago` (incremento atômico, mesma função usada por
+ * `confirmarPagamentoParcialMulta`) e só marca "paga" se isso cobrir o valor total da multa —
+ * antes, marcava "paga" sem checar nada, então um valor digitado menor que o devido fazia a
+ * multa ser dada como quitada e a diferença ficava esquecida pra sempre.
+ */
 export async function darBaixaManualMulta(
   multaId: string,
   dados: BaixaManualMultaInput,
@@ -193,7 +201,6 @@ export async function darBaixaManualMulta(
   const { data: atualizada, error } = await supabase
     .from("multas")
     .update({
-      situacao: "paga",
       forma_pagamento: dados.formaPagamento,
       baixa_manual_valor: dados.valor,
       baixa_manual_por_nome: usuarioNome,
@@ -206,6 +213,21 @@ export async function darBaixaManualMulta(
     .maybeSingle();
   if (error) throw new Error(error.message);
   if (!atualizada) throw new Error("Esta multa já foi paga por outra ação — recarregue a página.");
+
+  const { data: novoValorPago, error: erroIncremento } = await supabase.rpc("incrementar_valor_pago_multa", {
+    p_multa_id: multaId,
+    p_incremento: dados.valor,
+  });
+  if (erroIncremento || novoValorPago === null) {
+    throw new Error(erroIncremento?.message ?? "Não foi possível atualizar o valor pago da multa.");
+  }
+
+  const multaAtualizada = { ...mapMulta(atualizada), valorPago: novoValorPago as number };
+  const saldo = calcularValorAtualizadoMulta(multaAtualizada);
+  const quitada = saldo <= 0.01;
+  if (quitada) {
+    await supabase.from("multas").update({ situacao: "paga" }).eq("id", multaId);
+  }
 
   // Mesmo lançamento que `confirmarPagamentoParcialMulta` faz pro pagamento normal — a baixa
   // manual tava pulando essa parte, então esses recebimentos não apareciam no extrato do contrato.
@@ -230,15 +252,17 @@ export async function darBaixaManualMulta(
       id: crypto.randomUUID(),
       usuarioId: cliente.usuario_id,
       tipo: "pagamento_confirmado",
-      titulo: "Multa paga",
-      mensagem: `A multa ${atualizada.numero_auto} (${atualizada.descricao}) foi registrada como paga.`,
+      titulo: quitada ? "Multa paga" : "Pagamento recebido",
+      mensagem: quitada
+        ? `A multa ${atualizada.numero_auto} (${atualizada.descricao}) foi registrada como paga.`
+        : `Recebemos um pagamento da multa ${atualizada.numero_auto} (${atualizada.descricao}). Saldo restante atualizado.`,
       lida: false,
       criadoEm: agora,
       link: "/multas",
     });
   }
 
-  return mapMulta(atualizada);
+  return { ...multaAtualizada, situacao: quitada ? "paga" : multaAtualizada.situacao };
 }
 
 export interface NovaMultaInput {

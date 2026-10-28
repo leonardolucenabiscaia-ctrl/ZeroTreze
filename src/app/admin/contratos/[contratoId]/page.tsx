@@ -23,6 +23,7 @@ import {
   obterParametrosFinanceiros,
 } from "@/lib/services/financeiro.service";
 import { registrarAcao } from "@/lib/services/auditoria.service";
+import { calcularValorAtualizado } from "@/lib/calculations/juros-multa-correcao";
 import { formatCurrency, formatDateTime } from "@/lib/utils/formatters";
 import { assinaturaConcluida } from "@/lib/utils/assinatura";
 import { AVISO_ACORDO_SEM_ATIVIDADE } from "@/lib/types";
@@ -234,6 +235,7 @@ export default function AdminContratoDetalhePage() {
   }
 
   async function handleDarBaixa(parcelaId: string, dados: BaixaManualInput) {
+    if (!parametros) return;
     try {
       const atualizada = await darBaixaManual(parcelaId, dados, usuario?.nome ?? "Administrador");
       setParcelas((atuais) => atuais.map((p) => (p.id === atualizada.id ? atualizada : p)));
@@ -247,7 +249,14 @@ export default function AdminContratoDetalhePage() {
           entidadeId: `${contrato.numero} — parcela ${atualizada.numero}`,
         });
       }
-      toast.success("Baixa registrada — a parcela já está marcada como paga.");
+      if (atualizada.status === "pago") {
+        toast.success("Baixa registrada — a parcela já está marcada como paga.");
+      } else {
+        const restante = calcularValorAtualizado(atualizada, parametros).valorFinal;
+        toast.success(
+          `Baixa parcial registrada — ainda falta ${formatCurrency(restante)} nessa parcela (multa/juros inclusos).`
+        );
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível dar baixa no pagamento.");
     }

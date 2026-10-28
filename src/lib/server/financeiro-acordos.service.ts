@@ -1,7 +1,9 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/server";
+import { calcularSaldoAcordo } from "@/lib/calculations/parcela-acordo";
 import { mapDocumento, mapParcelaAcordo } from "./mappers";
 import { criarNotificacao } from "./notificacoes.service";
+import { obterParametrosFinanceiros } from "./financeiro.service";
 import type { Documento, ParcelaAcordo } from "@/lib/types";
 
 export type SupabaseAdmin = ReturnType<typeof createAdminClient>;
@@ -121,9 +123,18 @@ export interface BaixaManualAcordoInput {
   motivo: string;
 }
 
-/** Administrador registra que recebeu um pagamento fora do fluxo digital (dinheiro, ou outro
- * meio sem comprovante) e dá baixa direto na parcela do acordo — sem passar por
- * "aguardando_confirmacao". Se essa for a última parcela em aberto, o acordo vira "quitado". */
+/**
+ * Administrador registra que recebeu um pagamento fora do fluxo digital (dinheiro, ou outro meio
+ * sem comprovante) e dá baixa direto na parcela do acordo — sem passar por
+ * "aguardando_confirmacao". Se essa for a última parcela em aberto, o acordo vira "quitado".
+ *
+ * `dados.valor` é creditado em `valor_pago` (incremento atômico, mesma função usada por
+ * `confirmarPagamentoParcialAcordo`) e só marca "pago" se isso cobrir o saldo ATUAL — já com a
+ * multa de acordo, se houver atraso. Antes, isso marcava "pago" sem checar nada: um cliente que
+ * mandasse só o valor original (esquecendo a multa) fazia a parcela ser dada como quitada e a
+ * diferença ficava esquecida pra sempre. Agora, se não cobrir, a parcela continua em
+ * aberto/vencida com o valor parcial já creditado.
+ */
 export async function darBaixaManualAcordo(
   parcelaAcordoId: string,
   dados: BaixaManualAcordoInput,
@@ -151,8 +162,6 @@ export async function darBaixaManualAcordo(
   const { data: atualizada, error } = await supabase
     .from("parcelas_acordo")
     .update({
-      status: "pago",
-      data_pagamento: agora,
       forma_pagamento: dados.formaPagamento,
       baixa_manual_valor: dados.valor,
       baixa_manual_por_nome: usuarioNome,
@@ -166,6 +175,25 @@ export async function darBaixaManualAcordo(
   if (error) throw new Error(error.message);
   if (!atualizada) throw new Error("Esta parcela já foi paga por outra ação — recarregue a página.");
 
+  const { data: novoValorPago, error: erroIncremento } = await supabase.rpc(
+    "incrementar_valor_pago_parcela_acordo",
+    { p_parcela_acordo_id: parcelaAcordoId, p_incremento: dados.valor }
+  );
+  if (erroIncremento || novoValorPago === null) {
+    throw new Error(erroIncremento?.message ?? "Não foi possível atualizar o valor pago da parcela.");
+  }
+
+  const parametros = await obterParametrosFinanceiros();
+  const parcelaAtualizada = { ...mapParcelaAcordo(atualizada), valorPago: novoValorPago as number };
+  const saldo = calcularSaldoAcordo(parcelaAtualizada, parametros);
+  const quitada = saldo <= 0.01;
+  if (quitada) {
+    await supabase
+      .from("parcelas_acordo")
+      .update({ status: "pago", data_pagamento: agora })
+      .eq("id", parcelaAcordoId);
+  }
+
   const { data: acordo } = await supabase
     .from("acordos")
     .select("id, numero, cliente_id, contrato_id")
@@ -173,7 +201,7 @@ export async function darBaixaManualAcordo(
     .maybeSingle();
 
   if (acordo) {
-    await atualizarSituacaoDoAcordoSeQuitado(supabase, acordo.id as string);
+    if (quitada) await atualizarSituacaoDoAcordoSeQuitado(supabase, acordo.id as string);
 
     // Mesmo lançamento que `confirmarPagamentoParcialAcordo` faz pro pagamento normal — a baixa
     // manual tava pulando essa parte, então esses recebimentos não apareciam no extrato do
@@ -194,7 +222,9 @@ export async function darBaixaManualAcordo(
         usuarioId,
         tipo: "pagamento_confirmado",
         titulo: "Pagamento confirmado",
-        mensagem: `O pagamento da parcela ${atualizada.numero} do acordo ${acordo.numero} foi confirmado.`,
+        mensagem: quitada
+          ? `O pagamento da parcela ${atualizada.numero} do acordo ${acordo.numero} foi confirmado.`
+          : `Recebemos um pagamento da parcela ${atualizada.numero} do acordo ${acordo.numero}. Saldo restante atualizado.`,
         lida: false,
         criadoEm: agora,
         link: "/financeiro-acordos",
@@ -202,5 +232,9 @@ export async function darBaixaManualAcordo(
     }
   }
 
-  return mapParcelaAcordo(atualizada);
+  return {
+    ...parcelaAtualizada,
+    status: quitada ? "pago" : parcelaAtualizada.status,
+    dataPagamento: quitada ? agora : parcelaAtualizada.dataPagamento,
+  };
 }

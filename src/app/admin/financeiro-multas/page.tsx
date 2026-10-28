@@ -172,7 +172,12 @@ export default function AdminFinanceiroMultasPage() {
           entidadeId: atualizada.numeroAuto,
         });
       }
-      toast.success("Baixa registrada — a multa já está marcada como paga.");
+      if (atualizada.situacao === "paga") {
+        toast.success("Baixa registrada — a multa já está marcada como paga.");
+      } else {
+        const restante = calcularValorAtualizadoMulta(atualizada);
+        toast.success(`Baixa parcial registrada — ainda falta ${formatCurrency(restante)} nessa multa.`);
+      }
       await carregar();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível dar baixa no pagamento.");

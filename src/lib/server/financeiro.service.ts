@@ -343,8 +343,18 @@ export interface BaixaManualInput {
   motivo: string;
 }
 
-/** Administrador registra que recebeu um pagamento fora do fluxo digital (dinheiro, ou outro
- * meio sem comprovante) e dá baixa direto na parcela — sem passar por "aguardando_confirmacao". */
+/**
+ * Administrador registra que recebeu um pagamento fora do fluxo digital (dinheiro, ou outro meio
+ * sem comprovante) e dá baixa direto na parcela — sem passar por "aguardando_confirmacao".
+ *
+ * `dados.valor` é creditado em `parcelas.valor_pago` (incremento atômico — mesma função usada por
+ * `confirmarPagamentoParcial`) e só marca "pago" se isso realmente cobrir o saldo ATUAL, já com
+ * multa/juros/correção — antes, isso ia direto pra "pago" sem checar nada, então um valor digitado
+ * menor que o devido (ex.: cliente mandou só o valor original, esquecendo a multa) marcava a
+ * parcela como totalmente quitada e esquecia a diferença pra sempre. Agora, se não cobrir, a
+ * parcela continua em aberto/vencida com o valor parcial já credita, igual uma pagamento parcial
+ * confirmado.
+ */
 export async function darBaixaManual(
   parcelaId: string,
   dados: BaixaManualInput,
@@ -371,8 +381,6 @@ export async function darBaixaManual(
   const { data: atualizada, error } = await supabase
     .from("parcelas")
     .update({
-      status: "pago",
-      data_pagamento: agora,
       forma_pagamento: dados.formaPagamento,
       baixa_manual_valor: dados.valor,
       baixa_manual_por_nome: usuarioNome,
@@ -385,6 +393,22 @@ export async function darBaixaManual(
     .maybeSingle();
   if (error) throw new Error(error.message);
   if (!atualizada) throw new Error("Esta parcela já foi paga por outra ação — recarregue a página.");
+
+  const { data: novoValorPago, error: erroIncremento } = await supabase.rpc("incrementar_valor_pago_parcela", {
+    p_parcela_id: parcelaId,
+    p_incremento: dados.valor,
+  });
+  if (erroIncremento || novoValorPago === null) {
+    throw new Error(erroIncremento?.message ?? "Não foi possível atualizar o valor pago da parcela.");
+  }
+
+  const parametros = await obterParametrosFinanceiros();
+  const parcelaAtualizada = { ...mapParcela(atualizada), valorPago: novoValorPago as number };
+  const { valorFinal } = calcularValorAtualizado(parcelaAtualizada, parametros);
+  const quitada = valorFinal <= 0.01;
+  if (quitada) {
+    await supabase.from("parcelas").update({ status: "pago", data_pagamento: agora }).eq("id", parcelaId);
+  }
 
   // Lê o saldo anterior e insere a linha nova numa operação só, atômica (função no banco — ver
   // migração 0021) — evita que dois lançamentos do mesmo contrato quase ao mesmo tempo leiam o
@@ -404,13 +428,19 @@ export async function darBaixaManual(
       usuarioId,
       tipo: "pagamento_confirmado",
       titulo: "Pagamento confirmado",
-      mensagem: `O pagamento da parcela ${atualizada.numero} (${atualizada.competencia}) foi confirmado.`,
+      mensagem: quitada
+        ? `O pagamento da parcela ${atualizada.numero} (${atualizada.competencia}) foi confirmado e ela está quitada.`
+        : `Recebemos um pagamento da parcela ${atualizada.numero} (${atualizada.competencia}). Saldo restante atualizado.`,
       lida: false,
       criadoEm: agora,
       link: "/financeiro",
     });
   }
 
-  return mapParcela(atualizada);
+  return {
+    ...parcelaAtualizada,
+    status: quitada ? "pago" : parcelaAtualizada.status,
+    dataPagamento: quitada ? agora : parcelaAtualizada.dataPagamento,
+  };
 }
 

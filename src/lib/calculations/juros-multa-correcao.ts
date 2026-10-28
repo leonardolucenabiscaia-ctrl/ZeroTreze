@@ -22,31 +22,33 @@ export function calcularValorAtualizado(
       ? 0
       : Math.max(0, daysBetween(parcela.dataVencimento, referenciaEfetiva));
 
-  // O locatário pode pagar a parcela aos poucos ao longo da semana — multa e correção incidem só
-  // sobre o que ainda falta pagar (saldo restante), não sobre o valor original inteiro, pra não
-  // penalizar quem já pagou parte em dia.
-  const saldoRestante = Math.max(0, parcela.valorOriginal - (parcela.valorPago ?? 0));
-
   let multa = 0;
   let juros = 0;
   let correcao = 0;
 
   if (diasAtraso > 0) {
-    // Multa e correção incidem sobre o saldo restante da locação; juros de mora são valor fixo
-    // por dia de atraso (cláusula contratual), não um percentual sobre a parcela.
-    multa = saldoRestante * (parametros.percentualMulta / 100);
+    // Multa e correção incidem sobre o valor ORIGINAL da parcela (fixo) — nunca sobre o que
+    // ainda falta pagar. Calcular em cima do saldo restante tinha um furo grave: se o locatário
+    // pagasse só o valor original (sem a multa), o saldo restante do principal ia a zero e a
+    // multa recalculava como "X% de zero" — ou seja, desaparecia, mesmo com a multa ainda devida.
+    // Juros de mora já eram um valor fixo por dia (cláusula contratual), imune a esse problema.
+    multa = parcela.valorOriginal * (parametros.percentualMulta / 100);
     juros = parametros.jurosMoraDiarioReais * diasAtraso;
     const mesesAtraso = diasAtraso / 30;
-    correcao = saldoRestante * (parametros.indiceCorrecaoMensal / 100) * mesesAtraso;
+    correcao = parcela.valorOriginal * (parametros.indiceCorrecaoMensal / 100) * mesesAtraso;
   }
 
   const desconto = parcela.desconto;
   if (desconto?.descontarMulta) multa = 0;
 
-  let valorFinal = saldoRestante + multa + juros + correcao;
-  if (desconto?.percentual) valorFinal *= 1 - desconto.percentual / 100;
-  if (desconto?.valorFixo) valorFinal -= desconto.valorFixo;
-  valorFinal = Math.max(0, valorFinal);
+  // Valor total devido se nada tivesse sido pago ainda — o que já foi pago abate desse total
+  // COMBINADO (principal + multa + juros + correção), não só do principal, pra um pagamento que
+  // cobre exatamente o valor original não deixar a multa "esquecida".
+  let valorTotalDevido = parcela.valorOriginal + multa + juros + correcao;
+  if (desconto?.percentual) valorTotalDevido *= 1 - desconto.percentual / 100;
+  if (desconto?.valorFixo) valorTotalDevido -= desconto.valorFixo;
+
+  const valorFinal = Math.max(0, valorTotalDevido - (parcela.valorPago ?? 0));
 
   return {
     diasAtraso,

@@ -174,6 +174,7 @@ export default function AdminFinanceiroAcordosPage() {
   }
 
   async function handleDarBaixa(parcelaAcordoId: string, dados: BaixaManualAcordoInput) {
+    if (!parametros) return;
     try {
       const atualizada = await darBaixaManualAcordo(parcelaAcordoId, dados, usuario?.nome ?? "Administrador");
       if (parcelaDetalhe) setParcelaDetalhe({ ...parcelaDetalhe, parcela: atualizada });
@@ -186,7 +187,14 @@ export default function AdminFinanceiroAcordosPage() {
           entidadeId: `${parcelaDetalhe.acordoNumero} · parcela ${atualizada.numero}`,
         });
       }
-      toast.success("Baixa registrada — a parcela já está marcada como paga.");
+      if (atualizada.status === "pago") {
+        toast.success("Baixa registrada — a parcela já está marcada como paga.");
+      } else {
+        const restante = calcularSaldoAcordo(atualizada, parametros);
+        toast.success(
+          `Baixa parcial registrada — ainda falta ${formatCurrency(restante)} nessa parcela (multa inclusa).`
+        );
+      }
       await carregar();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível dar baixa no pagamento.");
