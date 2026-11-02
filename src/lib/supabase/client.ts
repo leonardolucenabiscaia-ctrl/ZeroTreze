@@ -41,6 +41,10 @@ export function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
     {
+      // O default da lib não marca o cookie como Secure — força aqui pelo mesmo motivo de
+      // `src/lib/supabase/server.ts`. `gravarTodosCookies` já lê `options?.secure` e só falta
+      // essa opção chegar até ela.
+      cookieOptions: { secure: true },
       cookies: {
         getAll: lerTodosCookies,
         setAll: gravarTodosCookies,

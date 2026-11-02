@@ -27,6 +27,10 @@ export async function createSessionClient() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
     {
+      // O default da lib não marca o cookie como Secure (confirmado lendo o código-fonte da
+      // versão instalada) — força aqui pra nunca permitir o cookie de sessão numa conexão sem
+      // HTTPS, mesmo que algo no meio do caminho (proxy, CDN) tente servir a página por HTTP.
+      cookieOptions: { secure: true },
       cookies: {
         getAll() {
           return cookieStore.getAll();

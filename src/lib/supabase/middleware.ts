@@ -14,6 +14,9 @@ export async function atualizarSessao(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
     {
+      // O default da lib não marca o cookie como Secure — força aqui pelo mesmo motivo de
+      // `src/lib/supabase/server.ts`.
+      cookieOptions: { secure: true },
       cookies: {
         getAll() {
           return request.cookies.getAll();

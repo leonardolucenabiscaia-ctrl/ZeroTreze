@@ -3,6 +3,21 @@ import { createAdminClient } from "@/lib/supabase/server";
 
 const BUCKET_COMPROVANTES = "comprovantes";
 
+// Mesmos tipos aceitos pelo seletor de arquivo no frontend (ver `FileUploader`) — aqui é a
+// validação que de fato impede o resto (tamanho e tipo nunca eram checados no servidor antes,
+// então um upload arbitrariamente grande ou de outro tipo passava sem problema nenhum).
+const TIPOS_PERMITIDOS = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+const TAMANHO_MAXIMO_BYTES = 10 * 1024 * 1024;
+
+function validarArquivo(arquivo: File): void {
+  if (!TIPOS_PERMITIDOS.includes(arquivo.type)) {
+    throw new Error(`Tipo de arquivo não permitido: "${arquivo.name}". Envie PDF, JPG, PNG ou WEBP.`);
+  }
+  if (arquivo.size > TAMANHO_MAXIMO_BYTES) {
+    throw new Error(`Arquivo "${arquivo.name}" excede o tamanho máximo de 10MB.`);
+  }
+}
+
 /** Nome original sanitizado — vira parte do caminho no Storage, então não pode ter barra, espaço
  * ou acentuação que confunda o header `Content-Disposition` no download. */
 function sanitizarNomeArquivo(nome: string): string {
@@ -29,6 +44,7 @@ export async function enviarDocumentoParaStorage(
   documentoId: string,
   arquivo: File
 ): Promise<string> {
+  validarArquivo(arquivo);
   const caminho = `${documentoId}-${sanitizarNomeArquivo(arquivo.name)}`;
   const { error } = await supabase.storage
     .from(BUCKET_COMPROVANTES)

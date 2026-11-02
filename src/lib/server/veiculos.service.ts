@@ -202,6 +202,8 @@ export interface NovoVeiculoInput {
 }
 
 const BUCKET_FOTOS_VEICULOS = "veiculos-fotos";
+const TIPOS_FOTO_PERMITIDOS = ["image/jpeg", "image/png", "image/webp"];
+const TAMANHO_FOTO_MAXIMO_BYTES = 5 * 1024 * 1024;
 
 /** Sobe a foto de perfil enviada pelo admin para o Storage e devolve a URL pública — melhor
  * esforço: se falhar, o veículo continua com a foto padrão já atribuída (não bloqueia o
@@ -350,6 +352,15 @@ export async function atualizarFotoVeiculo(veiculoId: string, foto: File): Promi
 
   const { data: atual } = await supabase.from("veiculos").select("id").eq("id", veiculoId).maybeSingle();
   if (!atual) throw new Error("Veículo não encontrado");
+
+  // Antes disso, o tipo/tamanho do arquivo nunca eram checados no servidor — qualquer um com
+  // acesso à rota podia subir um arquivo arbitrariamente grande ou de outro tipo qualquer.
+  if (!TIPOS_FOTO_PERMITIDOS.includes(foto.type)) {
+    throw new Error("Tipo de arquivo não suportado. Envie uma foto em JPG, PNG ou WEBP.");
+  }
+  if (foto.size > TAMANHO_FOTO_MAXIMO_BYTES) {
+    throw new Error("A foto excede o tamanho máximo de 5MB.");
+  }
 
   const urlFoto = await enviarFotoVeiculo(supabase, veiculoId, foto);
   if (!urlFoto) throw new Error("Não foi possível enviar a foto — tente novamente.");
