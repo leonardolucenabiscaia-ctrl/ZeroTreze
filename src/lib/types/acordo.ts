@@ -51,7 +51,9 @@ export interface Acordo {
   id: string;
   numero: string;
   clienteId: string;
-  contratoId: string;
+  /** Ausente quando o acordo é de um contrato antigo que nunca foi cadastrado no sistema — nesse
+   * caso o PDF usa uma redação genérica, sem citar número de contrato nem dados do veículo. */
+  contratoId?: string;
   valorTotal: number;
   valorEntrada: number;
   /** Data de vencimento da entrada — tratada como uma "parcela" própria, com data independente do

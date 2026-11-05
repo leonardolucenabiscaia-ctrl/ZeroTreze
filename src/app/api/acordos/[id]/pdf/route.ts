@@ -17,13 +17,15 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       throw new Error("Sem permissão para acessar este recurso.");
     }
 
-    const contrato = await buscarContratoPorId(acordo.contratoId);
-    if (!contrato) throw new Error("Contrato vinculado não encontrado.");
+    // Acordo de contrato antigo, não cadastrado no sistema — sem contrato/veículo pra buscar; o
+    // PDF usa uma redação genérica nesse caso (ver acordo-pdf.tsx).
+    const contrato = acordo.contratoId ? await buscarContratoPorId(acordo.contratoId) : undefined;
+    if (acordo.contratoId && !contrato) throw new Error("Contrato vinculado não encontrado.");
     const [cliente, veiculo] = await Promise.all([
       buscarClientePorId(acordo.clienteId),
-      buscarVeiculoPorId(contrato.veiculoId),
+      contrato ? buscarVeiculoPorId(contrato.veiculoId) : Promise.resolve(undefined),
     ]);
-    if (!cliente || !veiculo) throw new Error("Não foi possível montar os dados do acordo.");
+    if (!cliente || (contrato && !veiculo)) throw new Error("Não foi possível montar os dados do acordo.");
 
     const pdfBuffer = await gerarPdfAcordo({ acordo, contrato, cliente, veiculo });
     return new NextResponse(new Uint8Array(pdfBuffer), {

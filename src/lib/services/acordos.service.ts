@@ -37,7 +37,8 @@ export async function excluirAcordo(id: string): Promise<void> {
 
 export interface NovoAcordoInput {
   clienteId: string;
-  contratoId: string;
+  /** Ausente quando o acordo é de um contrato antigo, não cadastrado no sistema. */
+  contratoId?: string;
   valorEntrada: number;
   dataEntrada: string;
   valorParcela: number;
@@ -54,7 +55,7 @@ export interface NovoAcordoInput {
 export async function criarAcordo(dados: NovoAcordoInput): Promise<Acordo> {
   const formData = new FormData();
   formData.append("clienteId", dados.clienteId);
-  formData.append("contratoId", dados.contratoId);
+  if (dados.contratoId) formData.append("contratoId", dados.contratoId);
   formData.append("valorEntrada", String(dados.valorEntrada));
   formData.append("dataEntrada", dados.dataEntrada);
   formData.append("valorParcela", String(dados.valorParcela));

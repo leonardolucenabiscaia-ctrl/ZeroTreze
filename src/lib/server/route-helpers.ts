@@ -75,10 +75,13 @@ export async function podeAcessarParcelaAcordo(sessao: SessaoRota, parcelaAcordo
   if (!parcela) return false;
   const { data: acordo } = await supabase
     .from("acordos")
-    .select("contrato_id")
+    .select("contrato_id, cliente_id")
     .eq("id", parcela.acordo_id as string)
     .maybeSingle();
   if (!acordo) return false;
+  // Acordo de contrato antigo, não cadastrado no sistema (`contrato_id` nulo) — cai direto na
+  // checagem por cliente, já que não há contrato pra resolver.
+  if (!acordo.contrato_id) return podeAcessarCliente(sessao, acordo.cliente_id as string);
   return podeAcessarContrato(sessao, acordo.contrato_id as string);
 }
 

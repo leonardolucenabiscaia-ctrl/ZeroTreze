@@ -365,7 +365,7 @@ export function mapAcordo(
     id: row.id as string,
     numero: row.numero as string,
     clienteId: row.cliente_id as string,
-    contratoId: row.contrato_id as string,
+    contratoId: (row.contrato_id as string | null) ?? undefined,
     valorTotal: row.valor_total as number,
     valorEntrada: row.valor_entrada as number,
     valorDividaOriginal: (row.valor_divida_original as number | null) ?? undefined,

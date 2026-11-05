@@ -211,15 +211,20 @@ export async function confirmarPagamentoParcialAcordo(
     // Lê o saldo anterior e insere a linha nova numa operação só, atômica (função no banco — ver
     // migração 0021) — evita que dois pagamentos do mesmo contrato confirmados quase ao mesmo
     // tempo leiam o mesmo saldo anterior e um dos dois lançamentos suma do saldo acumulado.
-    await supabase.rpc("inserir_movimento_extrato", {
-      p_contrato_id: acordo.contrato_id as string,
-      p_descricao: quitada
-        ? `Pagamento parcela ${parcela.numero} do acordo ${acordo.numero} (quitada)`
-        : `Pagamento parcial da parcela ${parcela.numero} do acordo ${acordo.numero}`,
-      p_data: agora,
-      p_tipo: "entrada",
-      p_valor: pagamento.valor as number,
-    });
+    // Acordo de contrato antigo, não cadastrado no sistema, não tem `contrato_id` (e
+    // `movimentos_extrato.contrato_id` é obrigatório) — não há extrato de contrato pra lançar
+    // nesse caso, então pula o lançamento.
+    if (acordo.contrato_id) {
+      await supabase.rpc("inserir_movimento_extrato", {
+        p_contrato_id: acordo.contrato_id as string,
+        p_descricao: quitada
+          ? `Pagamento parcela ${parcela.numero} do acordo ${acordo.numero} (quitada)`
+          : `Pagamento parcial da parcela ${parcela.numero} do acordo ${acordo.numero}`,
+        p_data: agora,
+        p_tipo: "entrada",
+        p_valor: pagamento.valor as number,
+      });
+    }
 
     const usuarioId = await usuarioIdDoCliente(supabase, acordo.cliente_id as string);
     if (usuarioId) {

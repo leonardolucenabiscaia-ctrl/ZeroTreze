@@ -90,7 +90,7 @@ export default function AdminAcordoDetalhePage() {
       if (!a) return;
       const [clienteEncontrado, contratoEncontrado] = await Promise.all([
         buscarClientePorId(a.clienteId),
-        buscarContratoPorId(a.contratoId),
+        a.contratoId ? buscarContratoPorId(a.contratoId) : Promise.resolve(undefined),
       ]);
       setCliente(clienteEncontrado ?? null);
       setContrato(contratoEncontrado ?? null);

@@ -152,7 +152,8 @@ export async function excluirAcordo(acordoId: string): Promise<void> {
 
 export interface NovoAcordoInput {
   clienteId: string;
-  contratoId: string;
+  /** Ausente quando o acordo é de um contrato antigo, não cadastrado no sistema. */
+  contratoId?: string;
   valorEntrada: number;
   dataEntrada: string;
   valorParcela: number;
@@ -177,12 +178,14 @@ export async function criarAcordo(dados: NovoAcordoInput): Promise<Acordo> {
     .eq("id", dados.clienteId)
     .maybeSingle();
   if (!cliente) throw new Error("Cliente não encontrado");
-  const { data: contrato } = await supabase
-    .from("contratos")
-    .select("id")
-    .eq("id", dados.contratoId)
-    .maybeSingle();
-  if (!contrato) throw new Error("Contrato não encontrado");
+  if (dados.contratoId) {
+    const { data: contrato } = await supabase
+      .from("contratos")
+      .select("id")
+      .eq("id", dados.contratoId)
+      .maybeSingle();
+    if (!contrato) throw new Error("Contrato não encontrado");
+  }
 
   const { count } = await supabase.from("acordos").select("id", { count: "exact", head: true });
   const numero = `AC-${String((count ?? 0) + 1).padStart(6, "0")}`;
@@ -194,7 +197,7 @@ export async function criarAcordo(dados: NovoAcordoInput): Promise<Acordo> {
     .insert({
       numero,
       cliente_id: dados.clienteId,
-      contrato_id: dados.contratoId,
+      contrato_id: dados.contratoId ?? null,
       valor_total: valorTotal,
       valor_entrada: dados.valorEntrada,
       data_entrada: dados.dataEntrada,
@@ -220,7 +223,7 @@ export async function criarAcordo(dados: NovoAcordoInput): Promise<Acordo> {
   const { error: cronogramaError } = await supabase.from("parcelas_acordo").insert(cronograma);
   if (cronogramaError) throw new Error(cronogramaError.message);
 
-  if (dados.parcelaIds && dados.parcelaIds.length > 0) {
+  if (dados.contratoId && dados.parcelaIds && dados.parcelaIds.length > 0) {
     const { error: renegociacaoError } = await supabase
       .from("parcelas")
       .update({ status: "renegociado", acordo_id: acordoRow.id })
@@ -238,7 +241,7 @@ export async function criarAcordo(dados: NovoAcordoInput): Promise<Acordo> {
         return {
           id,
           cliente_id: dados.clienteId,
-          contrato_id: dados.contratoId,
+          contrato_id: dados.contratoId ?? null,
           acordo_id: acordoRow.id,
           categoria: "acordo",
           nome: arquivo.name,
@@ -320,19 +323,27 @@ async function enviarAcordoParaAssinaturaInterno(
     .single();
   if (!clienteRow) throw new Error("Cliente não encontrado.");
 
-  const { data: contratoRow } = await supabase
-    .from("contratos")
-    .select("*")
-    .eq("id", acordoRow.contrato_id)
-    .single();
-  if (!contratoRow) throw new Error("Contrato não encontrado.");
+  // Acordo de contrato antigo, não cadastrado no sistema — sem contrato/veículo pra buscar; o PDF
+  // usa uma redação genérica nesse caso (ver acordo-pdf.tsx).
+  let contratoRow: Record<string, unknown> | null = null;
+  let veiculoRow: Record<string, unknown> | null = null;
+  if (acordoRow.contrato_id) {
+    const { data: contrato } = await supabase
+      .from("contratos")
+      .select("*")
+      .eq("id", acordoRow.contrato_id)
+      .single();
+    if (!contrato) throw new Error("Contrato não encontrado.");
+    contratoRow = contrato;
 
-  const { data: veiculoRow } = await supabase
-    .from("veiculos")
-    .select("*")
-    .eq("id", contratoRow.veiculo_id)
-    .single();
-  if (!veiculoRow) throw new Error("Veículo não encontrado.");
+    const { data: veiculo } = await supabase
+      .from("veiculos")
+      .select("*")
+      .eq("id", contrato.veiculo_id)
+      .single();
+    if (!veiculo) throw new Error("Veículo não encontrado.");
+    veiculoRow = veiculo;
+  }
 
   const { data: usuarioRow } = await supabase
     .from("usuarios")
@@ -345,8 +356,8 @@ async function enviarAcordoParaAssinaturaInterno(
 
   const [acordoSemCronograma] = await anexarCronograma(supabase, [acordoRow]);
   const cliente = mapCliente(clienteRow);
-  const contrato = mapContrato(contratoRow, []);
-  const veiculo = mapVeiculo(veiculoRow, []);
+  const contrato = contratoRow ? mapContrato(contratoRow, []) : undefined;
+  const veiculo = veiculoRow ? mapVeiculo(veiculoRow, []) : undefined;
 
   const pdfBuffer = await gerarPdfAcordo({ acordo: acordoSemCronograma, contrato, cliente, veiculo });
   const resultado = await enviarDocumentoParaAssinatura({

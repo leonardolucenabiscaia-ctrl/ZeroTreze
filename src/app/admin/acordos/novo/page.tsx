@@ -29,19 +29,26 @@ import { Checkbox } from "@/components/ui/checkbox";
 
 const hoje = dataDeHojeBrasil();
 
-const acordoSchema = z.object({
-  clienteId: z.string().min(1, "Selecione o cliente"),
-  contratoId: z.string().min(1, "Selecione o contrato"),
-  valorEntrada: z.number().min(0, "Informe um valor de entrada válido"),
-  dataEntrada: z.string().min(1, "Informe a data da entrada"),
-  valorParcela: z.number().positive("Informe um valor de parcela válido"),
-  quantidadeParcelas: z.number().int().min(1, "Informe ao menos 1 parcela"),
-  dataInicio: z.string().min(1, "Informe a data de início do acordo"),
-  dataPrimeiraParcela: z.string().min(1, "Informe a data da primeira parcela"),
-  valorDividaOriginal: z.number().min(0, "Informe um valor válido").optional(),
-  periodicidade: z.enum(["semanal", "mensal"], { message: "Selecione a periodicidade" }),
-  descricao: z.string().max(1000, "A descrição pode ter no máximo 1000 caracteres").optional(),
-});
+const acordoSchema = z
+  .object({
+    clienteId: z.string().min(1, "Selecione o cliente"),
+    semContratoNoSistema: z.boolean(),
+    contratoId: z.string().optional(),
+    valorEntrada: z.number().min(0, "Informe um valor de entrada válido"),
+    dataEntrada: z.string().min(1, "Informe a data da entrada"),
+    valorParcela: z.number().positive("Informe um valor de parcela válido"),
+    quantidadeParcelas: z.number().int().min(1, "Informe ao menos 1 parcela"),
+    dataInicio: z.string().min(1, "Informe a data de início do acordo"),
+    dataPrimeiraParcela: z.string().min(1, "Informe a data da primeira parcela"),
+    valorDividaOriginal: z.number().min(0, "Informe um valor válido").optional(),
+    periodicidade: z.enum(["semanal", "mensal"], { message: "Selecione a periodicidade" }),
+    descricao: z.string().max(1000, "A descrição pode ter no máximo 1000 caracteres").optional(),
+  })
+  .superRefine((valores, ctx) => {
+    if (!valores.semContratoNoSistema && !valores.contratoId) {
+      ctx.addIssue({ code: "custom", path: ["contratoId"], message: "Selecione o contrato" });
+    }
+  });
 
 type AcordoFormValues = z.infer<typeof acordoSchema>;
 
@@ -80,11 +87,13 @@ export default function NovoAcordoPage() {
       dataPrimeiraParcela: hoje,
       quantidadeParcelas: 3,
       periodicidade: "mensal",
+      semContratoNoSistema: false,
     },
   });
 
   const clienteId = watch("clienteId");
   const contratoId = watch("contratoId");
+  const semContratoNoSistema = watch("semContratoNoSistema");
   const valorEntrada = watch("valorEntrada");
   const valorParcela = watch("valorParcela");
   const quantidadeParcelas = watch("quantidadeParcelas");
@@ -121,8 +130,14 @@ export default function NovoAcordoPage() {
 
   async function onSubmit(values: AcordoFormValues) {
     setEnviando(true);
+    const { semContratoNoSistema: _semContratoNoSistema, ...dadosAcordo } = values;
     try {
-      const acordo = await criarAcordo({ ...values, anexos, parcelaIds: parcelaIdsSelecionadas });
+      const acordo = await criarAcordo({
+        ...dadosAcordo,
+        contratoId: values.semContratoNoSistema ? undefined : values.contratoId,
+        anexos,
+        parcelaIds: parcelaIdsSelecionadas,
+      });
       if (usuario) {
         await registrarAcao({
           usuarioId: usuario.id,
@@ -180,27 +195,48 @@ export default function NovoAcordoPage() {
               />
             </Campo>
 
-            <Campo label="Contrato" erro={errors.contratoId?.message}>
+            <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm hover:bg-secondary/40">
               <Controller
                 control={control}
-                name="contratoId"
+                name="semContratoNoSistema"
                 render={({ field }) => (
-                  <SelectBusca
-                    value={field.value}
-                    onValueChange={field.onChange}
-                    disabled={!clienteId}
-                    placeholder={clienteId ? "Selecione o contrato" : "Selecione o cliente primeiro"}
-                    searchPlaceholder="Buscar contrato…"
-                    options={contratosDoCliente.map((contrato) => ({
-                      value: contrato.id,
-                      label: contrato.numero,
-                    }))}
+                  <Checkbox
+                    checked={field.value}
+                    onCheckedChange={(checked) => {
+                      field.onChange(checked === true);
+                      if (checked === true) {
+                        setValue("contratoId", "");
+                      }
+                    }}
                   />
                 )}
               />
-            </Campo>
+              Acordo de contrato antigo, que não está cadastrado no sistema
+            </label>
 
-            {contratoId && (
+            {!semContratoNoSistema && (
+              <Campo label="Contrato" erro={errors.contratoId?.message}>
+                <Controller
+                  control={control}
+                  name="contratoId"
+                  render={({ field }) => (
+                    <SelectBusca
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      disabled={!clienteId}
+                      placeholder={clienteId ? "Selecione o contrato" : "Selecione o cliente primeiro"}
+                      searchPlaceholder="Buscar contrato…"
+                      options={contratosDoCliente.map((contrato) => ({
+                        value: contrato.id,
+                        label: contrato.numero,
+                      }))}
+                    />
+                  )}
+                />
+              </Campo>
+            )}
+
+            {!semContratoNoSistema && contratoId && (
               <div className="flex flex-col gap-2">
                 <Label>Parcelas em aberto que entram neste acordo (opcional)</Label>
                 {carregandoParcelas ? (

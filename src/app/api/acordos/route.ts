@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
     const anexos = formData.getAll("anexos").filter((v): v is File => v instanceof File);
     const dados = {
       clienteId: String(formData.get("clienteId") ?? ""),
-      contratoId: String(formData.get("contratoId") ?? ""),
+      contratoId: formData.get("contratoId") ? String(formData.get("contratoId")) : undefined,
       valorEntrada: Number(formData.get("valorEntrada") ?? 0),
       dataEntrada: String(formData.get("dataEntrada") ?? ""),
       valorParcela: Number(formData.get("valorParcela") ?? 0),

@@ -46,9 +46,11 @@ function Secao({ titulo, children }: { titulo: string; children: React.ReactNode
 
 export interface DadosAcordoPdf {
   acordo: Acordo;
-  contrato: Contrato;
+  /** Ausentes quando o acordo é de um contrato antigo, não cadastrado no sistema — nesse caso a
+   * cláusula "Do Objeto" usa uma redação genérica, sem citar contrato nem veículo. */
+  contrato?: Contrato;
   cliente: Cliente;
-  veiculo: Veiculo;
+  veiculo?: Veiculo;
 }
 
 function AcordoDocument({ acordo, contrato, cliente, veiculo }: DadosAcordoPdf) {
@@ -111,18 +113,26 @@ function AcordoDocument({ acordo, contrato, cliente, veiculo }: DadosAcordoPdf) 
         </Secao>
 
         <Secao titulo="Do Objeto">
+          {contrato && veiculo ? (
+            <Text style={styles.paragrafo}>
+              1. O presente instrumento particular tem como fundamento o contrato celebrado entre
+              as partes denominado &ldquo;INSTRUMENTO PARTICULAR DE LOCAÇÃO DE VEÍCULO
+              AUTOMOTOR&rdquo; (Contrato nº {contrato.numero}), que, por sua vez, tem como objeto o
+              veículo {veiculo.marca.toUpperCase()} {veiculo.modelo.toUpperCase()}, ANO{" "}
+              {veiculo.ano}, COR {veiculo.cor.toUpperCase()}, PLACA: {veiculo.placa}, RENAVAM:{" "}
+              {veiculo.renavam}, CHASSI: {veiculo.chassi}.
+            </Text>
+          ) : (
+            <Text style={styles.paragrafo}>
+              1. O presente instrumento particular tem como fundamento a relação contratual de
+              locação de veículo automotor mantida entre as partes, referente a débito pendente
+              decorrente dessa locação.
+            </Text>
+          )}
           <Text style={styles.paragrafo}>
-            1. O presente instrumento particular tem como fundamento o contrato celebrado entre as
-            partes denominado &ldquo;INSTRUMENTO PARTICULAR DE LOCAÇÃO DE VEÍCULO
-            AUTOMOTOR&rdquo; (Contrato nº {contrato.numero}), que, por sua vez, tem como objeto o
-            veículo {veiculo.marca.toUpperCase()} {veiculo.modelo.toUpperCase()}, ANO{" "}
-            {veiculo.ano}, COR {veiculo.cor.toUpperCase()}, PLACA: {veiculo.placa}, RENAVAM:{" "}
-            {veiculo.renavam}, CHASSI: {veiculo.chassi}.
-          </Text>
-          <Text style={styles.paragrafo}>
-            1.1. No que é pertinente ao contrato descrito no item &ldquo;1&rdquo;, confessa o(a)
-            DEVEDOR(A) o inadimplemento do valor de {valorTotal} ({valorTotalExtenso}), referente a
-            parcelas de locação em atraso do contrato acima identificado.
+            1.1. No que é pertinente à relação contratual descrita no item &ldquo;1&rdquo;, confessa
+            o(a) DEVEDOR(A) o inadimplemento do valor de {valorTotal} ({valorTotalExtenso}),
+            referente a parcelas de locação em atraso.
           </Text>
         </Secao>
 
@@ -171,10 +181,12 @@ function AcordoDocument({ acordo, contrato, cliente, veiculo }: DadosAcordoPdf) 
           <Text style={styles.paragrafo}>
             3. Com o recebimento integral da importância acordada, a CREDORA dará ao(a) DEVEDOR(A)
             plena, geral e irrevogável quitação sobre o débito objeto do presente instrumento
-            particular, permanecendo o &ldquo;INSTRUMENTO PARTICULAR DE LOCAÇÃO DE VEÍCULO
-            AUTOMOTOR&rdquo; (Contrato nº {contrato.numero}), descrito no item &ldquo;1&rdquo;, em
-            pleno vigor e em suas condições normais, não sendo este acordo, por si só, motivo para
-            a sua rescisão.
+            particular, permanecendo{" "}
+            {contrato
+              ? `o “INSTRUMENTO PARTICULAR DE LOCAÇÃO DE VEÍCULO AUTOMOTOR” (Contrato nº ${contrato.numero})`
+              : "a relação contratual de locação de veículo automotor"}
+            , descrito no item &ldquo;1&rdquo;, em pleno vigor e em suas condições normais, não
+            sendo este acordo, por si só, motivo para a sua rescisão.
           </Text>
         </Secao>
 
